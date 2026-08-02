@@ -1,5 +1,18 @@
 import { buildNodePath } from "./paths";
-import type { DraftChange, DraftPlan, NodeTask, ProjectNode, ProjectPlanSnapshot, ProjectRelation } from "./types";
+import type {
+  DraftChange,
+  DraftPlan,
+  EntityRelation,
+  Feature,
+  FeatureAspectLink,
+  ProjectNode,
+  ProjectPlanSnapshot,
+  ProjectRelation,
+  Tag,
+  TagAssignment,
+  Task,
+  TaskLink
+} from "./types";
 
 type SeedNodeInput = Omit<ProjectNode, "projectId" | "path" | "sortOrder"> & {
   children?: SeedNodeInput[];
@@ -246,6 +259,23 @@ const nodeInputs: SeedNodeInput[] = [
             }
           },
           {
+            id: "node_misc",
+            parentId: "node_domain",
+            type: "aspect",
+            slug: "misc",
+            title: "Misc",
+            summary: "Fallback aspect for work that is not properly classified yet.",
+            body: "A task may attach here only when no meaningful aspect or feature is known yet. It should be treated as a planning smell.",
+            status: "not_implemented",
+            metadata: {
+              statement: "The planner should have a visible fallback aspect.",
+              why: "Every task needs orientation, even when the orientation is temporarily unclear.",
+              affectedByTasks: "Unclassified work attaches here until it can be moved to a better aspect or feature.",
+              evidence: ["fallback task link"],
+              implementationSignal: "Misc has tasks only when classification still needs work."
+            }
+          },
+          {
             id: "node_decision_tree",
             parentId: "node_domain",
             type: "decision",
@@ -387,39 +417,230 @@ const draftChanges: DraftChange[] = [
   }
 ];
 
-const tasks: NodeTask[] = [
+const features: Feature[] = [
+  {
+    id: "feature_graph_navigation",
+    projectId: project.id,
+    parentFeatureId: null,
+    key: "FEAT-1",
+    slug: "graph-navigation",
+    title: "Graph Navigation",
+    summary: "Navigate planning through focused aspect graphs.",
+    body: "Supports double-click scope navigation, breadcrumb recovery and draggable graph layout.",
+    status: "in_work",
+    acceptanceShape: "A user can move through aspects by graph, breadcrumb and search.",
+    sortOrder: 0,
+    metadata: {}
+  },
+  {
+    id: "feature_project_sidebar",
+    projectId: project.id,
+    parentFeatureId: null,
+    key: "FEAT-2",
+    slug: "project-sidebar",
+    title: "Project Sidebar",
+    summary: "Operational sidebar for project views.",
+    body: "Hosts project-level tabs while preserving aspect context.",
+    status: "not_implemented",
+    acceptanceShape: "Sidebar can switch operational views without replacing aspect navigation.",
+    sortOrder: 1,
+    metadata: {}
+  },
+  {
+    id: "feature_project_tabs",
+    projectId: project.id,
+    parentFeatureId: "feature_project_sidebar",
+    key: "FEAT-3",
+    slug: "project-tabs",
+    title: "Project Tabs",
+    summary: "Dynamic tabs for issues, kanban and graph.",
+    body: "Defines which main view is active for the current project.",
+    status: "not_implemented",
+    acceptanceShape: "Tabs switch main views while keeping selected aspect context.",
+    sortOrder: 2,
+    metadata: {}
+  },
+  {
+    id: "feature_issue_list",
+    projectId: project.id,
+    parentFeatureId: "feature_project_tabs",
+    key: "FEAT-4",
+    slug: "issue-list",
+    title: "Issue List",
+    summary: "List tasks by affected aspect, status and tags.",
+    body: "Shows which tasks are open and which aspect or feature each task affects.",
+    status: "not_implemented",
+    acceptanceShape: "Each shown task exposes its primary affected aspect or feature.",
+    sortOrder: 3,
+    metadata: {}
+  },
+  {
+    id: "feature_kanban_board",
+    projectId: project.id,
+    parentFeatureId: "feature_project_tabs",
+    key: "FEAT-5",
+    slug: "kanban-board",
+    title: "Kanban Board",
+    summary: "Status board over aspect-linked tasks.",
+    body: "Kanban is an operational task view, not the primary planning model.",
+    status: "not_implemented",
+    acceptanceShape: "Moving a card keeps its task-to-aspect orientation.",
+    sortOrder: 4,
+    metadata: {}
+  }
+];
+
+const featureAspectLinks: FeatureAspectLink[] = [
+  { id: "fal_graph", featureId: "feature_graph_navigation", aspectId: "node_graph_view", type: "implements", isPrimary: true },
+  { id: "fal_sidebar", featureId: "feature_project_sidebar", aspectId: "node_sidebar", type: "implements", isPrimary: true },
+  { id: "fal_tabs", featureId: "feature_project_tabs", aspectId: "node_sidebar_tabs", type: "implements", isPrimary: true },
+  { id: "fal_issues", featureId: "feature_issue_list", aspectId: "node_tab_issues", type: "implements", isPrimary: true },
+  { id: "fal_kanban", featureId: "feature_kanban_board", aspectId: "node_tab_kanban", type: "implements", isPrimary: true }
+];
+
+const tasks: Task[] = [
   {
     id: "task_graph_drag",
-    nodeId: "node_graph_view",
+    projectId: project.id,
+    key: "PLAN-1",
     title: "Make graph nodes draggable in the current session",
+    description: "Keep graph nodes movable during a planning session so the canvas feels alive.",
     status: "doing",
+    priority: "high",
     acceptanceCriteria: ["Dragging a node updates its position immediately.", "Double-click still opens the node as scope."],
-    sortOrder: 0
+    sortOrder: 0,
+    metadata: {}
   },
   {
     id: "task_sidebar_model",
-    nodeId: "node_sidebar",
+    projectId: project.id,
+    key: "PLAN-2",
     title: "Model sidebar as operational tabs, not primary planning navigation",
+    description: "Keep sidebar useful for issues and boards without replacing aspect graph navigation.",
     status: "todo",
+    priority: "medium",
     acceptanceCriteria: ["Sidebar aspect has tab subaspects.", "Issue/Kanban/Graph tabs are addressable aspects."],
-    sortOrder: 1
+    sortOrder: 1,
+    metadata: {}
   },
   {
     id: "task_task_aspect_links",
-    nodeId: "node_tab_issues",
+    projectId: project.id,
+    key: "PLAN-3",
     title: "Every issue should declare its affected aspect",
+    description: "Make affected aspect or feature explicit on every task.",
     status: "todo",
+    priority: "critical",
     acceptanceCriteria: ["Issue list can group by affected aspect.", "Opening an issue can navigate to its aspect graph."],
-    sortOrder: 2
+    sortOrder: 2,
+    metadata: {}
   },
   {
     id: "task_draft_conflicts",
-    nodeId: "node_draft_plans",
+    projectId: project.id,
+    key: "PLAN-4",
     title: "Show detected draft conflicts in the inspector",
+    description: "Surface plan conflicts where draft plans are reviewed.",
     status: "todo",
+    priority: "medium",
     acceptanceCriteria: ["Missing target conflicts are errors.", "Duplicate sibling titles are warnings."],
-    sortOrder: 3
+    sortOrder: 3,
+    metadata: {}
+  },
+  {
+    id: "task_misc_fallback",
+    projectId: project.id,
+    key: "PLAN-5",
+    title: "Classify unplaced task planning notes",
+    description: "Temporary fallback task demonstrating that every task still needs at least one aspect.",
+    status: "todo",
+    priority: "low",
+    acceptanceCriteria: ["Task is visible under Misc.", "Task can later move to a real aspect or feature."],
+    sortOrder: 4,
+    metadata: {}
+  },
+  {
+    id: "task_breadcrumb_navigation",
+    projectId: project.id,
+    key: "PLAN-6",
+    title: "Add breadcrumb navigation for centered aspects",
+    description: "Keep graph focus recoverable when the user drills into nested aspects.",
+    status: "done",
+    priority: "high",
+    acceptanceCriteria: ["Breadcrumb truncates long paths.", "Clicking a breadcrumb centers that aspect."],
+    sortOrder: 5,
+    metadata: {}
+  },
+  {
+    id: "task_kanban_status_filters",
+    projectId: project.id,
+    key: "PLAN-7",
+    title: "Plan status filters for the Kanban tab",
+    description: "Define how task status filters should work without replacing aspect planning.",
+    status: "todo",
+    priority: "low",
+    acceptanceCriteria: ["Kanban can filter by status.", "Cards keep their primary aspect or feature link."],
+    sortOrder: 6,
+    metadata: {}
+  },
+  {
+    id: "task_tag_filters",
+    projectId: project.id,
+    key: "PLAN-8",
+    title: "Expose tag filters for task and aspect inspection",
+    description: "Let orthogonal labels narrow work without becoming structural ownership.",
+    status: "todo",
+    priority: "medium",
+    acceptanceCriteria: ["Tags filter task lists.", "Tags can apply to aspects, features and tasks."],
+    sortOrder: 7,
+    metadata: {}
   }
+];
+
+const taskLinks: TaskLink[] = [
+  { id: "tl_graph_feature", taskId: "task_graph_drag", targetType: "feature", targetId: "feature_graph_navigation", type: "implements", isPrimary: true },
+  { id: "tl_graph_aspect", taskId: "task_graph_drag", targetType: "aspect", targetId: "node_graph_view", type: "affects", isPrimary: false },
+  { id: "tl_sidebar_feature", taskId: "task_sidebar_model", targetType: "feature", targetId: "feature_project_sidebar", type: "implements", isPrimary: true },
+  { id: "tl_sidebar_aspect", taskId: "task_sidebar_model", targetType: "aspect", targetId: "node_sidebar", type: "affects", isPrimary: false },
+  { id: "tl_issue_feature", taskId: "task_task_aspect_links", targetType: "feature", targetId: "feature_issue_list", type: "implements", isPrimary: true },
+  { id: "tl_issue_aspect", taskId: "task_task_aspect_links", targetType: "aspect", targetId: "node_tab_issues", type: "affects", isPrimary: false },
+  { id: "tl_draft_aspect", taskId: "task_draft_conflicts", targetType: "aspect", targetId: "node_draft_plans", type: "validates", isPrimary: true },
+  { id: "tl_misc_aspect", taskId: "task_misc_fallback", targetType: "aspect", targetId: "node_misc", type: "investigates", isPrimary: true },
+  { id: "tl_breadcrumb_graph", taskId: "task_breadcrumb_navigation", targetType: "feature", targetId: "feature_graph_navigation", type: "implements", isPrimary: true },
+  { id: "tl_kanban_feature", taskId: "task_kanban_status_filters", targetType: "feature", targetId: "feature_kanban_board", type: "investigates", isPrimary: true },
+  { id: "tl_tag_filters_issue", taskId: "task_tag_filters", targetType: "feature", targetId: "feature_issue_list", type: "implements", isPrimary: true },
+  { id: "tl_tag_filters_domain", taskId: "task_tag_filters", targetType: "aspect", targetId: "node_domain", type: "affects", isPrimary: false }
+];
+
+const entityRelations: EntityRelation[] = [
+  { id: "er_task_issue_depends_graph", projectId: project.id, sourceType: "task", sourceId: "task_task_aspect_links", targetType: "task", targetId: "task_graph_drag", type: "depends_on", label: "needs task links visible in graph context", metadata: {} },
+  { id: "er_kanban_depends_issue_list", projectId: project.id, sourceType: "feature", sourceId: "feature_kanban_board", targetType: "feature", targetId: "feature_issue_list", type: "depends_on", label: "uses issue status data", metadata: {} },
+  { id: "er_sidebar_supports_workspace", projectId: project.id, sourceType: "feature", sourceId: "feature_project_sidebar", targetType: "aspect", targetId: "node_workspace", type: "supports", label: "adds operational views", metadata: {} },
+  { id: "er_tabs_affect_sidebar", projectId: project.id, sourceType: "feature", sourceId: "feature_project_tabs", targetType: "aspect", targetId: "node_sidebar_tabs", type: "affects", label: "implements dynamic tab section", metadata: {} },
+  { id: "er_misc_conflicts_orientation", projectId: project.id, sourceType: "task", sourceId: "task_misc_fallback", targetType: "aspect", targetId: "node_addressable_nodes", type: "blocked_by", label: "needs proper classification", metadata: {} }
+  ,
+  { id: "er_tag_filters_depend_issue", projectId: project.id, sourceType: "task", sourceId: "task_tag_filters", targetType: "feature", targetId: "feature_issue_list", type: "depends_on", label: "needs issue list filters", metadata: {} },
+  { id: "er_kanban_depend_tags", projectId: project.id, sourceType: "task", sourceId: "task_kanban_status_filters", targetType: "task", targetId: "task_tag_filters", type: "related_to", label: "shares filtering model", metadata: {} }
+];
+
+const tags: Tag[] = [
+  { id: "tag_business_critical", projectId: project.id, slug: "business-critical", label: "business critical", kind: "priority" },
+  { id: "tag_nice_to_have", projectId: project.id, slug: "nice-to-have", label: "nice to have", kind: "priority" },
+  { id: "tag_frontend", projectId: project.id, slug: "frontend", label: "frontend", kind: "domain" },
+  { id: "tag_planning_model", projectId: project.id, slug: "planning-model", label: "planning model", kind: "domain" },
+  { id: "tag_ux", projectId: project.id, slug: "ux", label: "ux", kind: "domain" }
+];
+
+const tagAssignments: TagAssignment[] = [
+  { id: "ta_graph_ux", tagId: "tag_ux", targetType: "aspect", targetId: "node_graph_view" },
+  { id: "ta_sidebar_frontend", tagId: "tag_frontend", targetType: "aspect", targetId: "node_sidebar" },
+  { id: "ta_issue_business", tagId: "tag_business_critical", targetType: "feature", targetId: "feature_issue_list" },
+  { id: "ta_kanban_nice", tagId: "tag_nice_to_have", targetType: "feature", targetId: "feature_kanban_board" },
+  { id: "ta_task_links_model", tagId: "tag_planning_model", targetType: "task", targetId: "task_task_aspect_links" },
+  { id: "ta_graph_task_frontend", tagId: "tag_frontend", targetType: "task", targetId: "task_graph_drag" },
+  { id: "ta_breadcrumb_ux", tagId: "tag_ux", targetType: "task", targetId: "task_breadcrumb_navigation" },
+  { id: "ta_kanban_nice_task", tagId: "tag_nice_to_have", targetType: "task", targetId: "task_kanban_status_filters" },
+  { id: "ta_tag_filters_model", tagId: "tag_planning_model", targetType: "task", targetId: "task_tag_filters" }
 ];
 
 export const selfPlanningSeed: ProjectPlanSnapshot = {
@@ -428,6 +649,11 @@ export const selfPlanningSeed: ProjectPlanSnapshot = {
   relations,
   draftPlans,
   draftChanges,
-  tasks
+  features,
+  featureAspectLinks,
+  tasks,
+  taskLinks,
+  entityRelations,
+  tags,
+  tagAssignments
 };
-

@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowUpToLine, ChevronRight, GitFork, HelpCircle, Network, PanelRight, Search, Workflow } from "lucide-react";
+import type { FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import { ArrowUpToLine, ChevronRight, GitFork, HelpCircle, Network, PanelRight, Plus, Search, Workflow } from "lucide-react";
 import {
   Background,
   Controls,
@@ -18,10 +20,18 @@ import {
 import {
   detectDraftConflicts,
   focusGraph,
+  getEntityDependents,
+  getEntityRelations,
+  getPrimaryTaskLink,
+  getTagsForEntity,
+  getTasksForAspect,
+  getTasksForFeature,
   getNodeTemplate,
   readTemplateValue,
+  type Feature,
   type ProjectNode,
-  type ProjectPlanSnapshot
+  type ProjectPlanSnapshot,
+  type Task
 } from "@projectplaner/core";
 import { Badge } from "./badge";
 import { cn } from "../lib/utils";
@@ -82,13 +92,18 @@ function getAncestors(node: ProjectNode, nodes: ProjectNode[]): ProjectNode[] {
 }
 
 export function AppShell({ snapshot, graphOnly = false }: AppShellProps) {
+  const router = useRouter();
   const rootNode = snapshot.nodes[0];
   const [centerId, setCenterId] = useState(rootNode?.id);
   const [selectedId, setSelectedId] = useState(rootNode?.id);
+  const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
 
   const centerNode = snapshot.nodes.find((node) => node.id === centerId) ?? rootNode;
   const selectedNode = snapshot.nodes.find((node) => node.id === selectedId) ?? centerNode;
+  const selectedFeature = selectedFeatureId
+    ? snapshot.features.find((feature) => feature.id === selectedFeatureId) ?? null
+    : null;
   const parentNode = centerNode?.parentId ? snapshot.nodes.find((node) => node.id === centerNode.parentId) : null;
   const breadcrumbs = useMemo(() => getAncestors(centerNode, snapshot.nodes), [centerNode, snapshot.nodes]);
   const graph = useMemo(() => focusGraph(centerNode.id, snapshot.nodes, snapshot.relations), [centerNode.id, snapshot]);
@@ -143,7 +158,17 @@ export function AppShell({ snapshot, graphOnly = false }: AppShellProps) {
   const flowEdges = [...hierarchyEdges, ...relationEdges];
   const incoming = snapshot.relations.filter((relation) => relation.targetNodeId === selectedNode.id);
   const outgoing = snapshot.relations.filter((relation) => relation.sourceNodeId === selectedNode.id);
-  const selectedTasks = snapshot.tasks.filter((task) => task.nodeId === selectedNode.id);
+  const directAspectTasks = getTasksForAspect(selectedNode.id, snapshot);
+  const aspectAndFeatureTasks = getTasksForAspect(selectedNode.id, snapshot, { includeFeatures: true });
+  const allAspectTasks = getTasksForAspect(selectedNode.id, snapshot, { includeSubaspects: true, includeFeatures: true });
+  const directTaskIds = new Set(directAspectTasks.map((task) => task.id));
+  const aspectFeatureTaskIds = new Set(aspectAndFeatureTasks.map((task) => task.id));
+  const featureTasks = aspectAndFeatureTasks.filter((task) => !directTaskIds.has(task.id));
+  const subaspectTasks = allAspectTasks.filter((task) => !aspectFeatureTaskIds.has(task.id));
+  const relatedFeatures = snapshot.featureAspectLinks
+    .filter((link) => link.aspectId === selectedNode.id)
+    .map((link) => snapshot.features.find((feature) => feature.id === link.featureId))
+    .filter((feature): feature is Feature => Boolean(feature));
   const searchMatches = useMemo(() => {
     const term = query.trim().toLowerCase();
     if (!term) {
@@ -225,10 +250,11 @@ export function AppShell({ snapshot, graphOnly = false }: AppShellProps) {
                     key={node.id}
                     className="block w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted"
                     onClick={() => {
-                      setSelectedId(node.id);
-                      setCenterId(node.id);
-                      setQuery("");
-                    }}
+                    setSelectedId(node.id);
+                    setCenterId(node.id);
+                    setSelectedFeatureId(null);
+                    setQuery("");
+                  }}
                   >
                     <span className="block truncate font-medium">{node.title}</span>
                     <span className="block truncate text-xs text-muted-foreground">{node.path}</span>
@@ -241,10 +267,14 @@ export function AppShell({ snapshot, graphOnly = false }: AppShellProps) {
             nodes={flowNodes}
             edges={flowEdges}
             onNodesChange={onNodesChange}
-            onSelect={setSelectedId}
+            onSelect={(id) => {
+              setSelectedId(id);
+              setSelectedFeatureId(null);
+            }}
             onOpen={(id) => {
               setCenterId(id);
               setSelectedId(id);
+              setSelectedFeatureId(null);
             }}
           />
         </section>
@@ -254,15 +284,23 @@ export function AppShell({ snapshot, graphOnly = false }: AppShellProps) {
             <Inspector
               center={centerNode}
               node={selectedNode}
+              feature={selectedFeature}
               nodes={snapshot.nodes}
+              snapshot={snapshot}
               incoming={incoming}
               outgoing={outgoing}
-              tasks={selectedTasks}
+              directTasks={directAspectTasks}
+              featureTasks={featureTasks}
+              subaspectTasks={subaspectTasks}
+              relatedFeatures={relatedFeatures}
               drafts={draftSummaries}
               onOpen={(id) => {
                 setCenterId(id);
                 setSelectedId(id);
+                setSelectedFeatureId(null);
               }}
+              onOpenFeature={setSelectedFeatureId}
+              onCreatedTask={() => router.refresh()}
             />
           </aside>
         ) : null}
@@ -310,23 +348,38 @@ function NodeDetail({ node }: { node: ProjectNode }) {
 function Inspector({
   center,
   node,
+  feature,
   nodes,
+  snapshot,
   incoming,
   outgoing,
-  tasks,
+  directTasks,
+  featureTasks,
+  subaspectTasks,
+  relatedFeatures,
   drafts,
-  onOpen
+  onOpen,
+  onOpenFeature,
+  onCreatedTask
 }: {
   center: ProjectNode;
   node: ProjectNode;
+  feature: Feature | null;
   nodes: ProjectNode[];
+  snapshot: ProjectPlanSnapshot;
   incoming: ProjectPlanSnapshot["relations"];
   outgoing: ProjectPlanSnapshot["relations"];
-  tasks: ProjectPlanSnapshot["tasks"];
+  directTasks: Task[];
+  featureTasks: Task[];
+  subaspectTasks: Task[];
+  relatedFeatures: Feature[];
   drafts: { draft: ProjectPlanSnapshot["draftPlans"][number]; conflicts: ReturnType<typeof detectDraftConflicts> }[];
   onOpen: (id: string) => void;
+  onOpenFeature: (id: string) => void;
+  onCreatedTask: () => void;
 }) {
   const titleById = new Map(nodes.map((item) => [item.id, item.title]));
+  const aspectTags = getTagsForEntity({ type: "aspect", id: node.id }, snapshot);
 
   return (
     <div className="h-[calc(100vh-3.5rem)] overflow-auto p-4">
@@ -344,32 +397,41 @@ function Inspector({
               Scope is centered on <strong>{center.title}</strong>. Selected aspect is shown below.
         </div>
       ) : null}
-      <NodeDetail node={node} />
-      <Panel title="Relations">
-        <RelationList title="Outgoing" relations={outgoing} resolve={(relation) => titleById.get(relation.targetNodeId)} />
-        <RelationList title="Incoming" relations={incoming} resolve={(relation) => titleById.get(relation.sourceNodeId)} />
-      </Panel>
-      <Panel title="Tasks">
-        {tasks.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No tasks attached to this aspect.</p>
-        ) : (
-          <div className="space-y-2">
-            {tasks.map((task) => (
-              <div key={task.id} className="rounded-md border border-border bg-background p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-medium">{task.title}</span>
-                  <Badge>{task.status}</Badge>
-                </div>
-                <ul className="mt-2 list-inside list-disc text-xs leading-5 text-muted-foreground">
-                  {task.acceptanceCriteria.map((criterion) => (
-                    <li key={criterion}>{criterion}</li>
-                  ))}
-                </ul>
+      {feature ? (
+        <FeatureDetail feature={feature} snapshot={snapshot} onOpenFeature={onOpenFeature} onCreatedTask={onCreatedTask} />
+      ) : (
+        <>
+          <NodeDetail node={node} />
+          <TagRow tags={aspectTags} />
+          <NewTaskForm
+            projectKey={snapshot.project.key}
+            targetType="aspect"
+            targetId={node.id}
+            targetLabel={node.title}
+            onCreated={onCreatedTask}
+          />
+          <Panel title="Related Features">
+            {relatedFeatures.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No features linked to this aspect.</p>
+            ) : (
+              <div className="space-y-2">
+                {relatedFeatures.map((item) => (
+                  <FeatureCard key={item.id} feature={item} snapshot={snapshot} onOpenFeature={onOpenFeature} />
+                ))}
               </div>
-            ))}
-          </div>
-        )}
-      </Panel>
+            )}
+          </Panel>
+          <Panel title="Tasks">
+            <TaskGroup title="Direct tasks" tasks={directTasks} snapshot={snapshot} />
+            <TaskGroup title="Feature tasks" tasks={featureTasks} snapshot={snapshot} />
+            <TaskGroup title="Subaspect tasks" tasks={subaspectTasks} snapshot={snapshot} />
+          </Panel>
+          <Panel title="Aspect Relations">
+            <RelationList title="Outgoing" relations={outgoing} resolve={(relation) => titleById.get(relation.targetNodeId)} />
+            <RelationList title="Incoming" relations={incoming} resolve={(relation) => titleById.get(relation.sourceNodeId)} />
+          </Panel>
+        </>
+      )}
       <Panel title="Draft Plans">
         <div className="space-y-3">
           {drafts.map(({ draft, conflicts }) => (
@@ -406,6 +468,369 @@ function Inspector({
       </Panel>
     </div>
   );
+}
+
+function NewTaskForm({
+  projectKey,
+  targetType,
+  targetId,
+  targetLabel,
+  onCreated
+}: {
+  projectKey: string;
+  targetType: "aspect" | "feature";
+  targetId: string;
+  targetLabel: string;
+  onCreated: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [priority, setPriority] = useState<"low" | "medium" | "high" | "critical">("medium");
+  const [linkType, setLinkType] = useState<"affects" | "implements" | "validates" | "investigates">(
+    targetType === "feature" ? "implements" : "affects"
+  );
+  const [acceptanceCriteria, setAcceptanceCriteria] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setSaving(true);
+
+    try {
+      const response = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectKey,
+          title,
+          description,
+          priority,
+          linkType,
+          targetType,
+          targetId,
+          acceptanceCriteria: acceptanceCriteria
+            .split("\n")
+            .map((line) => line.trim())
+            .filter(Boolean)
+        })
+      });
+
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Could not create task.");
+      }
+
+      setTitle("");
+      setDescription("");
+      setAcceptanceCriteria("");
+      setOpen(false);
+      onCreated();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not create task.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="mt-4 rounded-md border border-border bg-white p-3">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <h2 className="text-sm font-semibold">Create Task</h2>
+          <p className="mt-1 truncate text-xs text-muted-foreground">
+            Links to {targetType}: {targetLabel}
+          </p>
+        </div>
+        <button
+          className="inline-flex h-8 items-center gap-1 rounded-md border border-border px-2 text-xs hover:bg-muted"
+          onClick={() => setOpen((value) => !value)}
+        >
+          <Plus className="h-3.5 w-3.5" />
+          New
+        </button>
+      </div>
+
+      {open ? (
+        <form className="mt-3 space-y-2" onSubmit={submit}>
+          <input
+            className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-teal-500"
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder="Task title"
+            required
+          />
+          <textarea
+            className="min-h-20 w-full resize-y rounded-md border border-border bg-background px-2 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500"
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+            placeholder="Description"
+          />
+          <div className="grid grid-cols-2 gap-2">
+            <select
+              className="h-9 rounded-md border border-border bg-background px-2 text-sm outline-none"
+              value={priority}
+              onChange={(event) => setPriority(event.target.value as typeof priority)}
+            >
+              <option value="low">low</option>
+              <option value="medium">medium</option>
+              <option value="high">high</option>
+              <option value="critical">critical</option>
+            </select>
+            <select
+              className="h-9 rounded-md border border-border bg-background px-2 text-sm outline-none"
+              value={linkType}
+              onChange={(event) => setLinkType(event.target.value as typeof linkType)}
+            >
+              <option value="affects">affects</option>
+              <option value="implements">implements</option>
+              <option value="validates">validates</option>
+              <option value="investigates">investigates</option>
+            </select>
+          </div>
+          <textarea
+            className="min-h-16 w-full resize-y rounded-md border border-border bg-background px-2 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500"
+            value={acceptanceCriteria}
+            onChange={(event) => setAcceptanceCriteria(event.target.value)}
+            placeholder="Acceptance criteria, one per line"
+          />
+          {error ? <p className="text-xs text-rose-700">{error}</p> : null}
+          <button
+            className="h-9 w-full rounded-md bg-teal-700 px-3 text-sm font-medium text-white hover:bg-teal-800 disabled:opacity-50"
+            disabled={saving}
+            type="submit"
+          >
+            {saving ? "Creating..." : "Create Task"}
+          </button>
+        </form>
+      ) : null}
+    </section>
+  );
+}
+
+function FeatureDetail({
+  feature,
+  snapshot,
+  onOpenFeature,
+  onCreatedTask
+}: {
+  feature: Feature;
+  snapshot: ProjectPlanSnapshot;
+  onOpenFeature: (id: string) => void;
+  onCreatedTask: () => void;
+}) {
+  const linkedAspects = snapshot.featureAspectLinks
+    .filter((link) => link.featureId === feature.id)
+    .map((link) => snapshot.nodes.find((node) => node.id === link.aspectId))
+    .filter((node): node is ProjectNode => Boolean(node));
+  const directTasks = getTasksForFeature(feature.id, snapshot);
+  const nestedTasks = getTasksForFeature(feature.id, snapshot, { includeNestedFeatures: true }).filter(
+    (task) => !directTasks.some((directTask) => directTask.id === task.id)
+  );
+  const nestedFeatures = snapshot.features.filter((item) => item.parentFeatureId === feature.id);
+  const tags = getTagsForEntity({ type: "feature", id: feature.id }, snapshot);
+  const relations = getEntityRelations({ type: "feature", id: feature.id }, snapshot);
+  const dependents = getEntityDependents({ type: "feature", id: feature.id }, snapshot);
+
+  return (
+    <article>
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge tone="feature">feature</Badge>
+        <Badge>{feature.status.replace("_", " ")}</Badge>
+        <Badge>{feature.key}</Badge>
+      </div>
+      <h1 className="mt-4 text-2xl font-semibold tracking-normal text-zinc-950">{feature.title}</h1>
+      <p className="mt-3 text-sm leading-6 text-muted-foreground">{feature.summary}</p>
+      <div className="mt-4 rounded-md border border-border bg-background p-3 text-sm leading-6 text-zinc-700">
+        {feature.body}
+      </div>
+      <NewTaskForm
+        projectKey={snapshot.project.key}
+        targetType="feature"
+        targetId={feature.id}
+        targetLabel={feature.title}
+        onCreated={onCreatedTask}
+      />
+      <Panel title="Linked Aspects">
+        <div className="space-y-1">
+          {linkedAspects.map((aspect) => (
+            <div key={aspect.id} className="rounded-md border border-border bg-background px-2 py-1.5 text-xs">
+              {aspect.title}
+            </div>
+          ))}
+        </div>
+      </Panel>
+      <TagRow tags={tags} />
+      <Panel title="Nested Features">
+        {nestedFeatures.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No nested features.</p>
+        ) : (
+          <div className="space-y-2">
+            {nestedFeatures.map((item) => (
+              <FeatureCard key={item.id} feature={item} snapshot={snapshot} onOpenFeature={onOpenFeature} />
+            ))}
+          </div>
+        )}
+      </Panel>
+      <Panel title="Feature Tasks">
+        <TaskGroup title="Direct tasks" tasks={directTasks} snapshot={snapshot} />
+        <TaskGroup title="Nested feature tasks" tasks={nestedTasks} snapshot={snapshot} />
+      </Panel>
+      <Panel title="Dependencies">
+        <EntityRelationList title="Outgoing" relations={relations} snapshot={snapshot} />
+        <EntityRelationList title="Depended on by" relations={dependents} snapshot={snapshot} />
+      </Panel>
+    </article>
+  );
+}
+
+function FeatureCard({
+  feature,
+  snapshot,
+  onOpenFeature
+}: {
+  feature: Feature;
+  snapshot: ProjectPlanSnapshot;
+  onOpenFeature: (id: string) => void;
+}) {
+  const tags = getTagsForEntity({ type: "feature", id: feature.id }, snapshot);
+
+  return (
+    <button
+      className="block w-full rounded-md border border-border bg-background p-3 text-left hover:bg-muted"
+      onClick={() => onOpenFeature(feature.id)}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm font-semibold">{feature.title}</span>
+        <Badge>{feature.status.replace("_", " ")}</Badge>
+      </div>
+      <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{feature.summary}</p>
+      <TagRow tags={tags} compact />
+    </button>
+  );
+}
+
+function TaskGroup({ title, tasks, snapshot }: { title: string; tasks: Task[]; snapshot: ProjectPlanSnapshot }) {
+  return (
+    <div className="mb-4">
+      <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">{title}</h3>
+      {tasks.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No tasks.</p>
+      ) : (
+        <div className="space-y-2">
+          {tasks.map((task) => (
+            <TaskCard key={task.id} task={task} snapshot={snapshot} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TaskCard({ task, snapshot }: { task: Task; snapshot: ProjectPlanSnapshot }) {
+  const primaryLink = getPrimaryTaskLink(task, snapshot);
+  const tags = getTagsForEntity({ type: "task", id: task.id }, snapshot);
+  const dependsOn = getEntityRelations({ type: "task", id: task.id }, snapshot).filter(
+    (relation) => relation.type === "depends_on"
+  );
+  const dependedOnBy = getEntityDependents({ type: "task", id: task.id }, snapshot);
+
+  return (
+    <div className="rounded-md border border-border bg-background p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <Badge>{task.key}</Badge>
+            <span className="truncate text-sm font-medium">{task.title}</span>
+          </div>
+          <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{task.description}</p>
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <Badge>{task.status}</Badge>
+          <Badge>{task.priority}</Badge>
+        </div>
+      </div>
+      {primaryLink ? (
+        <div className="mt-2 text-xs text-muted-foreground">
+          {primaryLink.type} {primaryLink.targetType}:{" "}
+          <span className="font-medium text-zinc-700">{resolveEntityTitle(primaryLink.targetType, primaryLink.targetId, snapshot)}</span>
+        </div>
+      ) : null}
+      <div className="mt-2 flex flex-wrap gap-1 text-xs">
+        {dependsOn.length > 0 ? <Badge>depends on {dependsOn.length}</Badge> : null}
+        {dependedOnBy.length > 0 ? <Badge>depended on by {dependedOnBy.length}</Badge> : null}
+      </div>
+      <TagRow tags={tags} compact />
+    </div>
+  );
+}
+
+function TagRow({ tags, compact = false }: { tags: ProjectPlanSnapshot["tags"]; compact?: boolean }) {
+  if (tags.length === 0) {
+    return compact ? null : <p className="mt-3 text-sm text-muted-foreground">No tags.</p>;
+  }
+
+  return (
+    <div className={cn("flex flex-wrap gap-1", compact ? "mt-2" : "mt-3")}>
+      {tags.map((tag) => (
+        <Badge key={tag.id} className="bg-white text-zinc-700">
+          {tag.label}
+        </Badge>
+      ))}
+    </div>
+  );
+}
+
+function EntityRelationList({
+  title,
+  relations,
+  snapshot
+}: {
+  title: string;
+  relations: ProjectPlanSnapshot["entityRelations"];
+  snapshot: ProjectPlanSnapshot;
+}) {
+  return (
+    <div className="mb-3">
+      <div className="mb-1 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+        <GitFork className="h-3.5 w-3.5" />
+        {title}
+      </div>
+      {relations.length === 0 ? (
+        <p className="text-xs text-muted-foreground">None</p>
+      ) : (
+        <div className="space-y-1">
+          {relations.map((relation) => (
+            <div key={relation.id} className="rounded-md border border-border bg-background px-2 py-1.5 text-xs">
+              <span className="font-medium">{relation.type}</span>
+              <span className="text-muted-foreground">
+                {" "}
+                · {resolveEntityTitle(relation.targetType, relation.targetId, snapshot)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function resolveEntityTitle(type: string, id: string, snapshot: ProjectPlanSnapshot): string {
+  if (type === "feature") {
+    return snapshot.features.find((feature) => feature.id === id)?.title ?? "Unknown feature";
+  }
+
+  if (type === "task") {
+    return snapshot.tasks.find((task) => task.id === id)?.title ?? "Unknown task";
+  }
+
+  if (type === "aspect" || type === "decision" || type === "question" || type === "reference" || type === "project") {
+    return snapshot.nodes.find((node) => node.id === id)?.title ?? "Unknown aspect";
+  }
+
+  return id;
 }
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {

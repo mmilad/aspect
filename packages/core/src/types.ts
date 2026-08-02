@@ -42,7 +42,19 @@ export type NodeStatus =
 export type DraftStatus = "draft" | "reviewed" | "accepted" | "rejected" | "archived";
 export type DraftChangeType = "create" | "update" | "delete";
 export type DraftTargetType = "node" | "relation";
-export type TaskStatus = "todo" | "doing" | "blocked" | "done";
+export type TaskStatus = "todo" | "doing" | "blocked" | "review" | "done";
+export type TaskPriority = "low" | "medium" | "high" | "critical";
+export type EntityType = "aspect" | "feature" | "task" | "decision" | "question" | "reference" | "project";
+export type TaskLinkType = "affects" | "implements" | "validates" | "investigates";
+export type EntityRelationType =
+  | "depends_on"
+  | "blocked_by"
+  | "related_to"
+  | "supports"
+  | "motivates"
+  | "conflicts_with"
+  | "affects";
+export type TagKind = "priority" | "domain" | "workflow" | "risk" | "custom";
 
 export type JsonRecord = Record<string, unknown>;
 
@@ -90,13 +102,81 @@ export interface DraftChange {
   payload: JsonRecord;
 }
 
-export interface NodeTask {
+export interface EntityRef {
+  type: EntityType;
   id: string;
-  nodeId: string;
+}
+
+export interface Feature {
+  id: string;
+  projectId: string;
+  parentFeatureId: string | null;
+  key: string;
+  slug: string;
   title: string;
+  summary: string;
+  body: string;
+  status: NodeStatus;
+  acceptanceShape: string;
+  sortOrder: number;
+  metadata: JsonRecord;
+}
+
+export interface FeatureAspectLink {
+  id: string;
+  featureId: string;
+  aspectId: string;
+  type: TaskLinkType;
+  isPrimary: boolean;
+}
+
+export interface Task {
+  id: string;
+  projectId: string;
+  key: string;
+  title: string;
+  description: string;
   status: TaskStatus;
+  priority: TaskPriority;
   acceptanceCriteria: string[];
   sortOrder: number;
+  metadata: JsonRecord;
+}
+
+export interface TaskLink {
+  id: string;
+  taskId: string;
+  targetType: "aspect" | "feature";
+  targetId: string;
+  type: TaskLinkType;
+  isPrimary: boolean;
+}
+
+export interface EntityRelation {
+  id: string;
+  projectId: string;
+  sourceType: EntityType;
+  sourceId: string;
+  targetType: EntityType;
+  targetId: string;
+  type: EntityRelationType;
+  label: string | null;
+  metadata: JsonRecord;
+}
+
+export interface Tag {
+  id: string;
+  projectId: string;
+  slug: string;
+  label: string;
+  kind: TagKind;
+}
+
+export interface TagAssignment {
+  id: string;
+  tagId: string;
+  targetType: EntityType;
+  targetId: string;
 }
 
 export interface ProjectPlanSnapshot {
@@ -110,5 +190,11 @@ export interface ProjectPlanSnapshot {
   relations: ProjectRelation[];
   draftPlans: DraftPlan[];
   draftChanges: DraftChange[];
-  tasks: NodeTask[];
+  features: Feature[];
+  featureAspectLinks: FeatureAspectLink[];
+  tasks: Task[];
+  taskLinks: TaskLink[];
+  entityRelations: EntityRelation[];
+  tags: Tag[];
+  tagAssignments: TagAssignment[];
 }

@@ -92,6 +92,92 @@ export const nodeTasks = sqliteTable("node_tasks", {
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`)
 });
 
+export const features = sqliteTable("features", {
+  id: text("id").primaryKey(),
+  projectId: text("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  parentFeatureId: text("parent_feature_id"),
+  key: text("key").notNull(),
+  slug: text("slug").notNull(),
+  title: text("title").notNull(),
+  summary: text("summary").notNull().default(""),
+  body: text("body").notNull().default(""),
+  status: text("status").notNull().default("planned"),
+  acceptanceShape: text("acceptance_shape").notNull().default(""),
+  sortOrder: integer("sort_order").notNull().default(0),
+  metadataJson: text("metadata_json").notNull().default("{}"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`)
+});
+
+export const featureAspectLinks = sqliteTable("feature_aspect_links", {
+  id: text("id").primaryKey(),
+  featureId: text("feature_id").notNull(),
+  aspectId: text("aspect_id").notNull(),
+  type: text("type").notNull(),
+  isPrimary: integer("is_primary").notNull().default(0)
+});
+
+export const tasks = sqliteTable("tasks", {
+  id: text("id").primaryKey(),
+  projectId: text("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  key: text("key").notNull(),
+  title: text("title").notNull(),
+  description: text("description").notNull().default(""),
+  status: text("status").notNull().default("todo"),
+  priority: text("priority").notNull().default("medium"),
+  acceptanceCriteriaJson: text("acceptance_criteria_json").notNull().default("[]"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  metadataJson: text("metadata_json").notNull().default("{}"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`)
+});
+
+export const taskLinks = sqliteTable("task_links", {
+  id: text("id").primaryKey(),
+  taskId: text("task_id").notNull(),
+  targetType: text("target_type").notNull(),
+  targetId: text("target_id").notNull(),
+  type: text("type").notNull(),
+  isPrimary: integer("is_primary").notNull().default(0)
+});
+
+export const entityRelations = sqliteTable("entity_relations", {
+  id: text("id").primaryKey(),
+  projectId: text("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  sourceType: text("source_type").notNull(),
+  sourceId: text("source_id").notNull(),
+  targetType: text("target_type").notNull(),
+  targetId: text("target_id").notNull(),
+  type: text("type").notNull(),
+  label: text("label"),
+  metadataJson: text("metadata_json").notNull().default("{}"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`)
+});
+
+export const tags = sqliteTable("tags", {
+  id: text("id").primaryKey(),
+  projectId: text("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  slug: text("slug").notNull(),
+  label: text("label").notNull(),
+  kind: text("kind").notNull().default("custom")
+});
+
+export const tagAssignments = sqliteTable("tag_assignments", {
+  id: text("id").primaryKey(),
+  tagId: text("tag_id").notNull(),
+  targetType: text("target_type").notNull(),
+  targetId: text("target_id").notNull()
+});
+
 export const projectRelationsMap = drizzleRelations(projects, ({ many }) => ({
   nodes: many(nodes),
   draftPlans: many(draftPlans)
@@ -101,4 +187,3 @@ export const nodeRelationsMap = drizzleRelations(nodes, ({ one, many }) => ({
   project: one(projects, { fields: [nodes.projectId], references: [projects.id] }),
   tasks: many(nodeTasks)
 }));
-

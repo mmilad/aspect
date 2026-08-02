@@ -1,0 +1,20 @@
+{
+  "name": "projectplaner",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@9.12.3",
+  "scripts": {
+    "dev": "pnpm --filter @projectplaner/web dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "vitest run",
+    "db:push": "pnpm --filter @projectplaner/db db:push",
+    "db:seed": "pnpm --filter @projectplaner/db db:seed"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

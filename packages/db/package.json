@@ -1,0 +1,21 @@
+{
+  "name": "@projectplaner/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "db:push": "drizzle-kit push",
+    "db:seed": "tsx src/seed-cli.ts"
+  },
+  "dependencies": {
+    "@projectplaner/core": "workspace:*",
+    "drizzle-orm": "^0.38.3"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.30.1"
+  }
+}

@@ -155,5 +155,46 @@ export function runMigrations(sqlite: MigrationDatabase): void {
       target_type TEXT NOT NULL,
       target_id TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS entities (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      type TEXT NOT NULL,
+      key TEXT,
+      slug TEXT NOT NULL,
+      title TEXT NOT NULL,
+      summary TEXT NOT NULL DEFAULT '',
+      body TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'planned',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      metadata_json TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS entities_project_type_idx ON entities(project_id, type);
+    CREATE UNIQUE INDEX IF NOT EXISTS entities_project_slug_idx ON entities(project_id, type, slug);
+
+    CREATE TABLE IF NOT EXISTS entity_relations_v2 (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      source_entity_id TEXT NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
+      target_entity_id TEXT NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
+      type TEXT NOT NULL,
+      label TEXT,
+      is_primary INTEGER NOT NULL DEFAULT 0,
+      metadata_json TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS entity_relations_v2_source_idx ON entity_relations_v2(project_id, source_entity_id);
+    CREATE INDEX IF NOT EXISTS entity_relations_v2_target_idx ON entity_relations_v2(project_id, target_entity_id);
+
+    CREATE TABLE IF NOT EXISTS entity_tag_assignments (
+      id TEXT PRIMARY KEY,
+      tag_id TEXT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+      entity_id TEXT NOT NULL REFERENCES entities(id) ON DELETE CASCADE
+    );
   `);
 }

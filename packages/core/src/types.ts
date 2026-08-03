@@ -44,19 +44,38 @@ export type DraftChangeType = "create" | "update" | "delete";
 export type DraftTargetType = "node" | "relation";
 export type TaskStatus = "todo" | "doing" | "blocked" | "review" | "done";
 export type TaskPriority = "low" | "medium" | "high" | "critical";
-export type EntityType = "aspect" | "feature" | "task" | "decision" | "question" | "reference" | "project";
+export type EntityType = NodeType | "task";
+export type EntityStatus = NodeStatus | TaskStatus;
 export type TaskLinkType = "affects" | "implements" | "validates" | "investigates";
-export type EntityRelationType =
-  | "depends_on"
-  | "blocked_by"
-  | "related_to"
-  | "supports"
-  | "motivates"
-  | "conflicts_with"
-  | "affects";
+export type EntityRelationType = RelationType | TaskLinkType | "blocked_by" | "related_to" | "supports" | "motivates";
 export type TagKind = "priority" | "domain" | "workflow" | "risk" | "custom";
 
 export type JsonRecord = Record<string, unknown>;
+
+export interface Entity {
+  id: string;
+  projectId: string;
+  type: EntityType;
+  key: string | null;
+  slug: string;
+  title: string;
+  summary: string;
+  body: string;
+  status: EntityStatus;
+  sortOrder: number;
+  metadata: JsonRecord;
+}
+
+export interface EntityRelation {
+  id: string;
+  projectId: string;
+  sourceEntityId: string;
+  targetEntityId: string;
+  type: EntityRelationType;
+  label: string | null;
+  isPrimary: boolean;
+  metadata: JsonRecord;
+}
 
 export interface ProjectNode {
   id: string;
@@ -152,7 +171,7 @@ export interface TaskLink {
   isPrimary: boolean;
 }
 
-export interface EntityRelation {
+export interface LegacyEntityRelation {
   id: string;
   projectId: string;
   sourceType: EntityType;
@@ -194,7 +213,7 @@ export interface ProjectPlanSnapshot {
   featureAspectLinks: FeatureAspectLink[];
   tasks: Task[];
   taskLinks: TaskLink[];
-  entityRelations: EntityRelation[];
+  entityRelations: LegacyEntityRelation[];
   tags: Tag[];
   tagAssignments: TagAssignment[];
 }

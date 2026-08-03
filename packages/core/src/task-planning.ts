@@ -1,7 +1,7 @@
 import type {
   EntityRef,
-  EntityRelation,
   Feature,
+  LegacyEntityRelation,
   ProjectNode,
   ProjectPlanSnapshot,
   Tag,
@@ -104,13 +104,13 @@ export function getTasksForFeature(
   return snapshot.tasks.filter((task) => taskIds.has(task.id));
 }
 
-export function getEntityRelations(entity: EntityRef, snapshot: ProjectPlanSnapshot): EntityRelation[] {
+export function getEntityRelations(entity: EntityRef, snapshot: ProjectPlanSnapshot): LegacyEntityRelation[] {
   return snapshot.entityRelations.filter(
     (relation) => relation.sourceType === entity.type && relation.sourceId === entity.id
   );
 }
 
-export function getEntityDependents(entity: EntityRef, snapshot: ProjectPlanSnapshot): EntityRelation[] {
+export function getEntityDependents(entity: EntityRef, snapshot: ProjectPlanSnapshot): LegacyEntityRelation[] {
   return snapshot.entityRelations.filter(
     (relation) =>
       relation.type === "depends_on" && relation.targetType === entity.type && relation.targetId === entity.id
@@ -140,4 +140,3 @@ export function getPrimaryTaskLink(task: Task, snapshot: ProjectPlanSnapshot): T
     null
   );
 }
-

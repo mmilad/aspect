@@ -1,4 +1,5 @@
 export * from "./drafts";
+export * from "./entities";
 export * from "./paths";
 export * from "./relations";
 export * from "./seed";

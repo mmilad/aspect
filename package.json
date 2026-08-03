@@ -8,6 +8,7 @@
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "test": "vitest run",
+    "plan": "pnpm --filter @projectplaner/db plan",
     "db:push": "pnpm --filter @projectplaner/db db:push",
     "db:seed": "pnpm --filter @projectplaner/db db:seed"
   },

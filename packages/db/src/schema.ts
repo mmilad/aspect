@@ -178,6 +178,59 @@ export const tagAssignments = sqliteTable("tag_assignments", {
   targetId: text("target_id").notNull()
 });
 
+export const entities = sqliteTable(
+  "entities",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    key: text("key"),
+    slug: text("slug").notNull(),
+    title: text("title").notNull(),
+    summary: text("summary").notNull().default(""),
+    body: text("body").notNull().default(""),
+    status: text("status").notNull().default("planned"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    metadataJson: text("metadata_json").notNull().default("{}"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`)
+  },
+  (table) => ({
+    projectType: uniqueIndex("entities_project_slug_idx").on(table.projectId, table.type, table.slug)
+  })
+);
+
+export const entityRelationsV2 = sqliteTable("entity_relations_v2", {
+  id: text("id").primaryKey(),
+  projectId: text("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  sourceEntityId: text("source_entity_id")
+    .notNull()
+    .references(() => entities.id, { onDelete: "cascade" }),
+  targetEntityId: text("target_entity_id")
+    .notNull()
+    .references(() => entities.id, { onDelete: "cascade" }),
+  type: text("type").notNull(),
+  label: text("label"),
+  isPrimary: integer("is_primary").notNull().default(0),
+  metadataJson: text("metadata_json").notNull().default("{}"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`)
+});
+
+export const entityTagAssignments = sqliteTable("entity_tag_assignments", {
+  id: text("id").primaryKey(),
+  tagId: text("tag_id")
+    .notNull()
+    .references(() => tags.id, { onDelete: "cascade" }),
+  entityId: text("entity_id")
+    .notNull()
+    .references(() => entities.id, { onDelete: "cascade" })
+});
+
 export const projectRelationsMap = drizzleRelations(projects, ({ many }) => ({
   nodes: many(nodes),
   draftPlans: many(draftPlans)

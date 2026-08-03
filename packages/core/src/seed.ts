@@ -2,9 +2,9 @@ import { buildNodePath } from "./paths";
 import type {
   DraftChange,
   DraftPlan,
-  EntityRelation,
   Feature,
   FeatureAspectLink,
+  LegacyEntityRelation,
   ProjectNode,
   ProjectPlanSnapshot,
   ProjectRelation,
@@ -276,6 +276,23 @@ const nodeInputs: SeedNodeInput[] = [
             }
           },
           {
+            id: "node_agent_orientation",
+            parentId: "node_domain",
+            type: "aspect",
+            slug: "should-orient-agents-through-projectplaner",
+            title: "Should orient Agents through Projectplaner",
+            summary: "Agents should use the Aspect Graph before and after implementation work.",
+            body: "The repository should make Projectplaner itself the first stop for understanding affected aspects, nearby features, and linked tasks. Agent instructions and terminal commands should keep planning context in the graph instead of scattered notes.",
+            status: "implemented",
+            metadata: {
+              statement: "Agents should orient through Projectplaner.",
+              why: "AI orientation is a core goal, and the tool should prove that by helping agents navigate this project.",
+              affectedByTasks: "Agent workflow documentation, local planning commands and self-planning seed updates attach here.",
+              evidence: ["AGENTS.md workflow", "pnpm plan orient", "pnpm plan add-task"],
+              implementationSignal: "A fresh agent can inspect graph context and add linked tasks from the terminal."
+            }
+          },
+          {
             id: "node_decision_tree",
             parentId: "node_domain",
             type: "decision",
@@ -378,6 +395,15 @@ const relations: ProjectRelation[] = [
     targetNodeId: "node_domain",
     type: "affects",
     label: "requires change model",
+    metadata: {}
+  },
+  {
+    id: "rel_agent_orientation_depends_addresses",
+    projectId: project.id,
+    sourceNodeId: "node_agent_orientation",
+    targetNodeId: "node_addressable_nodes",
+    type: "depends_on",
+    label: "needs stable ids for agent commands",
     metadata: {}
   }
 ];
@@ -487,6 +513,20 @@ const features: Feature[] = [
     acceptanceShape: "Moving a card keeps its task-to-aspect orientation.",
     sortOrder: 4,
     metadata: {}
+  },
+  {
+    id: "feature_agent_orientation",
+    projectId: project.id,
+    parentFeatureId: null,
+    key: "FEAT-6",
+    slug: "agent-orientation",
+    title: "Agent Orientation",
+    summary: "Terminal-friendly project navigation for Codex and future agents.",
+    body: "Gives agents a quick way to inspect relevant aspects, features, open work and add new linked tasks before implementation details drift away from the graph.",
+    status: "implemented",
+    acceptanceShape: "An agent can run one command to orient and another to add a task linked to an Aspect or Feature.",
+    sortOrder: 5,
+    metadata: {}
   }
 ];
 
@@ -495,7 +535,8 @@ const featureAspectLinks: FeatureAspectLink[] = [
   { id: "fal_sidebar", featureId: "feature_project_sidebar", aspectId: "node_sidebar", type: "implements", isPrimary: true },
   { id: "fal_tabs", featureId: "feature_project_tabs", aspectId: "node_sidebar_tabs", type: "implements", isPrimary: true },
   { id: "fal_issues", featureId: "feature_issue_list", aspectId: "node_tab_issues", type: "implements", isPrimary: true },
-  { id: "fal_kanban", featureId: "feature_kanban_board", aspectId: "node_tab_kanban", type: "implements", isPrimary: true }
+  { id: "fal_kanban", featureId: "feature_kanban_board", aspectId: "node_tab_kanban", type: "implements", isPrimary: true },
+  { id: "fal_agent_orientation", featureId: "feature_agent_orientation", aspectId: "node_agent_orientation", type: "implements", isPrimary: true }
 ];
 
 const tasks: Task[] = [
@@ -594,6 +635,30 @@ const tasks: Task[] = [
     acceptanceCriteria: ["Tags filter task lists.", "Tags can apply to aspects, features and tasks."],
     sortOrder: 7,
     metadata: {}
+  },
+  {
+    id: "task_agent_workflow_docs",
+    projectId: project.id,
+    key: "PLAN-9",
+    title: "Document Projectplaner as the agent orientation workflow",
+    description: "Tell Codex and future agents to inspect the Aspect Graph before work and record affected features or tasks after work.",
+    status: "done",
+    priority: "high",
+    acceptanceCriteria: ["AGENTS.md names the planning commands.", "The workflow preserves the rule that every task links to an Aspect or Feature."],
+    sortOrder: 8,
+    metadata: {}
+  },
+  {
+    id: "task_agent_plan_cli",
+    projectId: project.id,
+    key: "PLAN-10",
+    title: "Provide terminal commands for agent graph orientation",
+    description: "Add a repo-native command that lets agents summarize the project graph and create linked planning tasks.",
+    status: "done",
+    priority: "high",
+    acceptanceCriteria: ["Agents can run an orientation command from the repo root.", "Agents can create a task only when it links to an Aspect or Feature."],
+    sortOrder: 9,
+    metadata: {}
   }
 ];
 
@@ -609,10 +674,14 @@ const taskLinks: TaskLink[] = [
   { id: "tl_breadcrumb_graph", taskId: "task_breadcrumb_navigation", targetType: "feature", targetId: "feature_graph_navigation", type: "implements", isPrimary: true },
   { id: "tl_kanban_feature", taskId: "task_kanban_status_filters", targetType: "feature", targetId: "feature_kanban_board", type: "investigates", isPrimary: true },
   { id: "tl_tag_filters_issue", taskId: "task_tag_filters", targetType: "feature", targetId: "feature_issue_list", type: "implements", isPrimary: true },
-  { id: "tl_tag_filters_domain", taskId: "task_tag_filters", targetType: "aspect", targetId: "node_domain", type: "affects", isPrimary: false }
+  { id: "tl_tag_filters_domain", taskId: "task_tag_filters", targetType: "aspect", targetId: "node_domain", type: "affects", isPrimary: false },
+  { id: "tl_agent_workflow_docs_feature", taskId: "task_agent_workflow_docs", targetType: "feature", targetId: "feature_agent_orientation", type: "implements", isPrimary: true },
+  { id: "tl_agent_workflow_docs_aspect", taskId: "task_agent_workflow_docs", targetType: "aspect", targetId: "node_agent_orientation", type: "affects", isPrimary: false },
+  { id: "tl_agent_plan_cli_feature", taskId: "task_agent_plan_cli", targetType: "feature", targetId: "feature_agent_orientation", type: "implements", isPrimary: true },
+  { id: "tl_agent_plan_cli_aspect", taskId: "task_agent_plan_cli", targetType: "aspect", targetId: "node_agent_orientation", type: "affects", isPrimary: false }
 ];
 
-const entityRelations: EntityRelation[] = [
+const entityRelations: LegacyEntityRelation[] = [
   { id: "er_task_issue_depends_graph", projectId: project.id, sourceType: "task", sourceId: "task_task_aspect_links", targetType: "task", targetId: "task_graph_drag", type: "depends_on", label: "needs task links visible in graph context", metadata: {} },
   { id: "er_kanban_depends_issue_list", projectId: project.id, sourceType: "feature", sourceId: "feature_kanban_board", targetType: "feature", targetId: "feature_issue_list", type: "depends_on", label: "uses issue status data", metadata: {} },
   { id: "er_sidebar_supports_workspace", projectId: project.id, sourceType: "feature", sourceId: "feature_project_sidebar", targetType: "aspect", targetId: "node_workspace", type: "supports", label: "adds operational views", metadata: {} },
@@ -620,7 +689,9 @@ const entityRelations: EntityRelation[] = [
   { id: "er_misc_conflicts_orientation", projectId: project.id, sourceType: "task", sourceId: "task_misc_fallback", targetType: "aspect", targetId: "node_addressable_nodes", type: "blocked_by", label: "needs proper classification", metadata: {} }
   ,
   { id: "er_tag_filters_depend_issue", projectId: project.id, sourceType: "task", sourceId: "task_tag_filters", targetType: "feature", targetId: "feature_issue_list", type: "depends_on", label: "needs issue list filters", metadata: {} },
-  { id: "er_kanban_depend_tags", projectId: project.id, sourceType: "task", sourceId: "task_kanban_status_filters", targetType: "task", targetId: "task_tag_filters", type: "related_to", label: "shares filtering model", metadata: {} }
+  { id: "er_kanban_depend_tags", projectId: project.id, sourceType: "task", sourceId: "task_kanban_status_filters", targetType: "task", targetId: "task_tag_filters", type: "related_to", label: "shares filtering model", metadata: {} },
+  { id: "er_agent_cli_depends_task_links", projectId: project.id, sourceType: "task", sourceId: "task_agent_plan_cli", targetType: "task", targetId: "task_task_aspect_links", type: "depends_on", label: "uses required task links", metadata: {} },
+  { id: "er_agent_orientation_supports_domain", projectId: project.id, sourceType: "feature", sourceId: "feature_agent_orientation", targetType: "aspect", targetId: "node_domain", type: "supports", label: "keeps self-planning queryable", metadata: {} }
 ];
 
 const tags: Tag[] = [
@@ -640,7 +711,11 @@ const tagAssignments: TagAssignment[] = [
   { id: "ta_graph_task_frontend", tagId: "tag_frontend", targetType: "task", targetId: "task_graph_drag" },
   { id: "ta_breadcrumb_ux", tagId: "tag_ux", targetType: "task", targetId: "task_breadcrumb_navigation" },
   { id: "ta_kanban_nice_task", tagId: "tag_nice_to_have", targetType: "task", targetId: "task_kanban_status_filters" },
-  { id: "ta_tag_filters_model", tagId: "tag_planning_model", targetType: "task", targetId: "task_tag_filters" }
+  { id: "ta_tag_filters_model", tagId: "tag_planning_model", targetType: "task", targetId: "task_tag_filters" },
+  { id: "ta_agent_orientation_model", tagId: "tag_planning_model", targetType: "aspect", targetId: "node_agent_orientation" },
+  { id: "ta_agent_orientation_feature_model", tagId: "tag_planning_model", targetType: "feature", targetId: "feature_agent_orientation" },
+  { id: "ta_agent_workflow_docs_model", tagId: "tag_planning_model", targetType: "task", targetId: "task_agent_workflow_docs" },
+  { id: "ta_agent_plan_cli_model", tagId: "tag_planning_model", targetType: "task", targetId: "task_agent_plan_cli" }
 ];
 
 export const selfPlanningSeed: ProjectPlanSnapshot = {

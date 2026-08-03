@@ -65,7 +65,10 @@ function parseArgs(argv: string[]): ParsedArgs {
       continue;
     }
 
-    const [rawKey, inlineValue] = arg.slice(2).split("=", 2);
+    const rawOption = arg.slice(2);
+    const equalsIndex = rawOption.indexOf("=");
+    const rawKey = equalsIndex === -1 ? rawOption : rawOption.slice(0, equalsIndex);
+    const inlineValue = equalsIndex === -1 ? undefined : rawOption.slice(equalsIndex + 1);
     const value = inlineValue ?? argv[index + 1];
     if (inlineValue === undefined) {
       index++;
@@ -116,15 +119,28 @@ function printTask(taskId: string, snapshot: ProjectPlanSnapshot): void {
   console.log(`- ${task.key} [${task.status}/${task.priority}] ${task.title}${target}`);
 }
 
-function parseMetadata(value: string | undefined): JsonRecord {
-  if (!value) {
-    return {};
-  }
+function parseJsonObject(value: string, source: string): JsonRecord {
   const parsed = JSON.parse(value) as unknown;
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error("--metadata must be a JSON object.");
+    throw new Error(`${source} must be a JSON object.`);
   }
   return parsed as JsonRecord;
+}
+
+async function parseMetadata(options: ParsedArgs["options"]): Promise<JsonRecord> {
+  const inlineValue = first(options, "metadata");
+  const file = first(options, "metadata-file");
+
+  if (inlineValue && file) {
+    throw new Error("Use either --metadata or --metadata-file, not both.");
+  }
+  if (file) {
+    return parseJsonObject(await fs.readFile(file, "utf8"), "--metadata-file");
+  }
+  if (!inlineValue) {
+    return {};
+  }
+  return parseJsonObject(inlineValue, "--metadata");
 }
 
 function printOrient(snapshot: ProjectPlanSnapshot, query?: string): void {
@@ -152,7 +168,7 @@ function printOrient(snapshot: ProjectPlanSnapshot, query?: string): void {
     }
 
     console.log("");
-    console.log("Use `pnpm plan orient <query>` to inspect matching aspects/features.");
+    console.log("Use `pnpm plan orient <query>` to inspect matching entities.");
     return;
   }
 
@@ -168,7 +184,7 @@ function printOrient(snapshot: ProjectPlanSnapshot, query?: string): void {
 
   for (const node of matchingNodes) {
     const openWork = getOpenWorkBelowAspect(node.id, snapshot);
-    console.log(`- aspect ${node.id}: ${node.title} (${node.path}) [${node.status}]`);
+    console.log(`- ${node.type} ${node.id}: ${node.title} (${node.path}) [${node.status}]`);
     console.log(`  ${node.summary}`);
     console.log(`  open work below: ${openWork.length}`);
     for (const task of openWork.slice(0, 5)) {
@@ -192,7 +208,7 @@ function printOrient(snapshot: ProjectPlanSnapshot, query?: string): void {
   }
 
   if (matchingNodes.length === 0 && matchingFeatures.length === 0) {
-    console.log("No matching aspects or features. Use `pnpm plan orient` to scan top-level context.");
+    console.log("No matching entities. Use `pnpm plan orient` to scan top-level context.");
   }
 }
 
@@ -204,8 +220,8 @@ async function main(): Promise<void> {
     console.log("Projectplaner agent commands");
     console.log("  pnpm plan orient [query]");
     console.log("  pnpm plan add-task --title <title> --target aspect:<id>|feature:<id> [--description <text>] [--priority low|medium|high|critical] [--link affects|implements|validates|investigates] [--criteria <text>]");
-    console.log("  pnpm plan create-entity --type <type> --title <title> [--target <entity-id>] [--link <relation-type>]");
-    console.log("  pnpm plan update-entity --id <entity-id> [--title <title>] [--status <status>] [--metadata '{...}']");
+    console.log("  pnpm plan create-entity --type <type> --title <title> [--target <entity-id>] [--link <relation-type>] [--metadata-file <json-file>]");
+    console.log("  pnpm plan update-entity --id <entity-id> [--title <title>] [--status <status>] [--metadata '{...}'|--metadata-file <json-file>]");
     console.log("  pnpm plan get-entity --id <entity-id>");
     console.log("  pnpm plan list-entities [--type <type>] [--query <text>]");
     console.log("  pnpm plan create-relation --from <entity-id> --to <entity-id> --type <relation-type> [--primary true]");
@@ -248,18 +264,35 @@ async function main(): Promise<void> {
         throw new Error("--target must look like aspect:node_id or feature:feature_id.");
       }
 
-      const task = await createTask(db, {
-        projectKey: "PLAN",
-        title,
-        description: first(args.options, "description") ?? "",
-        priority: priority as TaskPriority,
-        acceptanceCriteria: args.options.criteria ?? [],
-        targetType,
-        targetId,
-        linkType: linkType as TaskLinkType
-      });
+      const targetEntity = await getEntity(db, targetId);
+      const task =
+        targetEntity && targetEntity.type === targetType
+          ? (
+              await createEntity(db, {
+                projectKey: "PLAN",
+                type: "task",
+                title,
+                summary: first(args.options, "description") ?? "",
+                body: first(args.options, "description") ?? "",
+                metadata: {
+                  priority,
+                  acceptanceCriteria: args.options.criteria ?? []
+                },
+                relations: [{ targetEntityId: targetId, type: linkType as TaskLinkType, isPrimary: true }]
+              })
+            ).entity
+          : await createTask(db, {
+              projectKey: "PLAN",
+              title,
+              description: first(args.options, "description") ?? "",
+              priority: priority as TaskPriority,
+              acceptanceCriteria: args.options.criteria ?? [],
+              targetType,
+              targetId,
+              linkType: linkType as TaskLinkType
+            });
 
-      console.log(`Created ${task.key} (${task.id}).`);
+      console.log(`Created ${task.key ?? task.id} (${task.id}).`);
       return;
     }
 
@@ -280,7 +313,7 @@ async function main(): Promise<void> {
         throw new Error(`Unknown relation type "${linkType}".`);
       }
 
-      const metadata = parseMetadata(first(args.options, "metadata"));
+      const metadata = await parseMetadata(args.options);
       if (type === "task") {
         metadata.priority = first(args.options, "priority") ?? "medium";
         metadata.acceptanceCriteria = args.options.criteria ?? [];
@@ -289,6 +322,7 @@ async function main(): Promise<void> {
         metadata.acceptanceShape = first(args.options, "acceptance");
       }
 
+      const shouldCreateParentContainsChild = type === "aspect" && target && linkType === "contains";
       const result = await createEntity(db, {
         projectKey: "PLAN",
         type,
@@ -299,8 +333,18 @@ async function main(): Promise<void> {
         body: first(args.options, "body") ?? first(args.options, "description"),
         status,
         metadata,
-        relations: target ? [{ targetEntityId: target, type: linkType, isPrimary: true }] : []
+        relations: target && !shouldCreateParentContainsChild ? [{ targetEntityId: target, type: linkType, isPrimary: true }] : []
       });
+
+      if (shouldCreateParentContainsChild) {
+        await createRelation(db, {
+          projectKey: "PLAN",
+          sourceEntityId: target,
+          targetEntityId: result.entity.id,
+          type: "contains",
+          isPrimary: true
+        });
+      }
 
       console.log(`Created ${result.entity.type} ${result.entity.id}.`);
       for (const warning of result.warnings) {
@@ -327,7 +371,7 @@ async function main(): Promise<void> {
           summary: first(args.options, "summary") ?? entity.summary,
           body: first(args.options, "body") ?? entity.body,
           status: (first(args.options, "status") as EntityStatus | undefined) ?? entity.status,
-          metadata: first(args.options, "metadata") ? parseMetadata(first(args.options, "metadata")) : entity.metadata
+          metadata: first(args.options, "metadata") || first(args.options, "metadata-file") ? await parseMetadata(args.options) : entity.metadata
         }
       });
       console.log(`Updated ${updated.type} ${updated.id}.`);
@@ -372,7 +416,7 @@ async function main(): Promise<void> {
         type,
         label: first(args.options, "label"),
         isPrimary: first(args.options, "primary") === "true",
-        metadata: parseMetadata(first(args.options, "metadata"))
+        metadata: await parseMetadata(args.options)
       });
       console.log(`Created relation ${relation.id}.`);
       return;

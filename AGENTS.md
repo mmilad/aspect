@@ -89,6 +89,20 @@ Task creation requires a target Aspect or Feature, preserving the rule that
 tasks are never contextless. The command seeds missing baseline data before it
 reads or writes, so a fresh checkout can use it immediately.
 
+For nested JSON metadata on Windows shells, prefer a file over inline quoting:
+
+```bash
+pnpm plan create-entity --type reference --title "Code anchor" --metadata-file metadata.json
+pnpm plan update-entity --id reference_id --metadata-file metadata.json
+```
+
+When creating an Aspect under another Aspect, use the parent as `--target`; the
+CLI creates the primary `parent --contains--> child` relation:
+
+```bash
+pnpm plan create-entity --type aspect --title "Should expose code anchors" --target node_agent_orientation --link contains
+```
+
 SQLite is the living planning state. The legacy seed remains a bootstrap and
 migration fixture; use `pnpm plan export` and `pnpm plan import` for portable
 project state.

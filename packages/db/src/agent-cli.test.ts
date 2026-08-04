@@ -113,4 +113,67 @@ describe("agent CLI", () => {
     expect(entity.metadata.codeAnchors).toEqual(["packages/db/src/agent-cli.ts"]);
     expect(orient).toContain(`- question ${questionId}: How should CLI code orientation metadata work?`);
   });
+
+  it("orients to matching task titles and suggests nearby entities", () => {
+    const dbPath = createTempDbPath();
+
+    const taskOutput = runCli(dbPath, [
+      "add-task",
+      "--title",
+      "Tune workflow packet discovery",
+      "--target",
+      "feature:feature_agent_orientation",
+      "--description",
+      "Make agent handoff work searchable.",
+      "--link",
+      "implements"
+    ]);
+    const taskId = taskOutput.match(/\((task_[^)]+)\)/)?.[1];
+
+    const directOrient = runCli(dbPath, ["orient", "workflow packet"]);
+    expect(directOrient).toContain(`- task ${taskId}:`);
+    expect(directOrient).toContain("Tune workflow packet discovery");
+
+    const nearbyOrient = runCli(dbPath, ["orient", "next navigation"]);
+    expect(nearbyOrient).toContain("Nearby suggestions:");
+    expect(nearbyOrient).toContain("Graph Navigation");
+  });
+
+  it("writes and reads orientation packets as linked references", () => {
+    const dbPath = createTempDbPath();
+    const metadataPath = path.join(path.dirname(dbPath), "packet.json");
+    writeFileSync(
+      metadataPath,
+      JSON.stringify({
+        workflow: "task.consumption.handoff",
+        state: "ready_for_execution",
+        anchors: ["packages/db/src/agent-cli.ts"],
+        facts: ["The CLI owns agent-facing commands."],
+        next: "Read the packet before broad code search.",
+        avoid: ["Do not reread seed data unless changing bootstrap fixtures."],
+        confidence: "high"
+      }),
+      "utf8"
+    );
+
+    const output = runCli(dbPath, [
+      "packet-write",
+      "--entity",
+      "task_agent_plan_cli",
+      "--title",
+      "Packet for agent CLI",
+      "--metadata-file",
+      metadataPath
+    ]);
+    const packetId = output.match(/Wrote packet (reference_[^.]+)\./)?.[1];
+    expect(packetId).toBeTruthy();
+
+    const packets = JSON.parse(runCli(dbPath, ["packet-read", "--entity", "task_agent_plan_cli"])) as Array<{
+      id: string;
+      metadata: { kind?: string; targetIds?: string[] };
+    }>;
+    expect(packets.some((packet) => packet.id === packetId)).toBe(true);
+    expect(packets.find((packet) => packet.id === packetId)?.metadata.kind).toBe("orientation_packet");
+    expect(packets.find((packet) => packet.id === packetId)?.metadata.targetIds).toContain("task_agent_plan_cli");
+  });
 });

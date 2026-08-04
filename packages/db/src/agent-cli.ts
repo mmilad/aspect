@@ -1,5 +1,16 @@
 import { getOpenWorkBelowAspect, getPrimaryTaskLink, getTasksForFeature } from "@projectplaner/core";
-import type { EntityRelationType, EntityStatus, EntityType, JsonRecord, ProjectPlanSnapshot, TaskLinkType, TaskPriority } from "@projectplaner/core";
+import type {
+  Entity,
+  EntityRelation,
+  EntityRelationType,
+  EntityStatus,
+  EntityType,
+  JsonRecord,
+  ProjectPlanSnapshot,
+  Task,
+  TaskLinkType,
+  TaskPriority
+} from "@projectplaner/core";
 import fs from "node:fs/promises";
 import { createDatabase } from "./client";
 import {
@@ -89,6 +100,18 @@ function includesQuery(values: Array<string | null | undefined>, query: string):
   return values.some((value) => value?.toLowerCase().includes(normalized));
 }
 
+function queryTokens(query: string): string[] {
+  return query
+    .toLowerCase()
+    .split(/[^a-z0-9_-]+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length > 2);
+}
+
+function includesAnyToken(values: Array<string | null | undefined>, tokens: string[]): boolean {
+  return tokens.some((token) => values.some((value) => value?.toLowerCase().includes(token)));
+}
+
 function taskLabel(taskId: string, snapshot: ProjectPlanSnapshot): string {
   const task = snapshot.tasks.find((item) => item.id === taskId);
   return task ? `${task.key} ${task.title}` : taskId;
@@ -117,6 +140,23 @@ function printTask(taskId: string, snapshot: ProjectPlanSnapshot): void {
   const primary = getPrimaryTaskLink(task, snapshot);
   const target = primary ? ` -> ${primary.type} ${entityLabel(primary.targetType, primary.targetId, snapshot)}` : "";
   console.log(`- ${task.key} [${task.status}/${task.priority}] ${task.title}${target}`);
+}
+
+function printMatchingTask(task: Task, snapshot: ProjectPlanSnapshot): void {
+  const primary = getPrimaryTaskLink(task, snapshot);
+  const target = primary ? ` -> ${primary.type} ${entityLabel(primary.targetType, primary.targetId, snapshot)}` : "";
+  console.log(`- task ${task.id}: ${task.key} ${task.title} [${task.status}/${task.priority}]${target}`);
+  console.log(`  ${task.description || "No description."}`);
+}
+
+function suggestionLabel(entity: ProjectPlanSnapshot["nodes"][number] | ProjectPlanSnapshot["features"][number] | Task): string {
+  if ("description" in entity) {
+    return `task ${entity.id}: ${entity.key} ${entity.title}`;
+  }
+  if ("acceptanceShape" in entity) {
+    return `feature ${entity.id}: ${entity.key} ${entity.title}`;
+  }
+  return `${entity.type} ${entity.id}: ${entity.title}`;
 }
 
 function parseJsonObject(value: string, source: string): JsonRecord {
@@ -178,6 +218,21 @@ function printOrient(snapshot: ProjectPlanSnapshot, query?: string): void {
   const matchingFeatures = snapshot.features.filter((feature) =>
     includesQuery([feature.id, feature.key, feature.title, feature.slug, feature.summary, feature.body], query)
   );
+  const matchingTasks = snapshot.tasks.filter((task) =>
+    includesQuery(
+      [
+        task.id,
+        task.key,
+        task.title,
+        task.description,
+        task.status,
+        task.priority,
+        JSON.stringify(task.acceptanceCriteria),
+        JSON.stringify(task.metadata)
+      ],
+      query
+    )
+  );
 
   console.log("");
   console.log(`Matches for "${query}":`);
@@ -207,9 +262,77 @@ function printOrient(snapshot: ProjectPlanSnapshot, query?: string): void {
     }
   }
 
-  if (matchingNodes.length === 0 && matchingFeatures.length === 0) {
-    console.log("No matching entities. Use `pnpm plan orient` to scan top-level context.");
+  for (const task of matchingTasks) {
+    printMatchingTask(task, snapshot);
   }
+
+  if (matchingNodes.length === 0 && matchingFeatures.length === 0) {
+    const shouldPrintNoMatches = matchingTasks.length === 0;
+    if (shouldPrintNoMatches) {
+      console.log("No matching entities. Use `pnpm plan orient` to scan top-level context.");
+    }
+    const tokens = queryTokens(query);
+    const nearby = [
+      ...snapshot.nodes.filter((node) => includesAnyToken([node.id, node.title, node.path, node.summary, node.body], tokens)),
+      ...snapshot.features.filter((feature) =>
+        includesAnyToken([feature.id, feature.key, feature.title, feature.slug, feature.summary, feature.body], tokens)
+      ),
+      ...snapshot.tasks.filter((task) =>
+        includesAnyToken([task.id, task.key, task.title, task.description, JSON.stringify(task.acceptanceCriteria)], tokens)
+      )
+    ].slice(0, 6);
+    if (nearby.length > 0) {
+      console.log("");
+      console.log(shouldPrintNoMatches ? "Nearby suggestions:" : "Nearby graph suggestions:");
+      for (const entity of nearby) {
+        console.log(`- ${suggestionLabel(entity)}`);
+      }
+    }
+  }
+}
+
+function isOrientationPacket(entity: Entity, workflow?: string): boolean {
+  if (entity.type !== "reference") {
+    return false;
+  }
+  if (workflow && entity.metadata.workflow !== workflow) {
+    return false;
+  }
+  return entity.metadata.kind === "orientation_packet" || typeof entity.metadata.workflow === "string";
+}
+
+function relationTouchesPacket(relation: EntityRelation, entityId: string, packetIds: Set<string>): boolean {
+  return (
+    (relation.sourceEntityId === entityId && packetIds.has(relation.targetEntityId)) ||
+    (relation.targetEntityId === entityId && packetIds.has(relation.sourceEntityId))
+  );
+}
+
+async function readPackets(db: ReturnType<typeof createDatabase>, entityId: string, workflow?: string): Promise<Entity[]> {
+  const entity = await getEntity(db, entityId);
+  if (!entity) {
+    throw new Error("Entity not found.");
+  }
+  const references = await listEntities(db, { projectKey: "PLAN", type: "reference" });
+  const packetIds = new Set(references.filter((reference) => isOrientationPacket(reference, workflow)).map((reference) => reference.id));
+  const relations = await listRelations(db, { projectKey: "PLAN" });
+  const attachedIds = new Set(
+    relations
+      .filter((relation) => relationTouchesPacket(relation, entityId, packetIds))
+      .map((relation) => (relation.sourceEntityId === entityId ? relation.targetEntityId : relation.sourceEntityId))
+  );
+  return references.filter((reference) => attachedIds.has(reference.id));
+}
+
+function normalizePacketMetadata(metadata: JsonRecord, entityId: string, workflow?: string): JsonRecord {
+  const targetIds = Array.isArray(metadata.targetIds) ? metadata.targetIds : [];
+  return {
+    ...metadata,
+    kind: "orientation_packet",
+    workflow: workflow ?? metadata.workflow ?? "task.consumption.handoff",
+    targetIds: targetIds.includes(entityId) ? targetIds : [...targetIds, entityId],
+    updatedAt: new Date().toISOString()
+  };
 }
 
 async function main(): Promise<void> {
@@ -225,6 +348,8 @@ async function main(): Promise<void> {
     console.log("  pnpm plan get-entity --id <entity-id>");
     console.log("  pnpm plan list-entities [--type <type>] [--query <text>]");
     console.log("  pnpm plan create-relation --from <entity-id> --to <entity-id> --type <relation-type> [--primary true]");
+    console.log("  pnpm plan packet-read --entity <entity-id> [--workflow <name>]");
+    console.log("  pnpm plan packet-write --entity <entity-id> [--id <reference-id>] [--title <title>] [--workflow <name>] --metadata-file <json-file>");
     console.log("  pnpm plan export --out <file>");
     console.log("  pnpm plan import --from <file>");
     return;
@@ -432,6 +557,63 @@ async function main(): Promise<void> {
       for (const relation of relations) {
         console.log(`- ${relation.id} ${relation.sourceEntityId} -[${relation.type}]-> ${relation.targetEntityId}`);
       }
+      return;
+    }
+
+    if (command === "packet-read") {
+      const entityId = first(args.options, "entity");
+      if (!entityId) {
+        throw new Error("packet-read requires --entity.");
+      }
+      const packets = await readPackets(db, entityId, first(args.options, "workflow"));
+      console.log(JSON.stringify(packets, null, 2));
+      return;
+    }
+
+    if (command === "packet-write") {
+      const entityId = first(args.options, "entity");
+      if (!entityId) {
+        throw new Error("packet-write requires --entity.");
+      }
+      const target = await getEntity(db, entityId);
+      if (!target) {
+        throw new Error("Entity not found.");
+      }
+      const metadata = normalizePacketMetadata(await parseMetadata(args.options), entityId, first(args.options, "workflow"));
+      const existingId = first(args.options, "id");
+      const packet = existingId
+        ? await updateEntity(db, {
+            id: existingId,
+            patch: {
+              metadata,
+              title: first(args.options, "title") ?? (await getEntity(db, existingId))?.title ?? "Orientation Packet"
+            }
+          })
+        : (
+            await createEntity(db, {
+              projectKey: "PLAN",
+              type: "reference",
+              title: first(args.options, "title") ?? `Orientation Packet for ${target.key ?? target.title}`,
+              summary: first(args.options, "summary") ?? "Compact machine-oriented handoff packet.",
+              body: first(args.options, "body") ?? "Compact machine-oriented handoff packet.",
+              metadata
+            })
+          ).entity;
+      if (packet.type !== "reference") {
+        throw new Error("Packet entity must be a reference.");
+      }
+      const existingRelations = await listRelations(db, { projectKey: "PLAN", sourceEntityId: entityId, targetEntityId: packet.id });
+      if (existingRelations.length === 0) {
+        await createRelation(db, {
+          projectKey: "PLAN",
+          sourceEntityId: entityId,
+          targetEntityId: packet.id,
+          type: "references",
+          label: "orientation packet",
+          isPrimary: false
+        });
+      }
+      console.log(`Wrote packet ${packet.id}.`);
       return;
     }
 

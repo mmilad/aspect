@@ -1356,11 +1356,36 @@ function nextEntityKey(db: DatabaseSync, project: ProjectRow, prefix: string): s
   return `${prefix}-${nextNumber}`;
 }
 
+function assertTaskHasPlanningAnchor(db: DatabaseSync, projectId: string, relations: CreateEntityInput["relations"]): void {
+  const relationTargets = relations ?? [];
+  if (relationTargets.length === 0) {
+    throw new Error(
+      "Task entities must link to at least one Aspect or Feature. Create or select an Aspect/Feature first, then pass it as the task target."
+    );
+  }
+
+  const hasPlanningAnchor = relationTargets.some((relation) => {
+    const target = db.prepare("SELECT type FROM entities WHERE id = ? AND project_id = ?").get(relation.targetEntityId, projectId) as
+      | { type: string }
+      | undefined;
+    return target?.type === "aspect" || target?.type === "feature";
+  });
+
+  if (!hasPlanningAnchor) {
+    throw new Error(
+      "Task entities must link to at least one Aspect or Feature. Create or select an Aspect/Feature first, then pass it as the task target."
+    );
+  }
+}
+
 export async function createEntity(db: DatabaseSync, input: CreateEntityInput): Promise<{ entity: Entity; warnings: string[] }> {
   const project = getProjectByKey(db, input.projectKey);
   const title = input.title.trim();
   if (!title) {
     throw new Error("Entity title is required.");
+  }
+  if (input.type === "task") {
+    assertTaskHasPlanningAnchor(db, project.id, input.relations);
   }
 
   const id = `${input.type}_${randomUUID()}`;

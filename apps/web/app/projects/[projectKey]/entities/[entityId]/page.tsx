@@ -58,7 +58,7 @@ export default async function EntityDetailPage({
           <Link className="rounded-md border border-border px-3 py-1.5 hover:bg-muted" href={`/projects/${project.key}`}>
             Workspace
           </Link>
-          <Link className="rounded-md border border-border px-3 py-1.5 hover:bg-muted" href={`/projects/${project.key}/graph`}>
+          <Link className="rounded-md border border-border px-3 py-1.5 hover:bg-muted" href={`/projects/${project.key}/graph?selected=${entity.id}`}>
             Graph
           </Link>
         </nav>

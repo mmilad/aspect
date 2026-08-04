@@ -468,6 +468,17 @@ async function main(): Promise<void> {
       if (!relationTypes.has(linkType)) {
         throw new Error(`Unknown relation type "${linkType}".`);
       }
+      if (type === "task" && !target) {
+        throw new Error(
+          "create-entity --type task requires --target <aspect-or-feature-id>. Create an Aspect or Feature first if no suitable anchor exists."
+        );
+      }
+      if (type === "task" && target) {
+        const targetEntity = await getEntity(db, target);
+        if (!targetEntity || (targetEntity.type !== "aspect" && targetEntity.type !== "feature")) {
+          throw new Error("Task targets must be existing Aspect or Feature entities.");
+        }
+      }
 
       const metadata = await parseMetadata(args.options);
       if (type === "task") {

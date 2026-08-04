@@ -39,7 +39,7 @@ describe("generic entity repository", () => {
     await seedSelfPlanningProject(db);
 
     await expect(createEntity(db, { projectKey: "PLAN", type: "task", title: "Contextless task" })).rejects.toThrow(
-      "Task task_"
+      "Task entities must link to at least one Aspect or Feature."
     );
 
     db.close();

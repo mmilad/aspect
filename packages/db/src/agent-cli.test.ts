@@ -22,6 +22,18 @@ function runCli(dbPath: string, args: string[]): string {
   });
 }
 
+function runCliFailure(dbPath: string, args: string[]): string {
+  try {
+    runCli(dbPath, args);
+  } catch (error) {
+    if (error && typeof error === "object" && "stderr" in error) {
+      return String((error as { stderr: Buffer | string }).stderr);
+    }
+    throw error;
+  }
+  throw new Error("Expected CLI command to fail.");
+}
+
 function createdId(output: string, type: string): string {
   const match = output.match(new RegExp(`Created ${type} (${type}_[^\\s.]+)`));
   if (!match) {
@@ -87,6 +99,14 @@ describe("agent CLI", () => {
     expect(runCli(dbPath, ["list-relations", "--from", taskId ?? "", "--to", aspectId])).toContain(
       `${taskId} -[investigates]-> ${aspectId}`
     );
+  });
+
+  it("requires a planning anchor for generic task creation", () => {
+    const dbPath = createTempDbPath();
+
+    const error = runCliFailure(dbPath, ["create-entity", "--type", "task", "--title", "Unanchored task"]);
+
+    expect(error).toContain("create-entity --type task requires --target <aspect-or-feature-id>");
   });
 
   it("reads metadata from a JSON file and labels orient matches by entity type", () => {

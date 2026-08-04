@@ -44,6 +44,10 @@ understand impact, dependencies, open work, and why a task exists.
 ## Current Product Shape
 
 - The first screen is the working graph, not a landing page.
+- The full graph overview uses compact dot nodes by default: fill color shows
+  entity type, border/ring shows status, and the Inspector carries the readable
+  detail after selection.
+- Search and type filters are primary graph controls for both humans and AI.
 - Double-clicking an Aspect centers the graph on that Aspect.
 - Breadcrumbs let the user navigate back through the Aspect tree.
 - The Inspector shows Aspect detail, related Features, Tasks, Tags, Relations,
@@ -88,6 +92,9 @@ pnpm plan import --from projectplaner.plan.json
 Task creation requires a target Aspect or Feature, preserving the rule that
 tasks are never contextless. The command seeds missing baseline data before it
 reads or writes, so a fresh checkout can use it immediately.
+When the user gives new work and no existing Aspect or Feature fits, create the
+smallest truthful Aspect or Feature first and attach the task to it in the same
+planning slice.
 
 For nested JSON metadata on Windows shells, prefer a file over inline quoting:
 

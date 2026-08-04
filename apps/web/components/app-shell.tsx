@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { FormEvent } from "react";
+import type { CSSProperties, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowUpToLine, ChevronRight, GitFork, HelpCircle, Network, PanelRight, Plus, Search, Workflow } from "lucide-react";
 import {
@@ -32,6 +32,7 @@ import {
   type EntityStatus,
   type EntityType,
   type Feature,
+  type LegacyEntityRelation,
   type ProjectNode,
   type ProjectPlanSnapshot,
   type Task
@@ -42,6 +43,7 @@ import { cn } from "../lib/utils";
 interface AppShellProps {
   snapshot: ProjectPlanSnapshot;
   graphOnly?: boolean;
+  initialSelectedId?: string;
 }
 
 const statusTone: Record<string, string> = {
@@ -60,35 +62,106 @@ const statusTone: Record<string, string> = {
   archived: "border-stone-300 bg-stone-100"
 };
 
+const dotToneByType: Record<string, string> = {
+  project: "bg-zinc-900",
+  aspect: "bg-teal-600",
+  entry: "bg-lime-600",
+  area: "bg-slate-600",
+  surface: "bg-cyan-600",
+  feature: "bg-emerald-600",
+  flow: "bg-indigo-600",
+  decision: "bg-amber-500",
+  question: "bg-rose-600",
+  reference: "bg-stone-600",
+  task: "bg-sky-600",
+  task_group: "bg-violet-600"
+};
+
+const dotStatusByStatus: Record<string, string> = {
+  not_implemented: "border-slate-400",
+  planned: "border-slate-400",
+  todo: "border-slate-400",
+  in_work: "border-cyan-500 ring-2 ring-cyan-200",
+  doing: "border-cyan-500 ring-2 ring-cyan-200",
+  review: "border-amber-500 ring-2 ring-amber-200",
+  blocked: "border-rose-600 ring-2 ring-rose-200",
+  implemented: "border-emerald-500 ring-2 ring-emerald-200",
+  done: "border-emerald-500 ring-2 ring-emerald-200",
+  accepted: "border-amber-500 ring-2 ring-amber-200",
+  answered: "border-emerald-500 ring-2 ring-emerald-200",
+  active: "border-teal-500 ring-2 ring-teal-200",
+  archived: "border-stone-300 opacity-50"
+};
+
 type GraphMode = "full" | "scope";
+type GraphSurface = "map" | "space";
 
 type GraphEntity = Pick<Entity, "id" | "type" | "key" | "title" | "summary" | "body" | "status" | "metadata" | "sortOrder"> & {
   path?: string;
 };
 
+type GraphMatch = { entity: GraphEntity; score: number };
+
+function getVisibleEntityRelations(snapshot: ProjectPlanSnapshot): LegacyEntityRelation[] {
+  return [
+    ...snapshot.entityRelations,
+    ...snapshot.taskLinks.map((link) => ({
+      id: link.id,
+      projectId: snapshot.project.id,
+      sourceType: "task" as const,
+      sourceId: link.taskId,
+      targetType: link.targetType,
+      targetId: link.targetId,
+      type: link.type,
+      label: null,
+      metadata: {}
+    })),
+    ...snapshot.featureAspectLinks.map((link) => ({
+      id: link.id,
+      projectId: snapshot.project.id,
+      sourceType: "feature" as const,
+      sourceId: link.featureId,
+      targetType: "aspect" as const,
+      targetId: link.aspectId,
+      type: link.type,
+      label: null,
+      metadata: {}
+    }))
+  ];
+}
+
 function NodeCard({ data }: NodeProps<Node<{ entity: GraphEntity; isCenter: boolean; isSelected: boolean; score?: number }>>) {
   const entity = data.entity;
+  const isComplete = ["implemented", "done", "accepted", "answered"].includes(entity.status);
+  const size = data.score ? Math.min(44, 24 + data.score / 5) : 24;
 
   return (
     <div
       className={cn(
-        "w-72 border bg-white/95 px-3.5 py-3 shadow-[0_10px_30px_rgba(15,23,42,0.10)] backdrop-blur",
-        statusTone[entity.status],
-        data.isCenter && "scale-[1.02] ring-2 ring-teal-600",
-        data.isSelected && !data.isCenter && "ring-2 ring-cyan-500"
+        "group relative flex items-center justify-center rounded-full border-[3px] shadow-[0_8px_18px_rgba(15,23,42,0.18)] transition-transform hover:scale-125",
+        dotToneByType[entity.type] ?? "bg-zinc-500",
+        dotStatusByStatus[entity.status] ?? "border-white",
+        data.isCenter && "outline outline-2 outline-offset-4 outline-teal-600",
+        data.isSelected && "outline outline-2 outline-offset-4 outline-zinc-900"
       )}
+      style={{ width: size, height: size }}
+      title={`${entityTypeLabel(entity.type)} · ${entity.status.replace("_", " ")} · ${entity.key ? `${entity.key} · ` : ""}${entity.title}`}
     >
       <Handle type="target" position={Position.Left} />
-      <div className="flex items-center justify-between gap-2">
-        <Badge tone={entity.type}>{entity.type.replace("_", " ")}</Badge>
-        <span className="truncate text-xs text-muted-foreground">{entity.status.replace("_", " ")}</span>
+      {isComplete ? <span className="h-2 w-2 rounded-full bg-white/90" /> : null}
+      {data.score ? (
+        <span className="absolute -right-2 -top-2 rounded-full bg-zinc-950 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
+          {data.score}
+        </span>
+      ) : null}
+      <div className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 hidden w-56 -translate-x-1/2 rounded-md border border-border bg-white p-2 text-left shadow-pane group-hover:block">
+        <div className="flex items-center gap-1">
+          <Badge tone={entity.type}>{entityTypeLabel(entity.type)}</Badge>
+          <Badge>{entity.status.replace("_", " ")}</Badge>
+        </div>
+        <div className="mt-2 line-clamp-2 text-xs font-semibold leading-4 text-zinc-950">{entity.title}</div>
+        {entity.summary ? <div className="mt-1 line-clamp-2 text-[11px] leading-4 text-muted-foreground">{entity.summary}</div> : null}
       </div>
-      <div className="mt-2 flex items-start justify-between gap-2">
-        <div className="min-w-0 text-[15px] font-semibold leading-5 text-zinc-950">{entity.title}</div>
-        {data.score ? <span className="shrink-0 rounded-md bg-zinc-100 px-1.5 py-0.5 text-[11px] text-zinc-700">{data.score}</span> : null}
-      </div>
-      <div className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{entity.summary}</div>
-      {entity.key ? <div className="mt-2 font-mono text-[11px] text-muted-foreground">{entity.key}</div> : null}
       <Handle type="source" position={Position.Right} />
     </div>
   );
@@ -187,10 +260,12 @@ function entityTypeLabel(type: string): string {
   return type.replace("_", " ");
 }
 
-export function AppShell({ snapshot, graphOnly = false }: AppShellProps) {
+export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: AppShellProps) {
   const router = useRouter();
   const rootNode = snapshot.nodes[0];
   const allGraphEntities = useMemo(() => buildGraphEntities(snapshot), [snapshot]);
+  const initialSelectedEntity = allGraphEntities.find((entity) => entity.id === initialSelectedId) ?? rootNode;
+  const initialCenterNode = initialSelectedEntity?.type === "aspect" ? snapshot.nodes.find((node) => node.id === initialSelectedEntity.id) : rootNode;
   const allEntityTypes = useMemo(
     () =>
       [...new Set(allGraphEntities.map((entity) => entity.type))].sort((left, right) => {
@@ -200,10 +275,11 @@ export function AppShell({ snapshot, graphOnly = false }: AppShellProps) {
     [allGraphEntities]
   );
   const [graphMode, setGraphMode] = useState<GraphMode>("full");
+  const [graphSurface, setGraphSurface] = useState<GraphSurface>("map");
   const [activeTypes, setActiveTypes] = useState<Set<EntityType>>(() => new Set(allGraphEntities.map((entity) => entity.type)));
-  const [centerId, setCenterId] = useState(rootNode?.id);
-  const [selectedId, setSelectedId] = useState(rootNode?.id);
-  const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(null);
+  const [centerId, setCenterId] = useState(initialCenterNode?.id);
+  const [selectedId, setSelectedId] = useState(initialSelectedEntity?.id ?? rootNode?.id);
+  const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(initialSelectedEntity?.type === "feature" ? initialSelectedEntity.id : null);
   const [query, setQuery] = useState("");
 
   const centerNode = snapshot.nodes.find((node) => node.id === centerId) ?? rootNode;
@@ -299,8 +375,8 @@ export function AppShell({ snapshot, graphOnly = false }: AppShellProps) {
         id: entity.id,
         type: "projectNode",
         position: {
-          x: laneIndex * 340,
-          y: rowIndex * 155
+          x: laneIndex * 150,
+          y: rowIndex * 82
         },
         data: {
           entity,
@@ -329,9 +405,12 @@ export function AppShell({ snapshot, graphOnly = false }: AppShellProps) {
     style: { stroke: relation.type === "conflicts_with" ? "#be123c" : "#0f766e" }
   }));
 
-  const fullVisibleIds = new Set(fullGraphNodes.map((node) => node.id));
-  const fullRelationEdges: Edge[] = snapshot.entityRelations
-    .filter((relation) => fullVisibleIds.has(relation.sourceId) && fullVisibleIds.has(relation.targetId))
+  const visibleEntityRelations = getVisibleEntityRelations(snapshot);
+  const displayedMatches: GraphMatch[] =
+    graphMode === "full" ? scoredEntities : graphNodes.map((node) => ({ entity: node.data.entity, score: node.data.score ?? 0 }));
+  const displayedIds = new Set(displayedMatches.map(({ entity }) => entity.id));
+  const fullRelationEdges: Edge[] = visibleEntityRelations
+    .filter((relation) => displayedIds.has(relation.sourceId) && displayedIds.has(relation.targetId))
     .map((relation) => ({
       id: relation.id,
       source: relation.sourceId,
@@ -426,6 +505,20 @@ export function AppShell({ snapshot, graphOnly = false }: AppShellProps) {
                   </button>
                 ))}
               </div>
+              <div className="inline-flex h-9 rounded-md border border-border bg-background p-1">
+                {(["map", "space"] as const).map((surface) => (
+                  <button
+                    key={surface}
+                    className={cn(
+                      "rounded px-2 text-xs font-medium capitalize",
+                      graphSurface === surface ? "bg-zinc-900 text-white" : "text-muted-foreground hover:bg-muted"
+                    )}
+                    onClick={() => setGraphSurface(surface)}
+                  >
+                    {surface}
+                  </button>
+                ))}
+              </div>
               <label className="flex h-9 w-80 shrink-0 items-center gap-2 rounded-md border border-border bg-background px-2">
                 <Search className="h-4 w-4 text-muted-foreground" />
                 <input
@@ -503,18 +596,34 @@ export function AppShell({ snapshot, graphOnly = false }: AppShellProps) {
               </div>
             ) : null}
           </div>
-          <GraphCanvas
-            nodes={flowNodes}
-            edges={flowEdges}
-            onNodesChange={onNodesChange}
-            onSelect={(id) => {
-              setSelectedId(id);
-              setSelectedFeatureId(allGraphEntities.find((entity) => entity.id === id)?.type === "feature" ? id : null);
-            }}
-            onOpen={(id) => {
-              router.push(`/projects/${snapshot.project.key}/entities/${id}`);
-            }}
-          />
+          {graphSurface === "map" ? (
+            <GraphCanvas
+              nodes={flowNodes}
+              edges={flowEdges}
+              onNodesChange={onNodesChange}
+              onSelect={(id) => {
+                setSelectedId(id);
+                setSelectedFeatureId(allGraphEntities.find((entity) => entity.id === id)?.type === "feature" ? id : null);
+              }}
+              onOpen={(id) => {
+                router.push(`/projects/${snapshot.project.key}/entities/${id}`);
+              }}
+            />
+          ) : (
+            <SpatialGraphCanvas
+              matches={displayedMatches}
+              relations={visibleEntityRelations}
+              selectedId={selectedFeatureId ?? selectedId}
+              centerId={centerNode.id}
+              onSelect={(id) => {
+                setSelectedId(id);
+                setSelectedFeatureId(allGraphEntities.find((entity) => entity.id === id)?.type === "feature" ? id : null);
+              }}
+              onOpen={(id) => {
+                router.push(`/projects/${snapshot.project.key}/entities/${id}`);
+              }}
+            />
+          )}
         </section>
 
         {!graphOnly ? (
@@ -727,9 +836,18 @@ function Inspector({
 }
 
 function GenericEntityPeek({ entity, snapshot }: { entity: GraphEntity; snapshot: ProjectPlanSnapshot }) {
-  const outgoing = snapshot.entityRelations.filter((relation) => relation.sourceId === entity.id);
-  const incoming = snapshot.entityRelations.filter((relation) => relation.targetId === entity.id);
+  const visibleRelations = getVisibleEntityRelations(snapshot);
+  const outgoing = visibleRelations.filter((relation) => relation.sourceId === entity.id);
+  const incoming = visibleRelations.filter((relation) => relation.targetId === entity.id);
   const tags = getTagsForEntity({ type: entity.type, id: entity.id }, snapshot);
+  const priority = typeof entity.metadata.priority === "string" ? entity.metadata.priority : null;
+  const acceptanceCriteria = Array.isArray(entity.metadata.acceptanceCriteria)
+    ? entity.metadata.acceptanceCriteria.filter((item): item is string => typeof item === "string")
+    : [];
+  const answer = typeof entity.metadata.answer === "string" ? entity.metadata.answer : null;
+  const decision = typeof entity.metadata.decision === "string" ? entity.metadata.decision : null;
+  const implementationSignal = typeof entity.metadata.implementationSignal === "string" ? entity.metadata.implementationSignal : null;
+  const url = typeof entity.metadata.url === "string" ? entity.metadata.url : null;
 
   return (
     <article>
@@ -740,13 +858,30 @@ function GenericEntityPeek({ entity, snapshot }: { entity: GraphEntity; snapshot
       </div>
       <h1 className="mt-4 text-2xl font-semibold tracking-normal text-zinc-950">{entity.title}</h1>
       {entity.summary ? <p className="mt-3 text-sm leading-6 text-muted-foreground">{entity.summary}</p> : null}
+      <section className="mt-4 grid grid-cols-3 gap-2">
+        <MiniMetric label="Outgoing" value={outgoing.length} />
+        <MiniMetric label="Incoming" value={incoming.length} />
+        <MiniMetric label="Status" value={entity.status.replace("_", " ")} />
+      </section>
+      {priority || acceptanceCriteria.length > 0 || answer || decision || implementationSignal || url ? (
+        <Panel title="Key Information">
+          <div className="space-y-2 text-sm leading-6 text-zinc-700">
+            {priority ? <KeyValue label="Priority" value={priority} /> : null}
+            {implementationSignal ? <KeyValue label="Implementation signal" value={implementationSignal} /> : null}
+            {answer ? <KeyValue label="Answer" value={answer} /> : null}
+            {decision ? <KeyValue label="Decision" value={decision} /> : null}
+            {url ? <KeyValue label="URL" value={url} /> : null}
+            {acceptanceCriteria.length > 0 ? <KeyValue label="Acceptance" value={acceptanceCriteria.join("\n")} /> : null}
+          </div>
+        </Panel>
+      ) : null}
       {entity.body ? (
         <div className="mt-4 rounded-md border border-border bg-background p-3 text-sm leading-6 text-zinc-700">{entity.body}</div>
       ) : null}
       <TagRow tags={tags} />
       <Panel title="Relations">
-        <EntityRelationList title="Outgoing" relations={outgoing} snapshot={snapshot} />
-        <EntityRelationList title="Incoming" relations={incoming} snapshot={snapshot} />
+        <EntityRelationList title="Outgoing" relations={outgoing} snapshot={snapshot} direction="outgoing" />
+        <EntityRelationList title="Incoming" relations={incoming} snapshot={snapshot} direction="incoming" />
       </Panel>
       <Panel title="Metadata">
         <pre className="max-h-72 overflow-auto rounded-md border border-border bg-zinc-950 p-3 text-xs leading-5 text-zinc-100">
@@ -754,6 +889,24 @@ function GenericEntityPeek({ entity, snapshot }: { entity: GraphEntity; snapshot
         </pre>
       </Panel>
     </article>
+  );
+}
+
+function MiniMetric({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="rounded-md border border-border bg-background px-2 py-2">
+      <div className="text-[11px] font-semibold uppercase text-muted-foreground">{label}</div>
+      <div className="mt-1 truncate text-sm font-semibold text-zinc-900">{value}</div>
+    </div>
+  );
+}
+
+function KeyValue({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-xs font-semibold uppercase text-muted-foreground">{label}</div>
+      <div className="whitespace-pre-line text-sm text-zinc-800">{value}</div>
+    </div>
   );
 }
 
@@ -980,8 +1133,8 @@ function FeatureDetail({
         <TaskGroup title="Nested feature tasks" tasks={nestedTasks} snapshot={snapshot} />
       </Panel>
       <Panel title="Dependencies">
-        <EntityRelationList title="Outgoing" relations={relations} snapshot={snapshot} />
-        <EntityRelationList title="Depended on by" relations={dependents} snapshot={snapshot} />
+        <EntityRelationList title="Outgoing" relations={relations} snapshot={snapshot} direction="outgoing" />
+        <EntityRelationList title="Depended on by" relations={dependents} snapshot={snapshot} direction="incoming" />
       </Panel>
     </article>
   );
@@ -1090,11 +1243,13 @@ function TagRow({ tags, compact = false }: { tags: ProjectPlanSnapshot["tags"]; 
 function EntityRelationList({
   title,
   relations,
-  snapshot
+  snapshot,
+  direction
 }: {
   title: string;
-  relations: ProjectPlanSnapshot["entityRelations"];
+  relations: LegacyEntityRelation[];
   snapshot: ProjectPlanSnapshot;
+  direction: "outgoing" | "incoming";
 }) {
   return (
     <div className="mb-3">
@@ -1111,7 +1266,7 @@ function EntityRelationList({
               <span className="font-medium">{relation.type}</span>
               <span className="text-muted-foreground">
                 {" "}
-                · {resolveEntityTitle(relation.targetType, relation.targetId, snapshot)}
+                - {resolveEntityTitle(direction === "outgoing" ? relation.targetType : relation.sourceType, direction === "outgoing" ? relation.targetId : relation.sourceId, snapshot)}
               </span>
             </div>
           ))}
@@ -1173,6 +1328,139 @@ function RelationList({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function SpatialGraphCanvas({
+  matches,
+  relations,
+  selectedId,
+  centerId,
+  onSelect,
+  onOpen
+}: {
+  matches: GraphMatch[];
+  relations: LegacyEntityRelation[];
+  selectedId: string;
+  centerId: string;
+  onSelect: (id: string) => void;
+  onOpen: (id: string) => void;
+}) {
+  const layout = useMemo(() => {
+    const width = 1000;
+    const height = 700;
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const typeGroups = new Map<EntityType, GraphMatch[]>();
+
+    for (const match of matches) {
+      typeGroups.set(match.entity.type, [...(typeGroups.get(match.entity.type) ?? []), match]);
+    }
+
+    const byId = new Map<string, GraphMatch>();
+    const nodes = matches.map((match, index) => {
+      byId.set(match.entity.id, match);
+      const typeIndex = Array.from(typeGroups.keys()).indexOf(match.entity.type);
+      const group = typeGroups.get(match.entity.type) ?? [];
+      const groupIndex = Math.max(0, group.findIndex((item) => item.entity.id === match.entity.id));
+      const radius = 105 + typeIndex * 46 + (groupIndex % 3) * 18;
+      const angle = (groupIndex / Math.max(group.length, 1)) * Math.PI * 2 + typeIndex * 0.74;
+      const depth = Math.sin(angle + typeIndex * 0.6);
+      const scoreLift = match.score > 0 ? Math.min(44, match.score / 2) : 0;
+      const x = centerX + Math.cos(angle) * radius * (1 + depth * 0.08);
+      const y = centerY + Math.sin(angle) * radius * 0.62 - depth * 82 - scoreLift;
+      const size = Math.max(18, Math.min(36, 22 + depth * 5 + scoreLift / 5));
+
+      return {
+        match,
+        x,
+        y,
+        depth,
+        size,
+        zIndex: Math.round((depth + 1) * 100) + index
+      };
+    });
+
+    const positions = new Map(nodes.map((node) => [node.match.entity.id, node]));
+    const edges = relations
+      .map((relation) => {
+        const source = positions.get(relation.sourceId);
+        const target = positions.get(relation.targetId);
+        return source && target ? { relation, source, target } : null;
+      })
+      .filter((item): item is NonNullable<typeof item> => Boolean(item));
+
+    return { width, height, nodes, edges, byId };
+  }, [matches, relations]);
+
+  return (
+    <div className="relative h-full min-h-[calc(100vh-3.5rem)] overflow-hidden bg-[#f8faf9]">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,rgba(20,184,166,0.12),transparent_42%)]" />
+      <div className="absolute inset-0" style={{ perspective: 900 }}>
+        <svg className="absolute inset-0 h-full w-full" viewBox={`0 0 ${layout.width} ${layout.height}`} preserveAspectRatio="xMidYMid meet">
+          {layout.edges.map(({ relation, source, target }) => {
+            const isSelected = relation.sourceId === selectedId || relation.targetId === selectedId;
+            return (
+              <line
+                key={relation.id}
+                x1={source.x}
+                y1={source.y}
+                x2={target.x}
+                y2={target.y}
+                className={cn(isSelected ? "stroke-zinc-950" : "stroke-teal-700/45")}
+                strokeWidth={isSelected ? 2.4 : 1.3}
+                strokeDasharray={relation.type === "references" ? "6 7" : undefined}
+              />
+            );
+          })}
+        </svg>
+        {layout.nodes.map(({ match, x, y, depth, size, zIndex }) => {
+          const entity = match.entity;
+          const selected = entity.id === selectedId;
+          const complete = ["implemented", "done", "accepted", "answered"].includes(entity.status);
+          const style: CSSProperties = {
+            left: `${(x / layout.width) * 100}%`,
+            top: `${(y / layout.height) * 100}%`,
+            width: size,
+            height: size,
+            zIndex,
+            transform: `translate(-50%, -50%) translateZ(${Math.round(depth * 120)}px)`
+          };
+
+          return (
+            <button
+              key={entity.id}
+              className={cn(
+                "group absolute flex items-center justify-center rounded-full border-[3px] shadow-[0_18px_38px_rgba(15,23,42,0.20)] transition-transform hover:scale-125",
+                dotToneByType[entity.type] ?? "bg-zinc-500",
+                dotStatusByStatus[entity.status] ?? "border-white",
+                entity.id === centerId && "outline outline-2 outline-offset-4 outline-teal-600",
+                selected && "outline outline-4 outline-offset-4 outline-zinc-950"
+              )}
+              style={style}
+              title={`${entityTypeLabel(entity.type)} - ${entity.key ? `${entity.key} - ` : ""}${entity.title}`}
+              onClick={() => onSelect(entity.id)}
+              onDoubleClick={() => onOpen(entity.id)}
+            >
+              {complete ? <span className="h-2 w-2 rounded-full bg-white/90" /> : null}
+              <span className="pointer-events-none absolute left-1/2 top-full mt-2 hidden max-w-52 -translate-x-1/2 rounded-md border border-border bg-white px-2 py-1 text-left text-xs font-medium shadow-pane group-hover:block">
+                <span className="block truncate">{entity.title}</span>
+                <span className="block truncate text-muted-foreground">
+                  {entityTypeLabel(entity.type)}
+                  {entity.key ? ` - ${entity.key}` : ""}
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {matches.length === 0 ? (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
+          <Network className="mr-2 h-4 w-4" />
+          No graph nodes in scope.
+        </div>
+      ) : null}
     </div>
   );
 }

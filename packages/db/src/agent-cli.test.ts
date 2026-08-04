@@ -135,8 +135,38 @@ describe("agent CLI", () => {
     expect(directOrient).toContain("Tune workflow packet discovery");
 
     const nearbyOrient = runCli(dbPath, ["orient", "next navigation"]);
-    expect(nearbyOrient).toContain("Nearby suggestions:");
     expect(nearbyOrient).toContain("Graph Navigation");
+    expect(nearbyOrient).toContain("score ");
+  });
+
+  it("scores multi-token matches across entity fields", () => {
+    const dbPath = createTempDbPath();
+    const metadataPath = path.join(path.dirname(dbPath), "metadata.json");
+    writeFileSync(metadataPath, JSON.stringify({ behavior: "Search ranks matching entities with an inspectable score." }), "utf8");
+
+    const featureId = createdId(
+      runCli(dbPath, [
+        "create-entity",
+        "--type",
+        "feature",
+        "--title",
+        "Full Entity Graph Navigation",
+        "--summary",
+        "Show all entity types in the graph with filters, search scoring, and detail entry.",
+        "--target",
+        "node_graph_view",
+        "--link",
+        "implements",
+        "--metadata-file",
+        metadataPath
+      ]),
+      "feature"
+    );
+
+    const orient = runCli(dbPath, ["orient", "type filters scored search"]);
+    expect(orient).toContain(`- feature ${featureId}:`);
+    expect(orient).toContain("score ");
+    expect(orient).toContain("Full Entity Graph Navigation");
   });
 
   it("writes and reads orientation packets as linked references", () => {

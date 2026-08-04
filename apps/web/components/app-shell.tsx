@@ -28,6 +28,9 @@ import {
   getTasksForFeature,
   getNodeTemplate,
   readTemplateValue,
+  type Entity,
+  type EntityStatus,
+  type EntityType,
   type Feature,
   type ProjectNode,
   type ProjectPlanSnapshot,
@@ -48,29 +51,44 @@ const statusTone: Record<string, string> = {
   planned: "border-slate-300 bg-slate-50",
   active: "border-teal-400 bg-teal-50",
   blocked: "border-rose-400 bg-rose-50",
+  todo: "border-slate-300 bg-slate-50",
+  doing: "border-cyan-400 bg-cyan-50",
+  review: "border-amber-400 bg-amber-50",
+  done: "border-emerald-400 bg-emerald-50",
   accepted: "border-amber-400 bg-amber-50",
   answered: "border-emerald-400 bg-emerald-50",
   archived: "border-stone-300 bg-stone-100"
 };
 
-function NodeCard({ data }: NodeProps<Node<{ node: ProjectNode; isCenter: boolean }>>) {
-  const node = data.node;
+type GraphMode = "full" | "scope";
+
+type GraphEntity = Pick<Entity, "id" | "type" | "key" | "title" | "summary" | "body" | "status" | "metadata" | "sortOrder"> & {
+  path?: string;
+};
+
+function NodeCard({ data }: NodeProps<Node<{ entity: GraphEntity; isCenter: boolean; isSelected: boolean; score?: number }>>) {
+  const entity = data.entity;
 
   return (
     <div
       className={cn(
         "w-72 border bg-white/95 px-3.5 py-3 shadow-[0_10px_30px_rgba(15,23,42,0.10)] backdrop-blur",
-        statusTone[node.status],
-        data.isCenter && "scale-[1.02] ring-2 ring-teal-600"
+        statusTone[entity.status],
+        data.isCenter && "scale-[1.02] ring-2 ring-teal-600",
+        data.isSelected && !data.isCenter && "ring-2 ring-cyan-500"
       )}
     >
       <Handle type="target" position={Position.Left} />
       <div className="flex items-center justify-between gap-2">
-        <Badge tone={node.type}>{node.type.replace("_", " ")}</Badge>
-        <span className="truncate text-xs text-muted-foreground">{node.status.replace("_", " ")}</span>
+        <Badge tone={entity.type}>{entity.type.replace("_", " ")}</Badge>
+        <span className="truncate text-xs text-muted-foreground">{entity.status.replace("_", " ")}</span>
       </div>
-      <div className="mt-2 text-[15px] font-semibold leading-5 text-zinc-950">{node.title}</div>
-      <div className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{node.summary}</div>
+      <div className="mt-2 flex items-start justify-between gap-2">
+        <div className="min-w-0 text-[15px] font-semibold leading-5 text-zinc-950">{entity.title}</div>
+        {data.score ? <span className="shrink-0 rounded-md bg-zinc-100 px-1.5 py-0.5 text-[11px] text-zinc-700">{data.score}</span> : null}
+      </div>
+      <div className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{entity.summary}</div>
+      {entity.key ? <div className="mt-2 font-mono text-[11px] text-muted-foreground">{entity.key}</div> : null}
       <Handle type="source" position={Position.Right} />
     </div>
   );
@@ -91,22 +109,128 @@ function getAncestors(node: ProjectNode, nodes: ProjectNode[]): ProjectNode[] {
   return ancestors;
 }
 
+function queryTokens(query: string): string[] {
+  return query
+    .toLowerCase()
+    .split(/[^a-z0-9_-]+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length > 2);
+}
+
+function scoreEntity(entity: GraphEntity, query: string): number {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) {
+    return 0;
+  }
+  const joined = [
+    entity.id,
+    entity.key,
+    entity.type,
+    entity.title,
+    entity.summary,
+    entity.body,
+    entity.path,
+    JSON.stringify(entity.metadata)
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  let score = joined.includes(normalized) ? 100 : 0;
+  for (const token of queryTokens(query)) {
+    if (joined.includes(token)) {
+      score += 10;
+    }
+  }
+  return score;
+}
+
+function buildGraphEntities(snapshot: ProjectPlanSnapshot): GraphEntity[] {
+  return [
+    ...snapshot.nodes.map((node) => ({
+      id: node.id,
+      type: node.type,
+      key: null,
+      title: node.title,
+      summary: node.summary,
+      body: node.body,
+      status: node.status,
+      metadata: node.metadata,
+      sortOrder: node.sortOrder,
+      path: node.path
+    })),
+    ...snapshot.features.map((feature) => ({
+      id: feature.id,
+      type: "feature" as const,
+      key: feature.key,
+      title: feature.title,
+      summary: feature.summary,
+      body: feature.body,
+      status: feature.status,
+      metadata: { ...feature.metadata, acceptanceShape: feature.acceptanceShape },
+      sortOrder: feature.sortOrder
+    })),
+    ...snapshot.tasks.map((task) => ({
+      id: task.id,
+      type: "task" as const,
+      key: task.key,
+      title: task.title,
+      summary: task.description,
+      body: task.description,
+      status: task.status,
+      metadata: { ...task.metadata, priority: task.priority, acceptanceCriteria: task.acceptanceCriteria },
+      sortOrder: task.sortOrder
+    }))
+  ];
+}
+
+function entityTypeLabel(type: string): string {
+  return type.replace("_", " ");
+}
+
 export function AppShell({ snapshot, graphOnly = false }: AppShellProps) {
   const router = useRouter();
   const rootNode = snapshot.nodes[0];
+  const allGraphEntities = useMemo(() => buildGraphEntities(snapshot), [snapshot]);
+  const allEntityTypes = useMemo(
+    () =>
+      [...new Set(allGraphEntities.map((entity) => entity.type))].sort((left, right) => {
+        const order: EntityType[] = ["project", "aspect", "feature", "task", "decision", "question", "reference", "flow", "entry", "area", "surface", "task_group"];
+        return order.indexOf(left) - order.indexOf(right);
+      }),
+    [allGraphEntities]
+  );
+  const [graphMode, setGraphMode] = useState<GraphMode>("full");
+  const [activeTypes, setActiveTypes] = useState<Set<EntityType>>(() => new Set(allGraphEntities.map((entity) => entity.type)));
   const [centerId, setCenterId] = useState(rootNode?.id);
   const [selectedId, setSelectedId] = useState(rootNode?.id);
   const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
 
   const centerNode = snapshot.nodes.find((node) => node.id === centerId) ?? rootNode;
+  const selectedEntity = allGraphEntities.find((entity) => entity.id === (selectedFeatureId ?? selectedId)) ?? allGraphEntities[0];
   const selectedNode = snapshot.nodes.find((node) => node.id === selectedId) ?? centerNode;
   const selectedFeature = selectedFeatureId
     ? snapshot.features.find((feature) => feature.id === selectedFeatureId) ?? null
+    : selectedEntity?.type === "feature"
+      ? snapshot.features.find((feature) => feature.id === selectedEntity.id) ?? null
     : null;
   const parentNode = centerNode?.parentId ? snapshot.nodes.find((node) => node.id === centerNode.parentId) : null;
   const breadcrumbs = useMemo(() => getAncestors(centerNode, snapshot.nodes), [centerNode, snapshot.nodes]);
   const graph = useMemo(() => focusGraph(centerNode.id, snapshot.nodes, snapshot.relations), [centerNode.id, snapshot]);
+
+  useEffect(() => {
+    setActiveTypes((current) => {
+      const next = new Set(current);
+      let changed = false;
+      for (const type of allEntityTypes) {
+        if (!next.has(type)) {
+          next.add(type);
+          changed = true;
+        }
+      }
+      return changed ? next : current;
+    });
+  }, [allEntityTypes]);
 
   const childIds = new Set(graph.nodes.filter((node) => node.parentId === centerNode.id).map((node) => node.id));
   const relationIds = new Set(graph.relations.map((relation) => `${relation.sourceNodeId}:${relation.targetNodeId}`));
@@ -121,9 +245,10 @@ export function AppShell({ snapshot, graphOnly = false }: AppShellProps) {
       style: { stroke: "#94a3b8", strokeDasharray: "4 4" }
     }));
 
-  const computedNodes: Node<{ node: ProjectNode; isCenter: boolean }>[] = graph.nodes.map((node, index) => {
+  const scopedNodes: Node<{ entity: GraphEntity; isCenter: boolean; isSelected: boolean; score?: number }>[] = graph.nodes.map((node, index) => {
     const layout = node.metadata.layout as { x?: number; y?: number } | undefined;
     const isCenter = node.id === centerNode.id;
+    const entity = allGraphEntities.find((item) => item.id === node.id);
     const childIndex = Array.from(childIds).indexOf(node.id);
     const childCount = Math.max(childIds.size, 1);
     const childY = (childIndex - (childCount - 1) / 2) * 170;
@@ -136,14 +261,63 @@ export function AppShell({ snapshot, graphOnly = false }: AppShellProps) {
         x: layout?.x ?? (isCenter ? 0 : childIds.has(node.id) ? 430 : -390),
         y: layout?.y ?? (isCenter ? 0 : childIds.has(node.id) ? childY : (relatedIndex - 1) * 160)
       },
-      data: { node, isCenter }
+      data: {
+        entity: entity ?? {
+          id: node.id,
+          type: node.type,
+          key: null,
+          title: node.title,
+          summary: node.summary,
+          body: node.body,
+          status: node.status,
+          metadata: node.metadata,
+          sortOrder: node.sortOrder,
+          path: node.path
+        },
+        isCenter,
+        isSelected: selectedId === node.id
+      }
     };
   });
-  const [flowNodes, setFlowNodes, onNodesChange] = useNodesState(computedNodes);
+
+  const scoredEntities = useMemo(
+    () =>
+      allGraphEntities
+        .map((entity) => ({ entity, score: scoreEntity(entity, query) }))
+        .filter(({ entity, score }) => activeTypes.has(entity.type) && (!query.trim() || score > 0))
+        .sort((left, right) => right.score - left.score || left.entity.sortOrder - right.entity.sortOrder),
+    [activeTypes, allGraphEntities, query]
+  );
+
+  const fullGraphNodes: Node<{ entity: GraphEntity; isCenter: boolean; isSelected: boolean; score?: number }>[] = useMemo(() => {
+    const lanes = new Map<EntityType, number>();
+    return scoredEntities.map(({ entity, score }) => {
+      const laneIndex = allEntityTypes.indexOf(entity.type);
+      const rowIndex = lanes.get(entity.type) ?? 0;
+      lanes.set(entity.type, rowIndex + 1);
+      return {
+        id: entity.id,
+        type: "projectNode",
+        position: {
+          x: laneIndex * 340,
+          y: rowIndex * 155
+        },
+        data: {
+          entity,
+          isCenter: entity.id === centerNode.id,
+          isSelected: entity.id === (selectedFeatureId ?? selectedId),
+          score: query.trim() ? score : undefined
+        }
+      };
+    });
+  }, [allEntityTypes, centerNode.id, query, scoredEntities, selectedFeatureId, selectedId]);
+
+  const graphNodes = graphMode === "full" ? fullGraphNodes : scopedNodes;
+  const [flowNodes, setFlowNodes, onNodesChange] = useNodesState(graphNodes);
 
   useEffect(() => {
-    setFlowNodes(computedNodes);
-  }, [centerNode.id, snapshot.nodes, setFlowNodes]);
+    setFlowNodes(graphNodes);
+  }, [graphNodes, setFlowNodes]);
 
   const relationEdges: Edge[] = graph.relations.map((relation) => ({
     id: relation.id,
@@ -155,7 +329,20 @@ export function AppShell({ snapshot, graphOnly = false }: AppShellProps) {
     style: { stroke: relation.type === "conflicts_with" ? "#be123c" : "#0f766e" }
   }));
 
-  const flowEdges = [...hierarchyEdges, ...relationEdges];
+  const fullVisibleIds = new Set(fullGraphNodes.map((node) => node.id));
+  const fullRelationEdges: Edge[] = snapshot.entityRelations
+    .filter((relation) => fullVisibleIds.has(relation.sourceId) && fullVisibleIds.has(relation.targetId))
+    .map((relation) => ({
+      id: relation.id,
+      source: relation.sourceId,
+      target: relation.targetId,
+      label: relation.label ?? relation.type,
+      type: "smoothstep",
+      animated: relation.type === "blocks" || relation.type === "conflicts_with" || relation.type === "blocked_by",
+      style: { stroke: relation.type === "conflicts_with" || relation.type === "blocked_by" ? "#be123c" : "#0f766e" }
+    }));
+
+  const flowEdges = graphMode === "full" ? fullRelationEdges : [...hierarchyEdges, ...relationEdges];
   const incoming = snapshot.relations.filter((relation) => relation.targetNodeId === selectedNode.id);
   const outgoing = snapshot.relations.filter((relation) => relation.sourceNodeId === selectedNode.id);
   const directAspectTasks = getTasksForAspect(selectedNode.id, snapshot);
@@ -169,16 +356,7 @@ export function AppShell({ snapshot, graphOnly = false }: AppShellProps) {
     .filter((link) => link.aspectId === selectedNode.id)
     .map((link) => snapshot.features.find((feature) => feature.id === link.featureId))
     .filter((feature): feature is Feature => Boolean(feature));
-  const searchMatches = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    if (!term) {
-      return [];
-    }
-
-    return snapshot.nodes
-      .filter((node) => node.title.toLowerCase().includes(term) || node.path.toLowerCase().includes(term))
-      .slice(0, 8);
-  }, [query, snapshot.nodes]);
+  const searchMatches = useMemo(() => scoredEntities.filter((match) => query.trim() && match.score > 0).slice(0, 8), [query, scoredEntities]);
   const draftSummaries = snapshot.draftPlans.map((draft) => ({
     draft,
     conflicts: detectDraftConflicts({
@@ -212,7 +390,7 @@ export function AppShell({ snapshot, graphOnly = false }: AppShellProps) {
       <div className={cn("grid flex-1", graphOnly ? "grid-cols-1" : "grid-cols-[minmax(560px,1fr)_420px]")}>
         <section className="relative min-h-0 border-r border-border bg-[#f8faf9]">
           <div className="absolute left-4 right-4 top-4 z-10 flex max-w-5xl flex-col gap-2">
-            <div className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-white p-2 shadow-pane">
+            <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-md border border-border bg-white p-2 shadow-pane">
               <button
                 className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border hover:bg-muted disabled:opacity-40"
                 disabled={!parentNode}
@@ -231,33 +409,95 @@ export function AppShell({ snapshot, graphOnly = false }: AppShellProps) {
                 onOpen={(id) => {
                   setCenterId(id);
                   setSelectedId(id);
+                  setSelectedFeatureId(null);
                 }}
               />
-              <label className="ml-auto flex h-9 w-72 shrink-0 items-center gap-2 rounded-md border border-border bg-background px-2">
+              <div className="ml-auto inline-flex h-9 rounded-md border border-border bg-background p-1">
+                {(["full", "scope"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    className={cn(
+                      "rounded px-2 text-xs font-medium capitalize",
+                      graphMode === mode ? "bg-teal-700 text-white" : "text-muted-foreground hover:bg-muted"
+                    )}
+                    onClick={() => setGraphMode(mode)}
+                  >
+                    {mode}
+                  </button>
+                ))}
+              </div>
+              <label className="flex h-9 w-80 shrink-0 items-center gap-2 rounded-md border border-border bg-background px-2">
                 <Search className="h-4 w-4 text-muted-foreground" />
                 <input
                   className="w-full bg-transparent text-sm outline-none"
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Find aspect or path"
+                  placeholder="Search graph"
                 />
               </label>
             </div>
+            <div className="flex flex-wrap items-center gap-1 rounded-md border border-border bg-white p-2 shadow-pane">
+              <button
+                className="h-7 rounded-md border border-border px-2 text-xs hover:bg-muted"
+                onClick={() => setActiveTypes(new Set(allEntityTypes))}
+              >
+                All
+              </button>
+              <button
+                className="h-7 rounded-md border border-border px-2 text-xs hover:bg-muted"
+                onClick={() => setActiveTypes(new Set(["aspect", "feature", "task"]))}
+              >
+                Work
+              </button>
+              {allEntityTypes.map((type) => {
+                const active = activeTypes.has(type);
+                return (
+                  <button
+                    key={type}
+                    className={cn(
+                      "h-7 rounded-md border px-2 text-xs capitalize",
+                      active ? "border-teal-700 bg-teal-50 text-teal-900" : "border-border text-muted-foreground hover:bg-muted"
+                    )}
+                    onClick={() =>
+                      setActiveTypes((current) => {
+                        const next = new Set(current);
+                        if (next.has(type) && next.size > 1) {
+                          next.delete(type);
+                        } else {
+                          next.add(type);
+                        }
+                        return next;
+                      })
+                    }
+                  >
+                    {entityTypeLabel(type)}
+                  </button>
+                );
+              })}
+            </div>
             {searchMatches.length > 0 ? (
               <div className="rounded-md border border-border bg-white p-2 shadow-pane">
-                {searchMatches.map((node) => (
+                {searchMatches.map(({ entity, score }) => (
                   <button
-                    key={node.id}
+                    key={entity.id}
                     className="block w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted"
                     onClick={() => {
-                    setSelectedId(node.id);
-                    setCenterId(node.id);
-                    setSelectedFeatureId(null);
-                    setQuery("");
-                  }}
+                      setSelectedId(entity.id);
+                      setSelectedFeatureId(entity.type === "feature" ? entity.id : null);
+                      if (graphMode === "scope" && entity.type === "aspect") {
+                        setCenterId(entity.id);
+                      }
+                    }}
                   >
-                    <span className="block truncate font-medium">{node.title}</span>
-                    <span className="block truncate text-xs text-muted-foreground">{node.path}</span>
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="min-w-0 truncate font-medium">{entity.title}</span>
+                      <span className="shrink-0 rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] text-zinc-700">{score}</span>
+                    </span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {entityTypeLabel(entity.type)}
+                      {entity.key ? ` · ${entity.key}` : ""}
+                      {entity.path ? ` · ${entity.path}` : ""}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -269,12 +509,10 @@ export function AppShell({ snapshot, graphOnly = false }: AppShellProps) {
             onNodesChange={onNodesChange}
             onSelect={(id) => {
               setSelectedId(id);
-              setSelectedFeatureId(null);
+              setSelectedFeatureId(allGraphEntities.find((entity) => entity.id === id)?.type === "feature" ? id : null);
             }}
             onOpen={(id) => {
-              setCenterId(id);
-              setSelectedId(id);
-              setSelectedFeatureId(null);
+              router.push(`/projects/${snapshot.project.key}/entities/${id}`);
             }}
           />
         </section>
@@ -284,6 +522,7 @@ export function AppShell({ snapshot, graphOnly = false }: AppShellProps) {
             <Inspector
               center={centerNode}
               node={selectedNode}
+              entity={selectedEntity}
               feature={selectedFeature}
               nodes={snapshot.nodes}
               snapshot={snapshot}
@@ -348,6 +587,7 @@ function NodeDetail({ node }: { node: ProjectNode }) {
 function Inspector({
   center,
   node,
+  entity,
   feature,
   nodes,
   snapshot,
@@ -364,6 +604,7 @@ function Inspector({
 }: {
   center: ProjectNode;
   node: ProjectNode;
+  entity: GraphEntity;
   feature: Feature | null;
   nodes: ProjectNode[];
   snapshot: ProjectPlanSnapshot;
@@ -380,6 +621,7 @@ function Inspector({
 }) {
   const titleById = new Map(nodes.map((item) => [item.id, item.title]));
   const aspectTags = getTagsForEntity({ type: "aspect", id: node.id }, snapshot);
+  const isAspectSelection = entity.type === "aspect";
 
   return (
     <div className="h-[calc(100vh-3.5rem)] overflow-auto p-4">
@@ -388,17 +630,31 @@ function Inspector({
           <PanelRight className="h-4 w-4" />
           Inspector
         </div>
-        <button className="rounded-md border border-border px-2 py-1 text-xs hover:bg-muted" onClick={() => onOpen(node.id)}>
-          Center
-        </button>
+        <div className="flex items-center gap-2">
+          <a
+            className="rounded-md border border-border px-2 py-1 text-xs hover:bg-muted"
+            href={`/projects/${snapshot.project.key}/entities/${entity.id}`}
+          >
+            Open detail
+          </a>
+          <button
+            className="rounded-md border border-border px-2 py-1 text-xs hover:bg-muted disabled:opacity-40"
+            disabled={!isAspectSelection}
+            onClick={() => onOpen(node.id)}
+          >
+            Center
+          </button>
+        </div>
       </div>
-      {center.id !== node.id ? (
+      {isAspectSelection && center.id !== node.id ? (
         <div className="mb-4 rounded-md border border-cyan-200 bg-cyan-50 p-3 text-xs text-cyan-900">
               Scope is centered on <strong>{center.title}</strong>. Selected aspect is shown below.
         </div>
       ) : null}
       {feature ? (
         <FeatureDetail feature={feature} snapshot={snapshot} onOpenFeature={onOpenFeature} onCreatedTask={onCreatedTask} />
+      ) : !isAspectSelection ? (
+        <GenericEntityPeek entity={entity} snapshot={snapshot} />
       ) : (
         <>
           <NodeDetail node={node} />
@@ -470,6 +726,37 @@ function Inspector({
   );
 }
 
+function GenericEntityPeek({ entity, snapshot }: { entity: GraphEntity; snapshot: ProjectPlanSnapshot }) {
+  const outgoing = snapshot.entityRelations.filter((relation) => relation.sourceId === entity.id);
+  const incoming = snapshot.entityRelations.filter((relation) => relation.targetId === entity.id);
+  const tags = getTagsForEntity({ type: entity.type, id: entity.id }, snapshot);
+
+  return (
+    <article>
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge tone={entity.type}>{entityTypeLabel(entity.type)}</Badge>
+        <Badge>{entity.status.replace("_", " ")}</Badge>
+        {entity.key ? <Badge>{entity.key}</Badge> : null}
+      </div>
+      <h1 className="mt-4 text-2xl font-semibold tracking-normal text-zinc-950">{entity.title}</h1>
+      {entity.summary ? <p className="mt-3 text-sm leading-6 text-muted-foreground">{entity.summary}</p> : null}
+      {entity.body ? (
+        <div className="mt-4 rounded-md border border-border bg-background p-3 text-sm leading-6 text-zinc-700">{entity.body}</div>
+      ) : null}
+      <TagRow tags={tags} />
+      <Panel title="Relations">
+        <EntityRelationList title="Outgoing" relations={outgoing} snapshot={snapshot} />
+        <EntityRelationList title="Incoming" relations={incoming} snapshot={snapshot} />
+      </Panel>
+      <Panel title="Metadata">
+        <pre className="max-h-72 overflow-auto rounded-md border border-border bg-zinc-950 p-3 text-xs leading-5 text-zinc-100">
+          {JSON.stringify(entity.metadata, null, 2)}
+        </pre>
+      </Panel>
+    </article>
+  );
+}
+
 function NewTaskForm({
   projectKey,
   targetType,
@@ -486,6 +773,7 @@ function NewTaskForm({
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [status, setStatus] = useState<"todo" | "doing" | "blocked" | "review" | "done">("todo");
   const [priority, setPriority] = useState<"low" | "medium" | "high" | "critical">("medium");
   const [linkType, setLinkType] = useState<"affects" | "implements" | "validates" | "investigates">(
     targetType === "feature" ? "implements" : "affects"
@@ -507,6 +795,7 @@ function NewTaskForm({
           projectKey,
           title,
           description,
+          status,
           priority,
           linkType,
           targetType,
@@ -525,6 +814,7 @@ function NewTaskForm({
 
       setTitle("");
       setDescription("");
+      setStatus("todo");
       setAcceptanceCriteria("");
       setOpen(false);
       onCreated();
@@ -571,6 +861,17 @@ function NewTaskForm({
           <div className="grid grid-cols-2 gap-2">
             <select
               className="h-9 rounded-md border border-border bg-background px-2 text-sm outline-none"
+              value={status}
+              onChange={(event) => setStatus(event.target.value as typeof status)}
+            >
+              <option value="todo">todo</option>
+              <option value="doing">doing</option>
+              <option value="blocked">blocked</option>
+              <option value="review">review</option>
+              <option value="done">done</option>
+            </select>
+            <select
+              className="h-9 rounded-md border border-border bg-background px-2 text-sm outline-none"
               value={priority}
               onChange={(event) => setPriority(event.target.value as typeof priority)}
             >
@@ -579,17 +880,17 @@ function NewTaskForm({
               <option value="high">high</option>
               <option value="critical">critical</option>
             </select>
-            <select
-              className="h-9 rounded-md border border-border bg-background px-2 text-sm outline-none"
-              value={linkType}
-              onChange={(event) => setLinkType(event.target.value as typeof linkType)}
-            >
-              <option value="affects">affects</option>
-              <option value="implements">implements</option>
-              <option value="validates">validates</option>
-              <option value="investigates">investigates</option>
-            </select>
           </div>
+          <select
+            className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm outline-none"
+            value={linkType}
+            onChange={(event) => setLinkType(event.target.value as typeof linkType)}
+          >
+            <option value="affects">affects</option>
+            <option value="implements">implements</option>
+            <option value="validates">validates</option>
+            <option value="investigates">investigates</option>
+          </select>
           <textarea
             className="min-h-16 w-full resize-y rounded-md border border-border bg-background px-2 py-2 text-sm outline-none focus:ring-2 focus:ring-teal-500"
             value={acceptanceCriteria}
@@ -738,7 +1039,10 @@ function TaskCard({ task, snapshot }: { task: Task; snapshot: ProjectPlanSnapsho
   const dependedOnBy = getEntityDependents({ type: "task", id: task.id }, snapshot);
 
   return (
-    <div className="rounded-md border border-border bg-background p-3">
+    <a
+      className="block rounded-md border border-border bg-background p-3 hover:bg-muted"
+      href={`/projects/${snapshot.project.key}/entities/${task.id}`}
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -763,7 +1067,7 @@ function TaskCard({ task, snapshot }: { task: Task; snapshot: ProjectPlanSnapsho
         {dependedOnBy.length > 0 ? <Badge>depended on by {dependedOnBy.length}</Badge> : null}
       </div>
       <TagRow tags={tags} compact />
-    </div>
+    </a>
   );
 }
 
@@ -880,11 +1184,11 @@ function GraphCanvas({
   onOpen,
   onNodesChange
 }: {
-  nodes: Node<{ node: ProjectNode; isCenter: boolean }>[];
+  nodes: Node<{ entity: GraphEntity; isCenter: boolean; isSelected: boolean; score?: number }>[];
   edges: Edge[];
   onSelect: (id: string) => void;
   onOpen: (id: string) => void;
-  onNodesChange: OnNodesChange<Node<{ node: ProjectNode; isCenter: boolean }>>;
+  onNodesChange: OnNodesChange<Node<{ entity: GraphEntity; isCenter: boolean; isSelected: boolean; score?: number }>>;
 }) {
   return (
     <div className="h-full min-h-[calc(100vh-3.5rem)] bg-[#f8faf9]">

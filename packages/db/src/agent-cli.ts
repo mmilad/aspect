@@ -112,6 +112,29 @@ function includesAnyToken(values: Array<string | null | undefined>, tokens: stri
   return tokens.some((token) => values.some((value) => value?.toLowerCase().includes(token)));
 }
 
+function scoreSearch(values: Array<string | null | undefined>, query: string): number {
+  const normalized = query.toLowerCase();
+  const joined = values.filter(Boolean).join(" ").toLowerCase();
+  if (!joined) {
+    return 0;
+  }
+
+  let score = joined.includes(normalized) ? 100 : 0;
+  for (const token of queryTokens(query)) {
+    if (joined.includes(token)) {
+      score += 10;
+    }
+  }
+  return score;
+}
+
+function rankedByQuery<T>(items: T[], query: string, valuesForItem: (item: T) => Array<string | null | undefined>): Array<{ item: T; score: number }> {
+  return items
+    .map((item) => ({ item, score: scoreSearch(valuesForItem(item), query) }))
+    .filter((match) => match.score > 0)
+    .sort((a, b) => b.score - a.score);
+}
+
 function taskLabel(taskId: string, snapshot: ProjectPlanSnapshot): string {
   const task = snapshot.tasks.find((item) => item.id === taskId);
   return task ? `${task.key} ${task.title}` : taskId;
@@ -142,21 +165,23 @@ function printTask(taskId: string, snapshot: ProjectPlanSnapshot): void {
   console.log(`- ${task.key} [${task.status}/${task.priority}] ${task.title}${target}`);
 }
 
-function printMatchingTask(task: Task, snapshot: ProjectPlanSnapshot): void {
+function printMatchingTask(task: Task, snapshot: ProjectPlanSnapshot, score?: number): void {
   const primary = getPrimaryTaskLink(task, snapshot);
   const target = primary ? ` -> ${primary.type} ${entityLabel(primary.targetType, primary.targetId, snapshot)}` : "";
-  console.log(`- task ${task.id}: ${task.key} ${task.title} [${task.status}/${task.priority}]${target}`);
+  const scoreText = score === undefined ? "" : ` score ${score}`;
+  console.log(`- task ${task.id}: ${task.key} ${task.title} [${task.status}/${task.priority}]${scoreText}${target}`);
   console.log(`  ${task.description || "No description."}`);
 }
 
-function suggestionLabel(entity: ProjectPlanSnapshot["nodes"][number] | ProjectPlanSnapshot["features"][number] | Task): string {
+function suggestionLabel(entity: ProjectPlanSnapshot["nodes"][number] | ProjectPlanSnapshot["features"][number] | Task, score?: number): string {
+  const scoreText = score === undefined ? "" : ` score ${score}`;
   if ("description" in entity) {
-    return `task ${entity.id}: ${entity.key} ${entity.title}`;
+    return `task ${entity.id}: ${entity.key} ${entity.title}${scoreText}`;
   }
   if ("acceptanceShape" in entity) {
-    return `feature ${entity.id}: ${entity.key} ${entity.title}`;
+    return `feature ${entity.id}: ${entity.key} ${entity.title}${scoreText}`;
   }
-  return `${entity.type} ${entity.id}: ${entity.title}`;
+  return `${entity.type} ${entity.id}: ${entity.title}${scoreText}`;
 }
 
 function parseJsonObject(value: string, source: string): JsonRecord {
@@ -212,34 +237,34 @@ function printOrient(snapshot: ProjectPlanSnapshot, query?: string): void {
     return;
   }
 
-  const matchingNodes = snapshot.nodes.filter((node) =>
-    includesQuery([node.id, node.title, node.path, node.summary, node.body], query)
-  );
-  const matchingFeatures = snapshot.features.filter((feature) =>
-    includesQuery([feature.id, feature.key, feature.title, feature.slug, feature.summary, feature.body], query)
-  );
-  const matchingTasks = snapshot.tasks.filter((task) =>
-    includesQuery(
-      [
-        task.id,
-        task.key,
-        task.title,
-        task.description,
-        task.status,
-        task.priority,
-        JSON.stringify(task.acceptanceCriteria),
-        JSON.stringify(task.metadata)
-      ],
-      query
-    )
-  );
+  const matchingNodes = rankedByQuery(snapshot.nodes, query, (node) => [node.id, node.title, node.path, node.summary, node.body]);
+  const matchingFeatures = rankedByQuery(snapshot.features, query, (feature) => [
+    feature.id,
+    feature.key,
+    feature.title,
+    feature.slug,
+    feature.summary,
+    feature.body,
+    feature.acceptanceShape,
+    JSON.stringify(feature.metadata)
+  ]);
+  const matchingTasks = rankedByQuery(snapshot.tasks, query, (task) => [
+    task.id,
+    task.key,
+    task.title,
+    task.description,
+    task.status,
+    task.priority,
+    JSON.stringify(task.acceptanceCriteria),
+    JSON.stringify(task.metadata)
+  ]);
 
   console.log("");
   console.log(`Matches for "${query}":`);
 
-  for (const node of matchingNodes) {
+  for (const { item: node, score } of matchingNodes) {
     const openWork = getOpenWorkBelowAspect(node.id, snapshot);
-    console.log(`- ${node.type} ${node.id}: ${node.title} (${node.path}) [${node.status}]`);
+    console.log(`- ${node.type} ${node.id}: ${node.title} (${node.path}) [${node.status}] score ${score}`);
     console.log(`  ${node.summary}`);
     console.log(`  open work below: ${openWork.length}`);
     for (const task of openWork.slice(0, 5)) {
@@ -247,13 +272,13 @@ function printOrient(snapshot: ProjectPlanSnapshot, query?: string): void {
     }
   }
 
-  for (const feature of matchingFeatures) {
+  for (const { item: feature, score } of matchingFeatures) {
     const linkedAspects = snapshot.featureAspectLinks
       .filter((link) => link.featureId === feature.id)
       .map((link) => entityLabel("aspect", link.aspectId, snapshot));
     const tasks = getTasksForFeature(feature.id, snapshot, { includeNestedFeatures: true });
 
-    console.log(`- feature ${feature.id}: ${feature.key} ${feature.title} [${feature.status}]`);
+    console.log(`- feature ${feature.id}: ${feature.key} ${feature.title} [${feature.status}] score ${score}`);
     console.log(`  ${feature.summary}`);
     console.log(`  linked aspects: ${linkedAspects.join("; ") || "none"}`);
     console.log(`  tasks: ${tasks.length}`);
@@ -262,8 +287,8 @@ function printOrient(snapshot: ProjectPlanSnapshot, query?: string): void {
     }
   }
 
-  for (const task of matchingTasks) {
-    printMatchingTask(task, snapshot);
+  for (const { item: task, score } of matchingTasks) {
+    printMatchingTask(task, snapshot, score);
   }
 
   if (matchingNodes.length === 0 && matchingFeatures.length === 0) {
@@ -271,21 +296,27 @@ function printOrient(snapshot: ProjectPlanSnapshot, query?: string): void {
     if (shouldPrintNoMatches) {
       console.log("No matching entities. Use `pnpm plan orient` to scan top-level context.");
     }
-    const tokens = queryTokens(query);
     const nearby = [
-      ...snapshot.nodes.filter((node) => includesAnyToken([node.id, node.title, node.path, node.summary, node.body], tokens)),
-      ...snapshot.features.filter((feature) =>
-        includesAnyToken([feature.id, feature.key, feature.title, feature.slug, feature.summary, feature.body], tokens)
+      ...rankedByQuery(snapshot.nodes, query, (node) => [node.id, node.title, node.path, node.summary, node.body]),
+      ...rankedByQuery(snapshot.features, query, (feature) =>
+        [feature.id, feature.key, feature.title, feature.slug, feature.summary, feature.body, feature.acceptanceShape, JSON.stringify(feature.metadata)]
       ),
-      ...snapshot.tasks.filter((task) =>
-        includesAnyToken([task.id, task.key, task.title, task.description, JSON.stringify(task.acceptanceCriteria)], tokens)
-      )
-    ].slice(0, 6);
+      ...rankedByQuery(snapshot.tasks, query, (task) => [
+        task.id,
+        task.key,
+        task.title,
+        task.description,
+        JSON.stringify(task.acceptanceCriteria),
+        JSON.stringify(task.metadata)
+      ])
+    ]
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 6);
     if (nearby.length > 0) {
       console.log("");
       console.log(shouldPrintNoMatches ? "Nearby suggestions:" : "Nearby graph suggestions:");
-      for (const entity of nearby) {
-        console.log(`- ${suggestionLabel(entity)}`);
+      for (const { item, score } of nearby) {
+        console.log(`- ${suggestionLabel(item, score)}`);
       }
     }
   }

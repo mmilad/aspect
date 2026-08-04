@@ -7,6 +7,7 @@ export async function POST(request: Request) {
     projectKey?: string;
     title?: string;
     description?: string;
+    status?: "todo" | "doing" | "blocked" | "review" | "done";
     priority?: "low" | "medium" | "high" | "critical";
     acceptanceCriteria?: string[];
     targetType?: "aspect" | "feature";
@@ -27,6 +28,7 @@ export async function POST(request: Request) {
       projectKey: body.projectKey,
       title: body.title,
       description: body.description ?? "",
+      status: body.status,
       priority: body.priority ?? "medium",
       acceptanceCriteria: body.acceptanceCriteria ?? [],
       targetType: body.targetType,

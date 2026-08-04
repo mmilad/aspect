@@ -1173,6 +1173,7 @@ export interface CreateTaskInput {
   projectKey: string;
   title: string;
   description: string;
+  status?: "todo" | "doing" | "blocked" | "review" | "done";
   priority: "low" | "medium" | "high" | "critical";
   acceptanceCriteria: string[];
   targetType: "aspect" | "feature";
@@ -1211,6 +1212,7 @@ export async function createTask(db: DatabaseSync, input: CreateTaskInput) {
     }, 0) + 1;
   const id = `task_${randomUUID()}`;
   const key = `${project.key}-${nextNumber}`;
+  const status = input.status ?? "todo";
 
   run(
     db,
@@ -1223,7 +1225,7 @@ export async function createTask(db: DatabaseSync, input: CreateTaskInput) {
       key,
       title,
       input.description.trim(),
-      "todo",
+      status,
       input.priority,
       JSON.stringify(input.acceptanceCriteria.filter(Boolean)),
       nextNumber,
@@ -1248,7 +1250,7 @@ export async function createTask(db: DatabaseSync, input: CreateTaskInput) {
     title,
     summary: input.description.trim(),
     body: input.description.trim(),
-    status: "todo",
+    status,
     sortOrder: nextNumber,
     metadata: {
       priority: input.priority,

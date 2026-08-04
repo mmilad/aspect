@@ -11,6 +11,7 @@ const toneByType: Record<string, string> = {
   decision: "bg-amber-600 text-white",
   question: "bg-rose-700 text-white",
   reference: "bg-stone-700 text-white",
+  task: "bg-sky-800 text-white",
   task_group: "bg-violet-700 text-white"
 };
 

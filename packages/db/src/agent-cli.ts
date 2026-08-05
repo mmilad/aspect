@@ -1,4 +1,4 @@
-import { getOpenWorkBelowAspect, getPrimaryTaskLink, getTasksForFeature } from "@projectplaner/core";
+import { getOpenWorkBelowAspect, getPrimaryTaskLink, getTasksForFeature, rankedByQuery } from "@projectplaner/core";
 import type {
   Entity,
   EntityRelation,
@@ -93,46 +93,6 @@ function parseArgs(argv: string[]): ParsedArgs {
 
 function first(options: ParsedArgs["options"], key: string): string | undefined {
   return options[key]?.[0];
-}
-
-function includesQuery(values: Array<string | null | undefined>, query: string): boolean {
-  const normalized = query.toLowerCase();
-  return values.some((value) => value?.toLowerCase().includes(normalized));
-}
-
-function queryTokens(query: string): string[] {
-  return query
-    .toLowerCase()
-    .split(/[^a-z0-9_-]+/)
-    .map((token) => token.trim())
-    .filter((token) => token.length > 2);
-}
-
-function includesAnyToken(values: Array<string | null | undefined>, tokens: string[]): boolean {
-  return tokens.some((token) => values.some((value) => value?.toLowerCase().includes(token)));
-}
-
-function scoreSearch(values: Array<string | null | undefined>, query: string): number {
-  const normalized = query.toLowerCase();
-  const joined = values.filter(Boolean).join(" ").toLowerCase();
-  if (!joined) {
-    return 0;
-  }
-
-  let score = joined.includes(normalized) ? 100 : 0;
-  for (const token of queryTokens(query)) {
-    if (joined.includes(token)) {
-      score += 10;
-    }
-  }
-  return score;
-}
-
-function rankedByQuery<T>(items: T[], query: string, valuesForItem: (item: T) => Array<string | null | undefined>): Array<{ item: T; score: number }> {
-  return items
-    .map((item) => ({ item, score: scoreSearch(valuesForItem(item), query) }))
-    .filter((match) => match.score > 0)
-    .sort((a, b) => b.score - a.score);
 }
 
 function taskLabel(taskId: string, snapshot: ProjectPlanSnapshot): string {

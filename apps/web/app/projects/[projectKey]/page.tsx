@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { AppShell } from "../../../components/app-shell";
+import { AppShell } from "../../../components/graph-workspace";
 import { loadProject } from "../../../lib/data";
 
 export default async function ProjectPage({ params }: { params: Promise<{ projectKey: string }> }) {
@@ -12,4 +12,3 @@ export default async function ProjectPage({ params }: { params: Promise<{ projec
 
   return <AppShell snapshot={snapshot} />;
 }
-

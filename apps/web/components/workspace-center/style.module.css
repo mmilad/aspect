@@ -1,0 +1,10 @@
+.center {
+  min-width: 0;
+  height: calc(100vh - 56px);
+  overflow: hidden;
+}
+
+.scroll {
+  height: 100%;
+  overflow: auto;
+}

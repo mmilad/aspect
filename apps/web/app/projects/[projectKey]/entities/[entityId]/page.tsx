@@ -3,8 +3,13 @@ import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import type { Entity, JsonRecord } from "@projectplaner/core";
 import { Badge } from "../../../../../components/badge";
+import { ProjectLeftSidebar } from "../../../../../components/project-left-sidebar";
+import { ProjectShell } from "../../../../../components/project-shell";
+import { SelectionInspector } from "../../../../../components/selection-inspector";
+import { WorkspaceCenter } from "../../../../../components/workspace-center";
 import { cn } from "../../../../../lib/utils";
 import {
+  loadProject,
   loadEntityDetail,
   type EntityDetailData,
   type EntityDetailRelation
@@ -28,12 +33,16 @@ export default async function EntityDetailPage({
   const query = await searchParams;
   const tab = isDetailTab(query.tab) ? query.tab : "overview";
   const detail = await loadEntityDetail(projectKey, entityId);
+  const snapshot = await loadProject(projectKey);
 
-  if (!detail) {
+  if (!detail || !snapshot) {
     notFound();
   }
 
   const { project, entity } = detail;
+  const rootNode = snapshot.nodes[0];
+  const selectedNode = snapshot.nodes.find((node) => node.id === entity.id) ?? rootNode;
+  const selectedFeature = snapshot.features.find((feature) => feature.id === entity.id) ?? null;
   const priority = readString(entity.metadata.priority);
   const acceptanceCriteria = readStringList(entity.metadata.acceptanceCriteria);
   const primary = detail.relations.find((item) => item.relation.isPrimary && item.direction === "outgoing");
@@ -44,27 +53,8 @@ export default async function EntityDetailPage({
     (item) => item.direction === "incoming" && (item.relation.type === "depends_on" || item.relation.type === "blocked_by")
   );
 
-  return (
-    <main className="min-h-screen bg-background text-foreground">
-      <header className="flex h-14 items-center justify-between gap-3 border-b border-border px-4">
-        <div className="min-w-0">
-          <div className="truncate text-sm font-semibold tracking-tight">{project.title}</div>
-          <div className="truncate text-xs text-muted-foreground">
-            {entity.type}
-            {entity.key ? ` · ${entity.key}` : ""} · {entity.title}
-          </div>
-        </div>
-        <nav className="flex shrink-0 items-center gap-2 text-sm">
-          <Link className="rounded-md border border-border px-3 py-1.5 hover:bg-muted" href={`/projects/${project.key}`}>
-            Workspace
-          </Link>
-          <Link className="rounded-md border border-border px-3 py-1.5 hover:bg-muted" href={`/projects/${project.key}/graph?selected=${entity.id}`}>
-            Graph
-          </Link>
-        </nav>
-      </header>
-
-      <div className="mx-auto max-w-4xl px-4 py-6">
+  const center = (
+    <div className="mx-auto max-w-4xl px-4 py-6">
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <Badge tone={entity.type}>{entity.type.replace("_", " ")}</Badge>
           <Badge>{entity.status.replace("_", " ")}</Badge>
@@ -125,7 +115,28 @@ export default async function EntityDetailPage({
           {tab === "metadata" ? <MetadataTab metadata={entity.metadata} /> : null}
         </div>
       </div>
-    </main>
+  );
+
+  return (
+    <ProjectShell
+      project={project}
+      scopeLabel={`${entity.type}${entity.key ? ` / ${entity.key}` : ""} / ${entity.title}`}
+      activeView="entity"
+      leftSidebar={<ProjectLeftSidebar snapshot={snapshot} activeView="entity" centerNode={selectedNode} recentScopes={selectedNode ? [selectedNode] : []} />}
+      center={<WorkspaceCenter scroll>{center}</WorkspaceCenter>}
+      rightSidebar={
+        <SelectionInspector
+          projectKey={project.key}
+          center={selectedNode ?? rootNode}
+          node={selectedNode ?? rootNode}
+          entity={entity}
+          feature={selectedFeature}
+          tags={detail.tags}
+          incomingCount={detail.relations.filter((item) => item.direction === "incoming").length}
+          outgoingCount={detail.relations.filter((item) => item.direction === "outgoing").length}
+        />
+      }
+    />
   );
 }
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ArrowUpToLine, ChevronRight, GitFork, HelpCircle, Network, PanelRight, Plus, Search, Workflow } from "lucide-react";
 import {
   Background,
@@ -37,8 +37,12 @@ import {
   type ProjectPlanSnapshot,
   type Task
 } from "@projectplaner/core";
-import { Badge } from "./badge";
-import { cn } from "../lib/utils";
+import { Badge } from "../badge";
+import { ProjectLeftSidebar } from "../project-left-sidebar";
+import { ProjectShell } from "../project-shell";
+import { SelectionInspector } from "../selection-inspector";
+import { WorkspaceCenter } from "../workspace-center";
+import { cn } from "../../lib/utils";
 
 interface AppShellProps {
   snapshot: ProjectPlanSnapshot;
@@ -262,6 +266,7 @@ function entityTypeLabel(type: string): string {
 
 export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: AppShellProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const rootNode = snapshot.nodes[0];
   const allGraphEntities = useMemo(() => buildGraphEntities(snapshot), [snapshot]);
   const initialSelectedEntity = allGraphEntities.find((entity) => entity.id === initialSelectedId) ?? rootNode;
@@ -444,40 +449,61 @@ export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: App
       relations: snapshot.relations
     })
   }));
+  const selectedTags = getTagsForEntity({ type: selectedEntity.type, id: selectedEntity.id }, snapshot);
+
+  function selectEntity(id: string) {
+    setSelectedId(id);
+    setSelectedFeatureId(allGraphEntities.find((entity) => entity.id === id)?.type === "feature" ? id : null);
+    const params = new URLSearchParams(window.location.search);
+    params.set("selected", id);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }
+
+  function openScope(id: string) {
+    setCenterId(id);
+    selectEntity(id);
+  }
 
   return (
-    <main className="flex min-h-screen flex-col bg-background">
-      <header className="flex h-14 items-center justify-between border-b border-border bg-white px-4">
-        <div className="flex min-w-0 items-center gap-3">
-          <Workflow className="h-5 w-5 shrink-0 text-teal-700" />
-          <div className="min-w-0">
-            <div className="truncate text-sm font-semibold">{snapshot.project.title}</div>
-            <div className="truncate text-xs text-muted-foreground">{centerNode.path}</div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Badge>{snapshot.project.key}</Badge>
-          <a className="rounded-md border border-border px-3 py-1.5 hover:bg-muted" href={`/projects/${snapshot.project.key}`}>
-            Workspace
-          </a>
-          <a className="rounded-md border border-border px-3 py-1.5 hover:bg-muted" href={`/projects/${snapshot.project.key}/graph`}>
-            Graph
-          </a>
-        </div>
-      </header>
-
-      <div className={cn("grid flex-1", graphOnly ? "grid-cols-1" : "grid-cols-[minmax(560px,1fr)_420px]")}>
-        <section className="relative min-h-0 border-r border-border bg-[#f8faf9]">
-          <div className="absolute left-4 right-4 top-4 z-10 flex max-w-5xl flex-col gap-2">
-            <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-md border border-border bg-white p-2 shadow-pane">
+    <ProjectShell
+      project={snapshot.project}
+      scopeLabel={centerNode.path}
+      activeView={graphOnly ? "graph" : "workspace"}
+      leftSidebar={
+        <ProjectLeftSidebar
+          snapshot={snapshot}
+          activeView={graphOnly ? "graph" : "workspace"}
+          activeTypes={activeTypes}
+          entityTypes={allEntityTypes}
+          centerNode={centerNode}
+          recentScopes={breadcrumbs}
+          onSelectTypes={setActiveTypes}
+          onToggleType={(type) =>
+            setActiveTypes((current) => {
+              const next = new Set(current);
+              if (next.has(type) && next.size > 1) {
+                next.delete(type);
+              } else {
+                next.add(type);
+              }
+              return next;
+            })
+          }
+          onOpenScope={openScope}
+        />
+      }
+      center={
+        <WorkspaceCenter>
+          <section className="relative h-full min-h-0 bg-[#f8faf9]">
+            <div className="absolute left-4 right-4 top-4 z-10 flex max-w-5xl flex-col gap-2">
+              <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-md border border-border bg-white p-2 shadow-pane">
               <button
                 className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border hover:bg-muted disabled:opacity-40"
                 disabled={!parentNode}
                 title="Open parent scope"
                 onClick={() => {
                   if (parentNode) {
-                    setCenterId(parentNode.id);
-                    setSelectedId(parentNode.id);
+                    openScope(parentNode.id);
                   }
                 }}
               >
@@ -486,9 +512,7 @@ export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: App
               <Breadcrumbs
                 nodes={breadcrumbs}
                 onOpen={(id) => {
-                  setCenterId(id);
-                  setSelectedId(id);
-                  setSelectedFeatureId(null);
+                  openScope(id);
                 }}
               />
               <div className="ml-auto inline-flex h-9 rounded-md border border-border bg-background p-1">
@@ -528,46 +552,7 @@ export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: App
                   placeholder="Search graph"
                 />
               </label>
-            </div>
-            <div className="flex flex-wrap items-center gap-1 rounded-md border border-border bg-white p-2 shadow-pane">
-              <button
-                className="h-7 rounded-md border border-border px-2 text-xs hover:bg-muted"
-                onClick={() => setActiveTypes(new Set(allEntityTypes))}
-              >
-                All
-              </button>
-              <button
-                className="h-7 rounded-md border border-border px-2 text-xs hover:bg-muted"
-                onClick={() => setActiveTypes(new Set(["aspect", "feature", "task"]))}
-              >
-                Work
-              </button>
-              {allEntityTypes.map((type) => {
-                const active = activeTypes.has(type);
-                return (
-                  <button
-                    key={type}
-                    className={cn(
-                      "h-7 rounded-md border px-2 text-xs capitalize",
-                      active ? "border-teal-700 bg-teal-50 text-teal-900" : "border-border text-muted-foreground hover:bg-muted"
-                    )}
-                    onClick={() =>
-                      setActiveTypes((current) => {
-                        const next = new Set(current);
-                        if (next.has(type) && next.size > 1) {
-                          next.delete(type);
-                        } else {
-                          next.add(type);
-                        }
-                        return next;
-                      })
-                    }
-                  >
-                    {entityTypeLabel(type)}
-                  </button>
-                );
-              })}
-            </div>
+              </div>
             {searchMatches.length > 0 ? (
               <div className="rounded-md border border-border bg-white p-2 shadow-pane">
                 {searchMatches.map(({ entity, score }) => (
@@ -575,8 +560,7 @@ export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: App
                     key={entity.id}
                     className="block w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted"
                     onClick={() => {
-                      setSelectedId(entity.id);
-                      setSelectedFeatureId(entity.type === "feature" ? entity.id : null);
+                      selectEntity(entity.id);
                       if (graphMode === "scope" && entity.type === "aspect") {
                         setCenterId(entity.id);
                       }
@@ -601,10 +585,7 @@ export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: App
               nodes={flowNodes}
               edges={flowEdges}
               onNodesChange={onNodesChange}
-              onSelect={(id) => {
-                setSelectedId(id);
-                setSelectedFeatureId(allGraphEntities.find((entity) => entity.id === id)?.type === "feature" ? id : null);
-              }}
+              onSelect={selectEntity}
               onOpen={(id) => {
                 router.push(`/projects/${snapshot.project.key}/entities/${id}`);
               }}
@@ -615,45 +596,33 @@ export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: App
               relations={visibleEntityRelations}
               selectedId={selectedFeatureId ?? selectedId}
               centerId={centerNode.id}
-              onSelect={(id) => {
-                setSelectedId(id);
-                setSelectedFeatureId(allGraphEntities.find((entity) => entity.id === id)?.type === "feature" ? id : null);
-              }}
+              onSelect={selectEntity}
               onOpen={(id) => {
                 router.push(`/projects/${snapshot.project.key}/entities/${id}`);
               }}
             />
           )}
-        </section>
-
-        {!graphOnly ? (
-          <aside className="border-l border-border bg-white">
-            <Inspector
-              center={centerNode}
-              node={selectedNode}
-              entity={selectedEntity}
-              feature={selectedFeature}
-              nodes={snapshot.nodes}
-              snapshot={snapshot}
-              incoming={incoming}
-              outgoing={outgoing}
-              directTasks={directAspectTasks}
-              featureTasks={featureTasks}
-              subaspectTasks={subaspectTasks}
-              relatedFeatures={relatedFeatures}
-              drafts={draftSummaries}
-              onOpen={(id) => {
-                setCenterId(id);
-                setSelectedId(id);
-                setSelectedFeatureId(null);
-              }}
-              onOpenFeature={setSelectedFeatureId}
-              onCreatedTask={() => router.refresh()}
-            />
-          </aside>
-        ) : null}
-      </div>
-    </main>
+          </section>
+        </WorkspaceCenter>
+      }
+      rightSidebar={
+        <SelectionInspector
+          projectKey={snapshot.project.key}
+          center={centerNode}
+          node={selectedNode}
+          entity={selectedEntity}
+          feature={selectedFeature}
+          relatedFeatures={relatedFeatures}
+          directTasks={directAspectTasks}
+          featureTasks={featureTasks}
+          subaspectTasks={subaspectTasks}
+          tags={selectedTags}
+          incomingCount={incoming.length}
+          outgoingCount={outgoing.length}
+          onCenter={openScope}
+        />
+      }
+    />
   );
 }
 

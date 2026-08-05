@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import Link from "next/link";
 import {
   Background,
   Controls,
@@ -30,21 +29,12 @@ import {
   type WorkflowNodeData,
   type WorkflowNodeType
 } from "@projectplaner/core";
-import { Badge } from "../badge";
+import { Badge, FormLabel, GhostButton, Select, TextArea, TextInput, ToolbarLink } from "../ui";
+import { projectPaths } from "../../lib/project-paths";
+import { workflowStepToneByType } from "../../lib/workflow-tones";
 import { cn } from "../../lib/utils";
 
 type FlowRfNode = Node<{ workflow: WorkflowNode }, "workflow">;
-
-const typeTone: Record<WorkflowNodeType, string> = {
-  start: "border-zinc-700 bg-zinc-900 text-white",
-  end: "border-zinc-500 bg-zinc-700 text-white",
-  context: "border-cyan-600 bg-cyan-50 text-cyan-950",
-  filter: "border-teal-600 bg-teal-50 text-teal-950",
-  tool: "border-indigo-600 bg-indigo-50 text-indigo-950",
-  llm: "border-amber-500 bg-amber-50 text-amber-950",
-  write: "border-emerald-600 bg-emerald-50 text-emerald-950",
-  gate: "border-rose-500 bg-rose-50 text-rose-950"
-};
 
 function toRfNodes(graph: WorkflowGraph, selectedId: string | null): FlowRfNode[] {
   return graph.nodes.map((node) => ({
@@ -89,7 +79,7 @@ function WorkflowStepNode({ data, selected }: NodeProps<FlowRfNode>) {
     <div
       className={cn(
         "min-w-[140px] rounded-md border-2 px-3 py-2 shadow-sm",
-        typeTone[node.type],
+        workflowStepToneByType[node.type],
         selected && "ring-2 ring-offset-2 ring-zinc-900"
       )}
     >
@@ -354,50 +344,24 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
         <div className="text-sm font-medium text-zinc-900">{flow.title}</div>
         <div className="font-mono text-xs text-muted-foreground">v{version}</div>
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          <Link
-            href={`/projects/${projectKey}/entities/${flow.id}`}
-            className="rounded-md border border-border px-2.5 py-1 text-xs hover:bg-muted"
-          >
+          <ToolbarLink href={projectPaths.entity(projectKey, flow.id)} size="xs">
             Entity
-          </Link>
-          <Link
-            href={`/projects/${projectKey}/graph?selected=${flow.id}`}
-            className="rounded-md border border-border px-2.5 py-1 text-xs hover:bg-muted"
-          >
+          </ToolbarLink>
+          <ToolbarLink href={projectPaths.graph(projectKey, flow.id)} size="xs">
             Aspect Graph
-          </Link>
-          <button
-            type="button"
-            className={cn(
-              "rounded-md border px-2.5 py-1 text-xs",
-              authorOpen ? "border-amber-400 bg-amber-50 text-amber-950" : "border-border hover:bg-muted"
-            )}
-            onClick={() => setAuthorOpen((open) => !open)}
-          >
+          </ToolbarLink>
+          <GhostButton size="xs" tone={authorOpen ? "accent" : "default"} active={authorOpen} onClick={() => setAuthorOpen((open) => !open)}>
             Describe
-          </button>
-          <button
-            type="button"
-            className="rounded-md border border-border px-2.5 py-1 text-xs hover:bg-muted"
-            onClick={() => replaceGraph(exampleWorkflowGraph)}
-          >
+          </GhostButton>
+          <GhostButton size="xs" onClick={() => replaceGraph(exampleWorkflowGraph)}>
             Load example
-          </button>
-          <button
-            type="button"
-            className="rounded-md border border-border px-2.5 py-1 text-xs hover:bg-muted"
-            onClick={() => replaceGraph(emptyWorkflowGraph())}
-          >
+          </GhostButton>
+          <GhostButton size="xs" onClick={() => replaceGraph(emptyWorkflowGraph())}>
             Reset empty
-          </button>
-          <button
-            type="button"
-            disabled={saving}
-            className="rounded-md bg-teal-700 px-2.5 py-1 text-xs font-medium text-white hover:bg-teal-800 disabled:opacity-60"
-            onClick={() => void save()}
-          >
+          </GhostButton>
+          <GhostButton size="xs" tone="primary" disabled={saving} onClick={() => void save()}>
             {saving ? "Saving…" : "Save graph"}
-          </button>
+          </GhostButton>
         </div>
       </div>
 
@@ -407,29 +371,19 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
           <p className="mb-2 text-xs text-amber-950/80">
             Explain what this workflow should do. Generate builds a step graph (LLM if configured, otherwise a scaffold with your brief on an llm node).
           </p>
-          <textarea
-            className="min-h-20 w-full rounded-md border border-amber-300 bg-white px-3 py-2 text-sm"
+          <TextArea
+            className="min-h-20 border-amber-300"
             placeholder="e.g. Given a user goal, load matching aspects, pick the smallest truthful one, then create a feature + tasks."
             value={brief}
             onChange={(event) => setBrief(event.target.value)}
           />
           <div className="mt-2 flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={generating}
-              className="rounded-md bg-amber-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-800 disabled:opacity-60"
-              onClick={() => void generateFromBrief(false)}
-            >
+            <GhostButton size="xs" tone="accent" disabled={generating} onClick={() => void generateFromBrief(false)}>
               {generating ? "Generating…" : "Generate workflow"}
-            </button>
-            <button
-              type="button"
-              disabled={generating}
-              className="rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs hover:bg-amber-100 disabled:opacity-60"
-              onClick={() => void generateFromBrief(true)}
-            >
+            </GhostButton>
+            <GhostButton size="xs" disabled={generating} onClick={() => void generateFromBrief(true)}>
               Scaffold only
-            </button>
+            </GhostButton>
           </div>
         </div>
       ) : null}
@@ -487,32 +441,20 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
                 <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Node</div>
                 <div className="font-mono text-xs text-zinc-700">{selected.id}</div>
               </div>
-              <label className="block text-xs">
-                <span className="text-muted-foreground">Type</span>
-                <select
-                  className="mt-1 w-full rounded-md border border-border bg-white px-2 py-1.5"
-                  value={selected.type}
-                  onChange={(event) => updateSelectedType(event.target.value as WorkflowNodeType)}
-                >
+              <FormLabel label="Type">
+                <Select value={selected.type} onChange={(event) => updateSelectedType(event.target.value as WorkflowNodeType)}>
                   {workflowNodeTypes.map((type) => (
                     <option key={type} value={type}>
                       {type}
                     </option>
                   ))}
-                </select>
-              </label>
-              <label className="block text-xs">
-                <span className="text-muted-foreground">Title</span>
-                <input
-                  className="mt-1 w-full rounded-md border border-border px-2 py-1.5"
-                  value={selected.data.title}
-                  onChange={(event) => updateSelectedData({ title: event.target.value })}
-                />
-              </label>
-              <label className="block text-xs">
-                <span className="text-muted-foreground">Reads (comma)</span>
-                <input
-                  className="mt-1 w-full rounded-md border border-border px-2 py-1.5"
+                </Select>
+              </FormLabel>
+              <FormLabel label="Title">
+                <TextInput value={selected.data.title} onChange={(event) => updateSelectedData({ title: event.target.value })} />
+              </FormLabel>
+              <FormLabel label="Reads (comma)">
+                <TextInput
                   value={(selected.data.reads ?? []).join(", ")}
                   onChange={(event) =>
                     updateSelectedData({
@@ -523,11 +465,9 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
                     })
                   }
                 />
-              </label>
-              <label className="block text-xs">
-                <span className="text-muted-foreground">Writes (comma)</span>
-                <input
-                  className="mt-1 w-full rounded-md border border-border px-2 py-1.5"
+              </FormLabel>
+              <FormLabel label="Writes (comma)">
+                <TextInput
                   value={(selected.data.writes ?? []).join(", ")}
                   onChange={(event) =>
                     updateSelectedData({
@@ -538,12 +478,11 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
                     })
                   }
                 />
-              </label>
+              </FormLabel>
               {selected.type === "llm" ? (
-                <label className="block text-xs">
-                  <span className="text-muted-foreground">LLM instructions</span>
-                  <textarea
-                    className="mt-1 min-h-28 w-full rounded-md border border-border px-2 py-1.5"
+                <FormLabel label="LLM instructions">
+                  <TextArea
+                    className="min-h-28"
                     value={selected.data.llm?.instructions ?? ""}
                     onChange={(event) =>
                       updateSelectedData({
@@ -556,13 +495,11 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
                       })
                     }
                   />
-                </label>
+                </FormLabel>
               ) : null}
               {selected.type === "tool" ? (
-                <label className="block text-xs">
-                  <span className="text-muted-foreground">Tool name</span>
-                  <input
-                    className="mt-1 w-full rounded-md border border-border px-2 py-1.5"
+                <FormLabel label="Tool name">
+                  <TextInput
                     value={selected.data.tool?.name ?? ""}
                     onChange={(event) =>
                       updateSelectedData({
@@ -573,16 +510,12 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
                       })
                     }
                   />
-                </label>
+                </FormLabel>
               ) : null}
               {selected.type !== "start" ? (
-                <button
-                  type="button"
-                  className="rounded-md border border-rose-300 px-2.5 py-1 text-xs text-rose-700 hover:bg-rose-50"
-                  onClick={deleteSelected}
-                >
+                <GhostButton size="xs" tone="danger" onClick={deleteSelected}>
                   Delete node
-                </button>
+                </GhostButton>
               ) : null}
             </div>
           )}

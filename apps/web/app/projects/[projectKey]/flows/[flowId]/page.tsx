@@ -1,9 +1,6 @@
 import { notFound } from "next/navigation";
 import { WorkflowWorkspace } from "../../../../../components/workflow-workspace";
-import { ProjectLeftSidebar } from "../../../../../components/project-left-sidebar";
-import { ProjectShell } from "../../../../../components/project-shell";
-import { SelectionInspector } from "../../../../../components/selection-inspector";
-import { WorkspaceCenter } from "../../../../../components/workspace-center";
+import { ProjectViewShell } from "../../../../../components/project-view-shell";
 import { loadEntityDetail, loadProject } from "../../../../../lib/data";
 
 export default async function FlowWorkflowPage({
@@ -19,41 +16,23 @@ export default async function FlowWorkflowPage({
     notFound();
   }
 
-  const { project, entity } = detail;
+  const { entity } = detail;
   const rootNode = snapshot.nodes[0];
   const selectedNode = snapshot.nodes.find((node) => node.id === entity.id) ?? rootNode;
   const selectedFeature = snapshot.features.find((feature) => feature.id === entity.id) ?? null;
 
   return (
-    <ProjectShell
-      project={project}
-      scopeLabel={`workflow / ${entity.title}`}
+    <ProjectViewShell
+      snapshot={snapshot}
       activeView="workflow"
-      leftSidebar={
-        <ProjectLeftSidebar
-          snapshot={snapshot}
-          activeView="workflow"
-          centerNode={selectedNode}
-          recentScopes={selectedNode ? [selectedNode] : []}
-        />
-      }
-      center={
-        <WorkspaceCenter>
-          <WorkflowWorkspace projectKey={project.key} flow={entity} />
-        </WorkspaceCenter>
-      }
-      rightSidebar={
-        <SelectionInspector
-          projectKey={project.key}
-          center={selectedNode ?? rootNode}
-          node={selectedNode ?? rootNode}
-          entity={entity}
-          feature={selectedFeature}
-          tags={detail.tags}
-          incomingCount={detail.relations.filter((item) => item.direction === "incoming").length}
-          outgoingCount={detail.relations.filter((item) => item.direction === "outgoing").length}
-        />
-      }
+      scopeLabel={`workflow / ${entity.title}`}
+      selectedNode={selectedNode}
+      selectedFeature={selectedFeature}
+      entity={entity}
+      tags={detail.tags}
+      incomingCount={detail.relations.filter((item) => item.direction === "incoming").length}
+      outgoingCount={detail.relations.filter((item) => item.direction === "outgoing").length}
+      center={<WorkflowWorkspace projectKey={snapshot.project.key} flow={entity} />}
     />
   );
 }

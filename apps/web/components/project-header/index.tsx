@@ -1,21 +1,16 @@
-import Link from "next/link";
 import { Workflow } from "lucide-react";
 import type { ProjectPlanSnapshot } from "@projectplaner/core";
-import { Badge } from "../badge";
+import { Badge } from "../ui/badge";
+import { ToolbarLink } from "../ui/ghost-button";
+import { projectPaths } from "../../lib/project-paths";
+import { projectViewLabel, type ProjectView } from "../../lib/project-view";
 import styles from "./style.module.css";
 
 interface ProjectHeaderProps {
   project: ProjectPlanSnapshot["project"];
   scopeLabel?: string;
-  activeView: "workspace" | "graph" | "entity" | "workflow";
+  activeView: ProjectView;
 }
-
-const viewLabel: Record<ProjectHeaderProps["activeView"], string> = {
-  workspace: "Workspace",
-  graph: "Graph",
-  entity: "Entity Detail",
-  workflow: "Workflow Graph"
-};
 
 export function ProjectHeader({ project, scopeLabel, activeView }: ProjectHeaderProps) {
   return (
@@ -27,19 +22,19 @@ export function ProjectHeader({ project, scopeLabel, activeView }: ProjectHeader
         <div className={styles.titleBlock}>
           <div className={styles.title}>{project.title}</div>
           <div className={styles.scope}>
-            {viewLabel[activeView]}
+            {projectViewLabel[activeView]}
             {scopeLabel ? ` / ${scopeLabel}` : ""}
           </div>
         </div>
       </div>
       <nav className={styles.actions} aria-label="Project actions">
         <Badge>{project.key}</Badge>
-        <Link className="rounded-md border border-border px-3 py-1.5 hover:bg-muted" href={`/projects/${project.key}`}>
+        <ToolbarLink href={projectPaths.workspace(project.key)} active={activeView === "workspace"}>
           Workspace
-        </Link>
-        <Link className="rounded-md border border-border px-3 py-1.5 hover:bg-muted" href={`/projects/${project.key}/graph`}>
+        </ToolbarLink>
+        <ToolbarLink href={projectPaths.graph(project.key)} active={activeView === "graph"}>
           Graph
-        </Link>
+        </ToolbarLink>
       </nav>
     </header>
   );

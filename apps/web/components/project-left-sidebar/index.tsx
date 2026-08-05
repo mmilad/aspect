@@ -5,13 +5,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CircleDot, FileText, GitFork, ListTodo, Network, Tags, Workflow } from "lucide-react";
 import type { EntityType, ProjectNode, ProjectPlanSnapshot } from "@projectplaner/core";
-import { Badge } from "../badge";
+import { Badge } from "../ui/badge";
+import { GhostButton } from "../ui/ghost-button";
+import { TextArea } from "../ui/controls";
+import { projectPaths } from "../../lib/project-paths";
+import type { ProjectView } from "../../lib/project-view";
 import { cn } from "../../lib/utils";
 import styles from "./style.module.css";
 
 interface ProjectLeftSidebarProps {
   snapshot: ProjectPlanSnapshot;
-  activeView: "workspace" | "graph" | "entity" | "workflow";
+  activeView: ProjectView;
   activeTypes?: Set<EntityType>;
   entityTypes?: EntityType[];
   centerNode?: ProjectNode;
@@ -35,8 +39,6 @@ export function ProjectLeftSidebar({
   onOpenScope
 }: ProjectLeftSidebarProps) {
   const router = useRouter();
-  const projectHref = `/projects/${snapshot.project.key}`;
-  const graphHref = `/projects/${snapshot.project.key}/graph`;
   const [creating, setCreating] = useState(false);
   const [brief, setBrief] = useState("");
   const [composerOpen, setComposerOpen] = useState(false);
@@ -72,7 +74,7 @@ export function ProjectLeftSidebar({
       }
       setBrief("");
       setComposerOpen(false);
-      router.push(`/projects/${snapshot.project.key}/flows/${payload.entity.id}`);
+      router.push(projectPaths.flow(snapshot.project.key, payload.entity.id));
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create workflow.");
@@ -86,13 +88,19 @@ export function ProjectLeftSidebar({
       <section className={styles.section}>
         <div className={styles.heading}>Views</div>
         <nav className={styles.nav} aria-label="Project views">
-          <Link className={cn(styles.link, activeView === "workspace" && styles.activeLink)} href={projectHref}>
+          <Link
+            className={cn(styles.link, activeView === "workspace" && styles.activeLink)}
+            href={projectPaths.workspace(snapshot.project.key)}
+          >
             <span className="inline-flex items-center gap-2">
               <Network className="h-4 w-4" />
               Workspace
             </span>
           </Link>
-          <Link className={cn(styles.link, activeView === "graph" && styles.activeLink)} href={graphHref}>
+          <Link
+            className={cn(styles.link, activeView === "graph" && styles.activeLink)}
+            href={projectPaths.graph(snapshot.project.key)}
+          >
             <span className="inline-flex items-center gap-2">
               <GitFork className="h-4 w-4" />
               Graph
@@ -124,7 +132,7 @@ export function ProjectLeftSidebar({
             flows.slice(0, 8).map((flow) => (
               <Link
                 key={flow.id}
-                href={`/projects/${snapshot.project.key}/flows/${flow.id}`}
+                href={projectPaths.flow(snapshot.project.key, flow.id)}
                 className={cn(styles.scopeItem, activeView === "workflow" && centerNode?.id === flow.id && styles.activeLink)}
                 title={flow.title}
               >
@@ -138,32 +146,26 @@ export function ProjectLeftSidebar({
         </div>
         {composerOpen ? (
           <div className="space-y-2 rounded-md border border-indigo-200 bg-indigo-50/50 p-2">
-            <textarea
-              className="min-h-16 w-full rounded-md border border-indigo-200 bg-white px-2 py-1.5 text-xs"
+            <TextArea
+              className="min-h-16 text-xs"
               placeholder="Explain what this workflow should do…"
               value={brief}
               onChange={(event) => setBrief(event.target.value)}
             />
             {error ? <p className="text-[11px] text-rose-700">{error}</p> : null}
             <div className="flex gap-1">
-              <button
-                type="button"
-                disabled={creating}
-                className="rounded-md bg-indigo-700 px-2 py-1 text-[11px] font-medium text-white hover:bg-indigo-800 disabled:opacity-60"
-                onClick={() => void createWorkflow()}
-              >
+              <GhostButton size="xs" tone="workflow" disabled={creating} onClick={() => void createWorkflow()}>
                 {creating ? "Creating…" : "Create flow"}
-              </button>
-              <button
-                type="button"
-                className="rounded-md border border-border bg-white px-2 py-1 text-[11px] hover:bg-muted"
+              </GhostButton>
+              <GhostButton
+                size="xs"
                 onClick={() => {
                   setComposerOpen(false);
                   setError(null);
                 }}
               >
                 Cancel
-              </button>
+              </GhostButton>
             </div>
           </div>
         ) : (

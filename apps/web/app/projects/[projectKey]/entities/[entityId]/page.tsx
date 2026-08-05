@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import type { ReactNode } from "react";
 import type { Entity, JsonRecord } from "@projectplaner/core";
-import { Badge } from "../../../../../components/badge";
-import { ProjectLeftSidebar } from "../../../../../components/project-left-sidebar";
-import { ProjectShell } from "../../../../../components/project-shell";
-import { SelectionInspector } from "../../../../../components/selection-inspector";
-import { WorkspaceCenter } from "../../../../../components/workspace-center";
+import { ProjectViewShell } from "../../../../../components/project-view-shell";
+import { Badge, EntityBadges, EntityLink, Field, ToolbarLink } from "../../../../../components/ui";
 import { cn } from "../../../../../lib/utils";
+import { projectPaths } from "../../../../../lib/project-paths";
+import { formatEntityType, formatStatus } from "../../../../../lib/entity-label";
+import { readMetadataString, readMetadataStringList } from "../../../../../lib/entity-metadata";
 import {
   loadProject,
   loadEntityDetail,
@@ -43,8 +42,8 @@ export default async function EntityDetailPage({
   const rootNode = snapshot.nodes[0];
   const selectedNode = snapshot.nodes.find((node) => node.id === entity.id) ?? rootNode;
   const selectedFeature = snapshot.features.find((feature) => feature.id === entity.id) ?? null;
-  const priority = readString(entity.metadata.priority);
-  const acceptanceCriteria = readStringList(entity.metadata.acceptanceCriteria);
+  const priority = readMetadataString(entity.metadata, "priority");
+  const acceptanceCriteria = readMetadataStringList(entity.metadata, "acceptanceCriteria");
   const primary = detail.relations.find((item) => item.relation.isPrimary && item.direction === "outgoing");
   const dependencies = detail.relations.filter(
     (item) => item.direction === "outgoing" && (item.relation.type === "depends_on" || item.relation.type === "blocked_by")
@@ -55,87 +54,74 @@ export default async function EntityDetailPage({
 
   const center = (
     <div className="mx-auto max-w-4xl px-4 py-6">
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <Badge tone={entity.type}>{entity.type.replace("_", " ")}</Badge>
-          <Badge>{entity.status.replace("_", " ")}</Badge>
-          {priority ? <Badge>{priority}</Badge> : null}
-          {entity.key ? <Badge>{entity.key}</Badge> : null}
-        </div>
+      <EntityBadges type={entity.type} status={entity.status} entityKey={entity.key} extras={[priority]} />
 
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-950">{entity.title}</h1>
-        {entity.summary ? <p className="mt-2 text-sm leading-6 text-muted-foreground">{entity.summary}</p> : null}
+      <h1 className="mt-3 text-2xl font-semibold tracking-tight text-zinc-950">{entity.title}</h1>
+      {entity.summary ? <p className="mt-2 text-sm leading-6 text-muted-foreground">{entity.summary}</p> : null}
 
-        <div className="-mx-4 mt-5 overflow-x-auto border-y border-border px-4 sm:mx-0 sm:rounded-md sm:border sm:px-0">
-          <nav className="flex min-w-max gap-1 p-1" aria-label="Entity detail sections">
-            {DETAIL_TABS.map((item) => (
-              <Link
-                key={item}
-                href={`/projects/${project.key}/entities/${entity.id}?tab=${item}`}
-                className={cn(
-                  "rounded-md px-3 py-2 text-sm capitalize",
-                  tab === item ? "bg-teal-700 text-white" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}
-              >
-                {item}
-              </Link>
-            ))}
-          </nav>
-        </div>
-
-        <div className="mt-5">
-          {tab === "overview" ? (
-            <OverviewTab
-              entity={entity}
-              tags={detail.tags}
-              primary={primary}
-              projectKey={project.key}
-              isTask={entity.type === "task"}
-              priority={priority}
-              acceptanceCriteria={acceptanceCriteria}
-            />
-          ) : null}
-          {tab === "work" ? (
-            <WorkTab
-              entity={entity}
-              projectKey={project.key}
-              relatedWork={detail.relatedWork}
-              dependencies={dependencies}
-              dependents={dependents}
-              acceptanceCriteria={acceptanceCriteria}
-              priority={priority}
-              primary={primary}
-            />
-          ) : null}
-          {tab === "relations" ? (
-            <RelationsTab relations={detail.relations} projectKey={project.key} />
-          ) : null}
-          {tab === "notes" ? (
-            <NotesTab notes={detail.notes} references={detail.references} projectKey={project.key} />
-          ) : null}
-          {tab === "metadata" ? <MetadataTab metadata={entity.metadata} /> : null}
-        </div>
+      <div className="-mx-4 mt-5 overflow-x-auto border-y border-border px-4 sm:mx-0 sm:rounded-md sm:border sm:px-0">
+        <nav className="flex min-w-max gap-1 p-1" aria-label="Entity detail sections">
+          {DETAIL_TABS.map((item) => (
+            <Link
+              key={item}
+              href={projectPaths.entity(project.key, entity.id, item)}
+              className={cn(
+                "rounded-md px-3 py-2 text-sm capitalize",
+                tab === item ? "bg-teal-700 text-white" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              {item}
+            </Link>
+          ))}
+        </nav>
       </div>
+
+      <div className="mt-5">
+        {tab === "overview" ? (
+          <OverviewTab
+            entity={entity}
+            tags={detail.tags}
+            primary={primary}
+            projectKey={project.key}
+            isTask={entity.type === "task"}
+            priority={priority}
+            acceptanceCriteria={acceptanceCriteria}
+          />
+        ) : null}
+        {tab === "work" ? (
+          <WorkTab
+            entity={entity}
+            projectKey={project.key}
+            relatedWork={detail.relatedWork}
+            dependencies={dependencies}
+            dependents={dependents}
+            acceptanceCriteria={acceptanceCriteria}
+            priority={priority}
+            primary={primary}
+          />
+        ) : null}
+        {tab === "relations" ? <RelationsTab relations={detail.relations} projectKey={project.key} /> : null}
+        {tab === "notes" ? (
+          <NotesTab notes={detail.notes} references={detail.references} projectKey={project.key} />
+        ) : null}
+        {tab === "metadata" ? <MetadataTab metadata={entity.metadata} /> : null}
+      </div>
+    </div>
   );
 
   return (
-    <ProjectShell
-      project={project}
-      scopeLabel={`${entity.type}${entity.key ? ` / ${entity.key}` : ""} / ${entity.title}`}
+    <ProjectViewShell
+      snapshot={snapshot}
       activeView="entity"
-      leftSidebar={<ProjectLeftSidebar snapshot={snapshot} activeView="entity" centerNode={selectedNode} recentScopes={selectedNode ? [selectedNode] : []} />}
-      center={<WorkspaceCenter scroll>{center}</WorkspaceCenter>}
-      rightSidebar={
-        <SelectionInspector
-          projectKey={project.key}
-          center={selectedNode ?? rootNode}
-          node={selectedNode ?? rootNode}
-          entity={entity}
-          feature={selectedFeature}
-          tags={detail.tags}
-          incomingCount={detail.relations.filter((item) => item.direction === "incoming").length}
-          outgoingCount={detail.relations.filter((item) => item.direction === "outgoing").length}
-        />
-      }
+      scopeLabel={`${formatEntityType(entity.type)}${entity.key ? ` / ${entity.key}` : ""} / ${entity.title}`}
+      scrollCenter
+      selectedNode={selectedNode}
+      selectedFeature={selectedFeature}
+      entity={entity}
+      tags={detail.tags}
+      incomingCount={detail.relations.filter((item) => item.direction === "incoming").length}
+      outgoingCount={detail.relations.filter((item) => item.direction === "outgoing").length}
+      center={center}
     />
   );
 }
@@ -166,18 +152,15 @@ function OverviewTab({
             Author executable steps separately from the Aspect Graph. Stored on this flow as{" "}
             <span className="font-mono text-xs">metadata.graph</span>.
           </p>
-          <Link
-            href={`/projects/${projectKey}/flows/${entity.id}`}
-            className="mt-2 inline-flex rounded-md bg-indigo-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-800"
-          >
+          <ToolbarLink href={projectPaths.flow(projectKey, entity.id)} className="mt-2" tone="workflow">
             Open workflow editor
-          </Link>
+          </ToolbarLink>
         </section>
       ) : null}
 
       {isTask ? (
         <section className="grid gap-3 sm:grid-cols-3">
-          <Field label="Status" value={entity.status} />
+          <Field label="Status" value={formatStatus(entity.status)} />
           <Field label="Priority" value={priority ?? "—"} />
           <Field
             label="Primary link"
@@ -252,7 +235,7 @@ function WorkTab({
     return (
       <div className="space-y-4">
         <section className="grid gap-3 sm:grid-cols-2">
-          <Field label="Status" value={entity.status} />
+          <Field label="Status" value={formatStatus(entity.status)} />
           <Field label="Priority" value={priority ?? "—"} />
         </section>
 
@@ -329,12 +312,7 @@ function NotesTab({
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <EntityListPanel title="Notes / entries" entities={notes} projectKey={projectKey} empty="No linked notes yet." />
-      <EntityListPanel
-        title="References"
-        entities={references}
-        projectKey={projectKey}
-        empty="No linked references."
-      />
+      <EntityListPanel title="References" entities={references} projectKey={projectKey} empty="No linked references." />
     </div>
   );
 }
@@ -413,39 +391,4 @@ function EntityListPanel({
       )}
     </section>
   );
-}
-
-function EntityLink({
-  projectKey,
-  entity,
-  relationType
-}: {
-  projectKey: string;
-  entity: Entity;
-  relationType?: string;
-}) {
-  return (
-    <Link className="font-medium text-teal-800 hover:underline" href={`/projects/${projectKey}/entities/${entity.id}`}>
-      {relationType ? `${relationType} · ` : ""}
-      {entity.type}
-      {entity.key ? ` · ${entity.key}` : ""} · {entity.title}
-    </Link>
-  );
-}
-
-function Field({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="rounded-md border border-border bg-white px-3 py-2">
-      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="mt-1 text-sm text-zinc-800">{value}</div>
-    </div>
-  );
-}
-
-function readString(value: unknown): string | null {
-  return typeof value === "string" && value.trim() ? value : null;
-}
-
-function readStringList(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [];
 }

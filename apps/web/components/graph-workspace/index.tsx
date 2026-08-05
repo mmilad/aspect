@@ -37,11 +37,14 @@ import {
   type ProjectPlanSnapshot,
   type Task
 } from "@projectplaner/core";
-import { Badge } from "../badge";
+import { Badge } from "../ui/badge";
 import { ProjectLeftSidebar } from "../project-left-sidebar";
 import { ProjectShell } from "../project-shell";
 import { SelectionInspector } from "../selection-inspector";
 import { WorkspaceCenter } from "../workspace-center";
+import { formatEntityType, formatStatus, isCompleteStatus } from "../../lib/entity-label";
+import { graphDotStatusByStatus, graphDotToneByType } from "../../lib/entity-tones";
+import { projectPaths } from "../../lib/project-paths";
 import { cn } from "../../lib/utils";
 
 interface AppShellProps {
@@ -49,53 +52,6 @@ interface AppShellProps {
   graphOnly?: boolean;
   initialSelectedId?: string;
 }
-
-const statusTone: Record<string, string> = {
-  not_implemented: "border-slate-300 bg-slate-50",
-  in_work: "border-cyan-400 bg-cyan-50",
-  implemented: "border-emerald-400 bg-emerald-50",
-  planned: "border-slate-300 bg-slate-50",
-  active: "border-teal-400 bg-teal-50",
-  blocked: "border-rose-400 bg-rose-50",
-  todo: "border-slate-300 bg-slate-50",
-  doing: "border-cyan-400 bg-cyan-50",
-  review: "border-amber-400 bg-amber-50",
-  done: "border-emerald-400 bg-emerald-50",
-  accepted: "border-amber-400 bg-amber-50",
-  answered: "border-emerald-400 bg-emerald-50",
-  archived: "border-stone-300 bg-stone-100"
-};
-
-const dotToneByType: Record<string, string> = {
-  project: "bg-zinc-900",
-  aspect: "bg-teal-600",
-  entry: "bg-lime-600",
-  area: "bg-slate-600",
-  surface: "bg-cyan-600",
-  feature: "bg-emerald-600",
-  flow: "bg-indigo-600",
-  decision: "bg-amber-500",
-  question: "bg-rose-600",
-  reference: "bg-stone-600",
-  task: "bg-sky-600",
-  task_group: "bg-violet-600"
-};
-
-const dotStatusByStatus: Record<string, string> = {
-  not_implemented: "border-slate-400",
-  planned: "border-slate-400",
-  todo: "border-slate-400",
-  in_work: "border-cyan-500 ring-2 ring-cyan-200",
-  doing: "border-cyan-500 ring-2 ring-cyan-200",
-  review: "border-amber-500 ring-2 ring-amber-200",
-  blocked: "border-rose-600 ring-2 ring-rose-200",
-  implemented: "border-emerald-500 ring-2 ring-emerald-200",
-  done: "border-emerald-500 ring-2 ring-emerald-200",
-  accepted: "border-amber-500 ring-2 ring-amber-200",
-  answered: "border-emerald-500 ring-2 ring-emerald-200",
-  active: "border-teal-500 ring-2 ring-teal-200",
-  archived: "border-stone-300 opacity-50"
-};
 
 type GraphMode = "full" | "scope";
 type GraphSurface = "map" | "space";
@@ -136,20 +92,20 @@ function getVisibleEntityRelations(snapshot: ProjectPlanSnapshot): LegacyEntityR
 
 function NodeCard({ data }: NodeProps<Node<{ entity: GraphEntity; isCenter: boolean; isSelected: boolean; score?: number }>>) {
   const entity = data.entity;
-  const isComplete = ["implemented", "done", "accepted", "answered"].includes(entity.status);
+  const isComplete = isCompleteStatus(entity.status);
   const size = data.score ? Math.min(44, 24 + data.score / 5) : 24;
 
   return (
     <div
       className={cn(
         "group relative flex items-center justify-center rounded-full border-[3px] shadow-[0_8px_18px_rgba(15,23,42,0.18)] transition-transform hover:scale-125",
-        dotToneByType[entity.type] ?? "bg-zinc-500",
-        dotStatusByStatus[entity.status] ?? "border-white",
+        graphDotToneByType[entity.type] ?? "bg-zinc-500",
+        graphDotStatusByStatus[entity.status] ?? "border-white",
         data.isCenter && "outline outline-2 outline-offset-4 outline-teal-600",
         data.isSelected && "outline outline-2 outline-offset-4 outline-zinc-900"
       )}
       style={{ width: size, height: size }}
-      title={`${entityTypeLabel(entity.type)} · ${entity.status.replace("_", " ")} · ${entity.key ? `${entity.key} · ` : ""}${entity.title}`}
+      title={`${formatEntityType(entity.type)} · ${formatStatus(entity.status)} · ${entity.key ? `${entity.key} · ` : ""}${entity.title}`}
     >
       <Handle type="target" position={"left" as Position} />
       {isComplete ? <span className="h-2 w-2 rounded-full bg-white/90" /> : null}
@@ -160,8 +116,8 @@ function NodeCard({ data }: NodeProps<Node<{ entity: GraphEntity; isCenter: bool
       ) : null}
       <div className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 hidden w-56 -translate-x-1/2 rounded-md border border-border bg-white p-2 text-left shadow-pane group-hover:block">
         <div className="flex items-center gap-1">
-          <Badge tone={entity.type}>{entityTypeLabel(entity.type)}</Badge>
-          <Badge>{entity.status.replace("_", " ")}</Badge>
+          <Badge tone={entity.type}>{formatEntityType(entity.type)}</Badge>
+          <Badge>{formatStatus(entity.status)}</Badge>
         </div>
         <div className="mt-2 line-clamp-2 text-xs font-semibold leading-4 text-zinc-950">{entity.title}</div>
         {entity.summary ? <div className="mt-1 line-clamp-2 text-[11px] leading-4 text-muted-foreground">{entity.summary}</div> : null}
@@ -260,9 +216,7 @@ function buildGraphEntities(snapshot: ProjectPlanSnapshot): GraphEntity[] {
   ];
 }
 
-function entityTypeLabel(type: string): string {
-  return type.replace("_", " ");
-}
+
 
 export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: AppShellProps) {
   const router = useRouter();
@@ -571,7 +525,7 @@ export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: App
                       <span className="shrink-0 rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] text-zinc-700">{score}</span>
                     </span>
                     <span className="block truncate text-xs text-muted-foreground">
-                      {entityTypeLabel(entity.type)}
+                      {formatEntityType(entity.type)}
                       {entity.key ? ` · ${entity.key}` : ""}
                       {entity.path ? ` · ${entity.path}` : ""}
                     </span>
@@ -587,7 +541,7 @@ export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: App
               onNodesChange={onNodesChange}
               onSelect={selectEntity}
               onOpen={(id) => {
-                router.push(`/projects/${snapshot.project.key}/entities/${id}`);
+                router.push(projectPaths.entity(snapshot.project.key, id));
               }}
             />
           ) : (
@@ -598,7 +552,7 @@ export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: App
               centerId={centerNode.id}
               onSelect={selectEntity}
               onOpen={(id) => {
-                router.push(`/projects/${snapshot.project.key}/entities/${id}`);
+                router.push(projectPaths.entity(snapshot.project.key, id));
               }}
             />
           )}
@@ -711,7 +665,7 @@ function Inspector({
         <div className="flex items-center gap-2">
           <a
             className="rounded-md border border-border px-2 py-1 text-xs hover:bg-muted"
-            href={`/projects/${snapshot.project.key}/entities/${entity.id}`}
+            href={projectPaths.entity(snapshot.project.key, entity.id)}
           >
             Open detail
           </a>
@@ -821,8 +775,8 @@ function GenericEntityPeek({ entity, snapshot }: { entity: GraphEntity; snapshot
   return (
     <article>
       <div className="flex flex-wrap items-center gap-2">
-        <Badge tone={entity.type}>{entityTypeLabel(entity.type)}</Badge>
-        <Badge>{entity.status.replace("_", " ")}</Badge>
+        <Badge tone={entity.type}>{formatEntityType(entity.type)}</Badge>
+        <Badge>{formatStatus(entity.status)}</Badge>
         {entity.key ? <Badge>{entity.key}</Badge> : null}
       </div>
       <h1 className="mt-4 text-2xl font-semibold tracking-normal text-zinc-950">{entity.title}</h1>
@@ -830,7 +784,7 @@ function GenericEntityPeek({ entity, snapshot }: { entity: GraphEntity; snapshot
       <section className="mt-4 grid grid-cols-3 gap-2">
         <MiniMetric label="Outgoing" value={outgoing.length} />
         <MiniMetric label="Incoming" value={incoming.length} />
-        <MiniMetric label="Status" value={entity.status.replace("_", " ")} />
+        <MiniMetric label="Status" value={formatStatus(entity.status)} />
       </section>
       {priority || acceptanceCriteria.length > 0 || answer || decision || implementationSignal || url ? (
         <Panel title="Key Information">
@@ -1163,7 +1117,7 @@ function TaskCard({ task, snapshot }: { task: Task; snapshot: ProjectPlanSnapsho
   return (
     <a
       className="block rounded-md border border-border bg-background p-3 hover:bg-muted"
-      href={`/projects/${snapshot.project.key}/entities/${task.id}`}
+      href={projectPaths.entity(snapshot.project.key, task.id)}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
@@ -1387,7 +1341,7 @@ function SpatialGraphCanvas({
         {layout.nodes.map(({ match, x, y, depth, size, zIndex }) => {
           const entity = match.entity;
           const selected = entity.id === selectedId;
-          const complete = ["implemented", "done", "accepted", "answered"].includes(entity.status);
+          const complete = isCompleteStatus(entity.status);
           const style: CSSProperties = {
             left: `${(x / layout.width) * 100}%`,
             top: `${(y / layout.height) * 100}%`,
@@ -1402,13 +1356,13 @@ function SpatialGraphCanvas({
               key={entity.id}
               className={cn(
                 "group absolute flex items-center justify-center rounded-full border-[3px] shadow-[0_18px_38px_rgba(15,23,42,0.20)] transition-transform hover:scale-125",
-                dotToneByType[entity.type] ?? "bg-zinc-500",
-                dotStatusByStatus[entity.status] ?? "border-white",
+                graphDotToneByType[entity.type] ?? "bg-zinc-500",
+                graphDotStatusByStatus[entity.status] ?? "border-white",
                 entity.id === centerId && "outline outline-2 outline-offset-4 outline-teal-600",
                 selected && "outline outline-4 outline-offset-4 outline-zinc-950"
               )}
               style={style}
-              title={`${entityTypeLabel(entity.type)} - ${entity.key ? `${entity.key} - ` : ""}${entity.title}`}
+              title={`${formatEntityType(entity.type)} - ${entity.key ? `${entity.key} - ` : ""}${entity.title}`}
               onClick={() => onSelect(entity.id)}
               onDoubleClick={() => onOpen(entity.id)}
             >
@@ -1416,7 +1370,7 @@ function SpatialGraphCanvas({
               <span className="pointer-events-none absolute left-1/2 top-full mt-2 hidden max-w-52 -translate-x-1/2 rounded-md border border-border bg-white px-2 py-1 text-left text-xs font-medium shadow-pane group-hover:block">
                 <span className="block truncate">{entity.title}</span>
                 <span className="block truncate text-muted-foreground">
-                  {entityTypeLabel(entity.type)}
+                  {formatEntityType(entity.type)}
                   {entity.key ? ` - ${entity.key}` : ""}
                 </span>
               </span>

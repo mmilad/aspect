@@ -1,12 +1,13 @@
 import type { ReactNode } from "react";
 import type { ProjectPlanSnapshot } from "@projectplaner/core";
+import type { ProjectView } from "../../lib/project-view";
 import { ProjectHeader } from "../project-header";
 import styles from "./style.module.css";
 
 interface ProjectShellProps {
   project: ProjectPlanSnapshot["project"];
   scopeLabel?: string;
-  activeView: "workspace" | "graph" | "entity" | "workflow";
+  activeView: ProjectView;
   leftSidebar: ReactNode;
   center: ReactNode;
   rightSidebar: ReactNode;

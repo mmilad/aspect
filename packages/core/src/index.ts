@@ -7,3 +7,6 @@ export * from "./seed";
 export * from "./templates";
 export * from "./task-planning";
 export * from "./types";
+export * from "./workflow";
+export * from "./workflow-author";
+export * from "./workflow-runtime";

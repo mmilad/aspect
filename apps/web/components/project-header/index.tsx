@@ -7,13 +7,14 @@ import styles from "./style.module.css";
 interface ProjectHeaderProps {
   project: ProjectPlanSnapshot["project"];
   scopeLabel?: string;
-  activeView: "workspace" | "graph" | "entity";
+  activeView: "workspace" | "graph" | "entity" | "workflow";
 }
 
 const viewLabel: Record<ProjectHeaderProps["activeView"], string> = {
   workspace: "Workspace",
   graph: "Graph",
-  entity: "Entity Detail"
+  entity: "Entity Detail",
+  workflow: "Workflow Graph"
 };
 
 export function ProjectHeader({ project, scopeLabel, activeView }: ProjectHeaderProps) {

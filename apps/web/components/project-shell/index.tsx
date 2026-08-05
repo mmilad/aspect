@@ -6,7 +6,7 @@ import styles from "./style.module.css";
 interface ProjectShellProps {
   project: ProjectPlanSnapshot["project"];
   scopeLabel?: string;
-  activeView: "workspace" | "graph" | "entity";
+  activeView: "workspace" | "graph" | "entity" | "workflow";
   leftSidebar: ReactNode;
   center: ReactNode;
   rightSidebar: ReactNode;

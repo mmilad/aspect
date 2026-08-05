@@ -159,6 +159,22 @@ function OverviewTab({
 }) {
   return (
     <div className="space-y-4">
+      {entity.type === "flow" ? (
+        <section className="rounded-md border border-indigo-200 bg-indigo-50/60 p-3">
+          <div className="text-xs font-semibold uppercase tracking-wide text-indigo-800">Workflow Step Graph</div>
+          <p className="mt-1 text-sm text-indigo-950/80">
+            Author executable steps separately from the Aspect Graph. Stored on this flow as{" "}
+            <span className="font-mono text-xs">metadata.graph</span>.
+          </p>
+          <Link
+            href={`/projects/${projectKey}/flows/${entity.id}`}
+            className="mt-2 inline-flex rounded-md bg-indigo-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-800"
+          >
+            Open workflow editor
+          </Link>
+        </section>
+      ) : null}
+
       {isTask ? (
         <section className="grid gap-3 sm:grid-cols-3">
           <Field label="Status" value={entity.status} />

@@ -69,6 +69,14 @@ export function SelectionInspector({
               Center
             </button>
           ) : null}
+          {entity.type === "flow" ? (
+            <Link
+              className="rounded-md border border-indigo-300 bg-indigo-50 px-2 py-1.5 text-xs text-indigo-900 hover:bg-indigo-100"
+              href={`/projects/${projectKey}/flows/${entity.id}`}
+            >
+              Workflow
+            </Link>
+          ) : null}
           <Link className="rounded-md border border-border px-2 py-1.5 text-xs hover:bg-muted" href={`/projects/${projectKey}/entities/${feature?.id ?? entity.id}`}>
             Open detail
           </Link>

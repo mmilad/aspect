@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "projectplaner": {
+      "command": "pnpm",
+      "args": ["--filter", "@projectplaner/mcp", "start"],
+      "cwd": "${workspaceFolder}"
+    }
+  }
+}

@@ -13,7 +13,8 @@
     "baseUrl": ".",
     "paths": {
       "@projectplaner/core": ["packages/core/src/index.ts"],
-      "@projectplaner/db": ["packages/db/src/index.ts"]
+      "@projectplaner/db": ["packages/db/src/index.ts"],
+      "@projectplaner/mcp": ["packages/mcp/src/index.ts"]
     }
   }
 }

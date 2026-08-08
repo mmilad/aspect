@@ -1,8 +1,10 @@
 import path from "node:path";
 import {
-  rankedByQuery,
+  createPlanApi,
+  getNarrative,
+  withNarrative,
   type Entity,
-  type EntityRelation,
+  type EntityNarrative,
   type EntityRelationType,
   type EntityStatus,
   type EntityType,
@@ -12,8 +14,8 @@ import {
   createDatabase,
   createEntity,
   createRelation,
+  createSqliteEntityStore,
   getEntity,
-  listEntities,
   listRelations,
   updateEntity
 } from "@projectplaner/db";
@@ -47,6 +49,10 @@ async function withDb<T>(fn: (db: Db) => Promise<T>): Promise<T> {
   return run;
 }
 
+function planApi(db: Db) {
+  return createPlanApi(createSqliteEntityStore(db));
+}
+
 function truncate(value: string, max: number): string {
   const trimmed = value.trim();
   if (trimmed.length <= max) {
@@ -55,20 +61,31 @@ function truncate(value: string, max: number): string {
   return `${trimmed.slice(0, max - 1)}…`;
 }
 
-function compactEntity(entity: Entity) {
-  return {
-    id: entity.id,
-    type: entity.type,
-    key: entity.key,
-    title: entity.title,
-    status: entity.status,
-    summary: truncate(entity.summary || entity.body || "", SUMMARY_MAX)
-  };
+function requireReason(reason: string | undefined, action: string): string {
+  const trimmed = reason?.trim() ?? "";
+  if (!trimmed) {
+    throw new Error(`${action} requires reason (durable narrative for the next agent).`);
+  }
+  return trimmed;
 }
 
-/** Lean fields for ranking — avoid body/metadata so packets and flows do not dominate. */
-function orientSearchValues(entity: Entity): Array<string | null | undefined> {
-  return [entity.id, entity.type, entity.key, entity.slug, entity.title, entity.summary, entity.status];
+function mergeNarrativeMetadata(
+  existing: JsonRecord,
+  narrative: EntityNarrative,
+  updatedBy = "agent"
+): JsonRecord {
+  const current = typeof existing.narrative === "object" && existing.narrative && !Array.isArray(existing.narrative)
+    ? (existing.narrative as EntityNarrative)
+    : {};
+  return {
+    ...existing,
+    narrative: {
+      ...current,
+      ...narrative,
+      updatedAt: new Date().toISOString(),
+      updatedBy: narrative.updatedBy ?? updatedBy
+    }
+  };
 }
 
 function isOrientationPacket(entity: Entity, workflow?: string): boolean {
@@ -79,10 +96,6 @@ function isOrientationPacket(entity: Entity, workflow?: string): boolean {
     return false;
   }
   return entity.metadata.kind === "orientation_packet" || typeof entity.metadata.workflow === "string";
-}
-
-function isOrientCandidate(entity: Entity): boolean {
-  return !isOrientationPacket(entity);
 }
 
 const PACKET_METADATA_KEYS = [
@@ -107,97 +120,118 @@ function compactPacketMetadata(metadata: JsonRecord): JsonRecord {
 
 function compactPacket(entity: Entity) {
   return {
-    ...compactEntity(entity),
+    id: entity.id,
+    type: entity.type,
+    key: entity.key,
+    title: entity.title,
+    status: entity.status,
+    summary: truncate(entity.summary || entity.body || "", SUMMARY_MAX),
     metadata: compactPacketMetadata(entity.metadata)
   };
 }
 
-function compactEntityDetail(
-  entity: Entity,
-  options: { includeBody?: boolean; includeMetadata?: boolean } = {}
-) {
-  const base = compactEntity(entity);
-  const detail: Record<string, unknown> = { ...base };
-
-  if (entity.type === "task") {
-    detail.priority =
-      typeof entity.metadata.priority === "string" ? entity.metadata.priority : "medium";
-    detail.acceptanceCriteria = Array.isArray(entity.metadata.acceptanceCriteria)
-      ? entity.metadata.acceptanceCriteria.filter((item): item is string => typeof item === "string")
-      : [];
-    if (entity.metadata.disabled === true) {
-      detail.disabled = true;
-    }
-  }
-
-  if (options.includeBody && entity.body) {
-    detail.body = truncate(entity.body, BODY_MAX);
-  }
-  if (options.includeMetadata) {
-    detail.metadata = entity.metadata;
-  }
-
-  return detail;
-}
-
 function normalizePacketMetadata(metadata: JsonRecord, entityId: string, workflow?: string): JsonRecord {
   const targetIds = Array.isArray(metadata.targetIds) ? metadata.targetIds : [];
+  const next = typeof metadata.next === "string" ? metadata.next.trim() : "";
+  if (!next) {
+    throw new Error("packet_write requires metadata.next (what the next agent should do).");
+  }
+  const state = typeof metadata.state === "string" ? metadata.state.trim() : "";
+  if (!state) {
+    throw new Error("packet_write requires metadata.state.");
+  }
   return {
     ...metadata,
     kind: "orientation_packet",
     workflow: workflow ?? metadata.workflow ?? "task.consumption.handoff",
+    state,
+    next,
     targetIds: targetIds.includes(entityId) ? targetIds : [...targetIds, entityId],
     updatedAt: new Date().toISOString()
   };
 }
 
-export async function orient(query?: string, limit = 10) {
+/** One-time onboarding for new agents — not a graph search. */
+export function orientBriefing() {
+  return {
+    project: { key: DEFAULT_PROJECT_KEY },
+    purpose: "Local graph-first planning store. Aspects are meaning anchors; features and tasks attach to them.",
+    rules: [
+      "Serialize all Projectplaner tool calls (no parallel DB tools).",
+      "Prefer the smallest truthful Aspect or Feature before creating new anchors.",
+      "Every task must link to an Aspect or Feature (targetEntityId).",
+      "Writes must include reason (durable narrative for the next agent).",
+      "Use search for relevant context; use next_work to pick eligible tasks.",
+      "Leave narrative.proposal / openQuestions when useful; use packet_write for execution handoffs."
+    ],
+    tools: {
+      search: "Relevance search (titles, summaries, narrative.reason/proposal/…).",
+      next_work: "Eligible tasks ranked by work score (unblocked candidates).",
+      get_entity: "Compact entity + narrative by default.",
+      list_entities: "Filtered list (type / optional text filter).",
+      create_entity: "Create node; requires reason.",
+      update_entity: "Update node; requires reason.",
+      create_relation: "Link two entities.",
+      packet_read: "Read orientation packets on an entity.",
+      packet_write: "Write handoff packet; requires state+next; also stamps target narrative."
+    },
+    next: "Call search with a short work-area query, or next_work if you need an eligible task."
+  };
+}
+
+export async function searchPlanEntities(input: {
+  q: string;
+  type?: EntityType;
+  limit?: number;
+  relatedTo?: string;
+}) {
   return withDb(async (db) => {
-    const entities = await listEntities(db, { projectKey: DEFAULT_PROJECT_KEY });
-    const relations = await listRelations(db, { projectKey: DEFAULT_PROJECT_KEY });
-    const project = entities.find((entity) => entity.type === "project");
-    const candidates = entities.filter(isOrientCandidate);
+    const api = planApi(db);
+    const typed =
+      input.type === "task"
+        ? api.tasks
+        : input.type === "aspect"
+          ? api.aspects
+          : input.type === "feature"
+            ? api.features
+            : input.type === "reference"
+              ? api.references
+              : api.entities;
 
-    const matches = query
-      ? rankedByQuery(candidates, query, orientSearchValues).slice(0, limit)
-      : candidates
-          .filter((entity) => entity.type === "aspect")
-          .slice(0, limit)
-          .map((item) => ({ item, score: 0 }));
+    const where = input.relatedTo
+      ? {
+          rel: {
+            direction: "out" as const,
+            some: { field: "id" as const, op: "eq" as const, value: input.relatedTo }
+          }
+        }
+      : input.type && typed === api.entities
+        ? { field: "type" as const, op: "eq" as const, value: input.type }
+        : undefined;
 
-    const seedIds = new Set(matches.slice(0, 3).map((match) => match.item.id));
-    if (!query && project) {
-      seedIds.add(project.id);
-    }
+    const result = await typed.search({
+      projectKey: DEFAULT_PROJECT_KEY,
+      q: input.q,
+      where,
+      limit: input.limit ?? 10,
+      select: "compact",
+      includeNarrative: true
+    });
+    return { items: result.items, meta: result.meta };
+  });
+}
 
-    const neighborhoodRelations = relations
-      .filter((relation) => seedIds.has(relation.sourceEntityId) || seedIds.has(relation.targetEntityId))
-      .slice(0, limit);
-
-    const openTasks = entities
-      .filter((entity) => entity.type === "task" && entity.status !== "done")
-      .filter(
-        (task) =>
-          seedIds.has(task.id) ||
-          relations.some((relation) => relation.sourceEntityId === task.id && seedIds.has(relation.targetEntityId))
-      )
-      .slice(0, limit)
-      .map(compactEntity);
-
-    return {
-      project: project ? { key: project.key, title: project.title } : { key: DEFAULT_PROJECT_KEY },
-      query: query ?? "",
-      matches: matches.map((match) => ({ score: match.score, ...compactEntity(match.item) })),
-      relations: neighborhoodRelations.map((relation) => ({
-        id: relation.id,
-        from: relation.sourceEntityId,
-        type: relation.type,
-        to: relation.targetEntityId,
-        primary: relation.isPrimary
-      })),
-      openTasks,
-      next: "Pick the smallest truthful Aspect or Feature, then get_entity / packet_read before broad code search."
-    };
+export async function nextWork(input: { relatedTo?: string; limit?: number } = {}) {
+  return withDb(async (db) => {
+    const api = planApi(db);
+    const result = await api.tasks.nextWork({
+      projectKey: DEFAULT_PROJECT_KEY,
+      relatedTo: input.relatedTo ? { id: input.relatedTo } : undefined,
+      limit: input.limit ?? 10,
+      select: "compact",
+      includeNarrative: true
+    });
+    return { items: result.items, meta: result.meta };
   });
 }
 
@@ -206,31 +240,106 @@ export async function getPlanEntity(
   options: { includeBody?: boolean; includeMetadata?: boolean } = {}
 ) {
   return withDb(async (db) => {
-    const entity = await getEntity(db, id);
+    const api = planApi(db);
+    const entity = await api.entities.get(id, {
+      select: options.includeBody || options.includeMetadata ? "full" : "compact",
+      includeNarrative: true
+    });
     if (!entity) {
       throw new Error(`Entity not found: ${id}`);
     }
-    return compactEntityDetail(entity, options);
+    if (!options.includeBody && !options.includeMetadata) {
+      return entity;
+    }
+    const full = await getEntity(db, id);
+    if (!full) {
+      throw new Error(`Entity not found: ${id}`);
+    }
+    const detail: Record<string, unknown> = {
+      ...entity,
+      narrative: getNarrative(full)
+    };
+    if (options.includeBody && full.body) {
+      detail.body = truncate(full.body, BODY_MAX);
+    }
+    if (options.includeMetadata) {
+      detail.metadata = full.metadata;
+    }
+    if (full.type === "task") {
+      detail.priority =
+        typeof full.metadata.priority === "string" ? full.metadata.priority : "medium";
+      detail.acceptanceCriteria = Array.isArray(full.metadata.acceptanceCriteria)
+        ? full.metadata.acceptanceCriteria.filter((item): item is string => typeof item === "string")
+        : [];
+    }
+    return detail;
   });
 }
 
-export async function listPlanEntities(input: { type?: EntityType; query?: string; limit?: number }) {
+export async function listPlanEntities(input: {
+  type?: EntityType;
+  query?: string;
+  limit?: number;
+  unblocked?: boolean;
+  relatedTo?: string;
+}) {
   return withDb(async (db) => {
-    const entities = await listEntities(db, {
+    const api = planApi(db);
+    if (input.type === "task") {
+      const result = await api.tasks.list({
+        projectKey: DEFAULT_PROJECT_KEY,
+        unblocked: input.unblocked,
+        relatedTo: input.relatedTo ? { id: input.relatedTo } : undefined,
+        where: input.query?.trim()
+          ? { field: "q", op: "match", value: input.query.trim() }
+          : undefined,
+        limit: input.limit ?? DEFAULT_LIST_LIMIT,
+        select: "compact",
+        includeNarrative: true
+      });
+      return { items: result.items, meta: result.meta };
+    }
+
+    const result = await api.entities.list({
       projectKey: DEFAULT_PROJECT_KEY,
-      type: input.type,
-      query: input.query
+      where: (() => {
+        const parts = [];
+        if (input.type) {
+          parts.push({ field: "type" as const, op: "eq" as const, value: input.type });
+        }
+        if (input.query?.trim()) {
+          parts.push({ field: "q" as const, op: "match" as const, value: input.query.trim() });
+        }
+        if (input.relatedTo) {
+          parts.push({
+            rel: {
+              direction: "out" as const,
+              some: { field: "id" as const, op: "eq" as const, value: input.relatedTo }
+            }
+          });
+        }
+        if (parts.length === 0) {
+          return undefined;
+        }
+        if (parts.length === 1) {
+          return parts[0];
+        }
+        return { and: parts };
+      })(),
+      limit: input.limit ?? DEFAULT_LIST_LIMIT,
+      select: "compact",
+      includeNarrative: true
     });
-    return entities
-      .filter((entity) => !isOrientationPacket(entity) || input.type === "reference")
-      .slice(0, input.limit ?? DEFAULT_LIST_LIMIT)
-      .map(compactEntity);
+    return { items: result.items, meta: result.meta };
   });
 }
 
 export async function createPlanEntity(input: {
   type: EntityType;
   title: string;
+  reason: string;
+  proposal?: string;
+  intent?: string;
   summary?: string;
   body?: string;
   status?: EntityStatus;
@@ -242,6 +351,7 @@ export async function createPlanEntity(input: {
   priority?: string;
   acceptanceCriteria?: string[];
 }) {
+  const reason = requireReason(input.reason, "create_entity");
   return withDb(async (db) => {
     if (input.type === "task" && !input.targetEntityId) {
       throw new Error("create_entity for tasks requires targetEntityId (Aspect or Feature).");
@@ -260,11 +370,16 @@ export async function createPlanEntity(input: {
     const linkType =
       input.linkType ??
       (input.type === "feature" ? "implements" : input.type === "aspect" ? "contains" : "affects");
-    const metadata: JsonRecord = { ...(input.metadata ?? {}) };
+    let metadata: JsonRecord = { ...(input.metadata ?? {}) };
     if (input.type === "task") {
       metadata.priority = input.priority ?? metadata.priority ?? "medium";
       metadata.acceptanceCriteria = input.acceptanceCriteria ?? metadata.acceptanceCriteria ?? [];
     }
+    metadata = mergeNarrativeMetadata(metadata, {
+      reason,
+      proposal: input.proposal,
+      intent: input.intent
+    });
 
     const parentContainsChild = input.type === "aspect" && input.targetEntityId && linkType === "contains";
     const result = await createEntity(db, {
@@ -293,12 +408,17 @@ export async function createPlanEntity(input: {
       });
     }
 
-    return { entity: compactEntity(result.entity), warnings: result.warnings };
+    const api = planApi(db);
+    const view = await api.entities.get(result.entity.id, { select: "compact", includeNarrative: true });
+    return { entity: view, warnings: result.warnings };
   });
 }
 
 export async function updatePlanEntity(input: {
   id: string;
+  reason: string;
+  proposal?: string;
+  intent?: string;
   title?: string;
   summary?: string;
   body?: string;
@@ -307,11 +427,16 @@ export async function updatePlanEntity(input: {
   slug?: string;
   metadata?: JsonRecord;
 }) {
+  const reason = requireReason(input.reason, "update_entity");
   return withDb(async (db) => {
     const existing = await getEntity(db, input.id);
     if (!existing) {
       throw new Error(`Entity not found: ${input.id}`);
     }
+    const metadata = mergeNarrativeMetadata(
+      { ...existing.metadata, ...(input.metadata ?? {}) },
+      { reason, proposal: input.proposal, intent: input.intent }
+    );
     const entity = await updateEntity(db, {
       id: input.id,
       patch: {
@@ -321,10 +446,11 @@ export async function updatePlanEntity(input: {
         status: input.status ?? existing.status,
         key: input.key ?? existing.key,
         slug: input.slug ?? existing.slug,
-        metadata: input.metadata ?? existing.metadata
+        metadata
       }
     });
-    return compactEntity(entity);
+    const api = planApi(db);
+    return api.entities.get(entity.id, { select: "compact", includeNarrative: true });
   });
 }
 
@@ -335,6 +461,7 @@ export async function createPlanRelation(input: {
   label?: string;
   primary?: boolean;
   metadata?: JsonRecord;
+  reason?: string;
 }) {
   return withDb(async (db) => {
     const relation = await createRelation(db, {
@@ -344,7 +471,12 @@ export async function createPlanRelation(input: {
       type: input.type,
       label: input.label,
       isPrimary: input.primary ?? false,
-      metadata: input.metadata ?? {}
+      metadata: {
+        ...(input.metadata ?? {}),
+        ...(input.reason?.trim()
+          ? { narrative: { reason: input.reason.trim(), updatedAt: new Date().toISOString(), updatedBy: "agent" } }
+          : {})
+      }
     });
     return {
       id: relation.id,
@@ -378,19 +510,30 @@ export async function packetRead(entityId: string, workflow?: string) {
     const neighbors = (await Promise.all(neighborIds.map((id) => getEntity(db, id)))).filter(
       (item): item is Entity => item != null
     );
-    return neighbors.filter((item) => isOrientationPacket(item, workflow)).map(compactPacket);
+    const packets = neighbors.filter((item) => isOrientationPacket(item, workflow)).map(compactPacket);
+    return {
+      packets,
+      targetNarrative: getNarrative(entity),
+      hint:
+        packets.length === 0
+          ? "No packets; use get_entity narrative / search, or packet_write after work."
+          : undefined
+    };
   });
 }
 
 export async function packetWrite(input: {
   entityId: string;
   metadata: JsonRecord;
+  reason: string;
+  proposal?: string;
   id?: string;
   title?: string;
   summary?: string;
   body?: string;
   workflow?: string;
 }) {
+  const reason = requireReason(input.reason, "packet_write");
   return withDb(async (db) => {
     const target = await getEntity(db, input.entityId);
     if (!target) {
@@ -432,7 +575,21 @@ export async function packetWrite(input: {
       });
     }
 
-    return compactPacket(packet);
+    // Stamp durable narrative on the target so the next agent can search/read it without the packet.
+    await updateEntity(db, {
+      id: target.id,
+      patch: {
+        metadata: mergeNarrativeMetadata(target.metadata, {
+          reason,
+          proposal: input.proposal ?? (typeof metadata.next === "string" ? metadata.next : undefined)
+        })
+      }
+    });
+
+    return {
+      packet: compactPacket(packet),
+      targetNarrative: getNarrative(withNarrative(target, { reason, proposal: input.proposal }))
+    };
   });
 }
 

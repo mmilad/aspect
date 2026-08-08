@@ -6,9 +6,11 @@ import {
   errorResult,
   getPlanEntity,
   listPlanEntities,
-  orient,
+  nextWork,
+  orientBriefing,
   packetRead,
   packetWrite,
+  searchPlanEntities,
   textResult,
   updatePlanEntity
 } from "./plan";
@@ -66,7 +68,7 @@ const statusSchema = z.enum([
 export function createProjectplanerServer(): McpServer {
   const server = new McpServer({
     name: "projectplaner",
-    version: "0.1.0"
+    version: "0.2.0"
   });
 
   server.resource("usage", "projectplaner://usage", async (uri) => ({
@@ -83,15 +85,52 @@ export function createProjectplanerServer(): McpServer {
     "orient",
     {
       description:
-        "Orient in the Projectplaner Aspect Graph. Call first with a short query for the work area. Returns ranked matches, nearby relations, and open tasks. Serialize with other Projectplaner tools.",
+        "One-time onboarding for a new agent session. Returns product rules and which tools to use next. Does not search the graph — call search or next_work after this. Serialize with other Projectplaner tools.",
+      inputSchema: {}
+    },
+    async () => {
+      try {
+        return textResult(orientBriefing());
+      } catch (error) {
+        return errorResult(error);
+      }
+    }
+  );
+
+  server.registerTool(
+    "search",
+    {
+      description:
+        "Relevance search over the graph (titles, summaries, narrative.reason/proposal/intent). Use for finding context. Excludes orientation packets by default.",
       inputSchema: {
-        query: z.string().optional().describe("Short search query for aspects, features, tasks, or related entities"),
-        limit: z.number().int().min(1).max(50).optional().describe("Max matches to return (default 10)")
+        q: z.string().describe("Short relevance query"),
+        type: entityTypeSchema.optional(),
+        relatedTo: z.string().optional().describe("Only entities linked out to this id"),
+        limit: z.number().int().min(1).max(50).optional()
       }
     },
-    async ({ query, limit }) => {
+    async (input) => {
       try {
-        return textResult(await orient(query, limit));
+        return textResult(await searchPlanEntities(input));
+      } catch (error) {
+        return errorResult(error);
+      }
+    }
+  );
+
+  server.registerTool(
+    "next_work",
+    {
+      description:
+        "Pick eligible tasks (unblocked candidates) ranked by work score. Optional relatedTo Aspect/Feature id.",
+      inputSchema: {
+        relatedTo: z.string().optional().describe("Aspect or Feature id to scope tasks"),
+        limit: z.number().int().min(1).max(50).optional()
+      }
+    },
+    async (input) => {
+      try {
+        return textResult(await nextWork(input));
       } catch (error) {
         return errorResult(error);
       }
@@ -102,7 +141,7 @@ export function createProjectplanerServer(): McpServer {
     "get_entity",
     {
       description:
-        "Fetch one Projectplaner entity by id. Returns a compact summary by default. Set includeBody/includeMetadata only when needed.",
+        "Fetch one entity. Compact summary + narrative by default. Set includeBody/includeMetadata only when needed.",
       inputSchema: {
         id: z.string().describe("Entity id"),
         includeBody: z.boolean().optional().describe("Include truncated body text"),
@@ -121,11 +160,13 @@ export function createProjectplanerServer(): McpServer {
   server.registerTool(
     "list_entities",
     {
-      description: "List Projectplaner entities, optionally filtered by type and query.",
+      description: "Filter/list entities (not ranked). For tasks supports unblocked + relatedTo sugar.",
       inputSchema: {
         type: entityTypeSchema.optional(),
-        query: z.string().optional(),
-        limit: z.number().int().min(1).max(100).optional().describe("Max entities to return (default 30)")
+        query: z.string().optional().describe("Optional text match filter"),
+        relatedTo: z.string().optional(),
+        unblocked: z.boolean().optional().describe("Tasks only: no unresolved blocked_by"),
+        limit: z.number().int().min(1).max(100).optional()
       }
     },
     async (input) => {
@@ -141,10 +182,13 @@ export function createProjectplanerServer(): McpServer {
     "create_entity",
     {
       description:
-        "Create a Projectplaner entity. Tasks require targetEntityId pointing at an Aspect or Feature. Aspects under a parent should use linkType contains.",
+        "Create an entity. Requires reason (stored in metadata.narrative). Tasks require targetEntityId (Aspect or Feature).",
       inputSchema: {
         type: entityTypeSchema,
         title: z.string(),
+        reason: z.string().describe("Why this entity exists — required durable narrative"),
+        proposal: z.string().optional().describe("Suggested next move / stance"),
+        intent: z.string().optional(),
         summary: z.string().optional(),
         body: z.string().optional(),
         status: statusSchema.optional(),
@@ -169,9 +213,12 @@ export function createProjectplanerServer(): McpServer {
   server.registerTool(
     "update_entity",
     {
-      description: "Update fields on an existing Projectplaner entity.",
+      description: "Update an entity. Requires reason (appended to metadata.narrative).",
       inputSchema: {
         id: z.string(),
+        reason: z.string().describe("Why this change — required durable narrative"),
+        proposal: z.string().optional(),
+        intent: z.string().optional(),
         title: z.string().optional(),
         summary: z.string().optional(),
         body: z.string().optional(),
@@ -193,13 +240,14 @@ export function createProjectplanerServer(): McpServer {
   server.registerTool(
     "create_relation",
     {
-      description: "Create a relation between two entities (depends_on, contains, implements, affects, references, ...).",
+      description: "Create a relation between two entities (depends_on, contains, implements, affects, ...).",
       inputSchema: {
         from: z.string().describe("Source entity id"),
         to: z.string().describe("Target entity id"),
         type: relationTypeSchema,
         label: z.string().optional(),
         primary: z.boolean().optional(),
+        reason: z.string().optional().describe("Optional why this link exists"),
         metadata: z.record(z.unknown()).optional()
       }
     },
@@ -216,7 +264,7 @@ export function createProjectplanerServer(): McpServer {
     "packet_read",
     {
       description:
-        "Read orientation packets linked to an entity. Use before broad code search when consuming a task handoff.",
+        "Read orientation packets linked to an entity, plus that entity's narrative. Prefer narrative when packets are empty.",
       inputSchema: {
         entityId: z.string(),
         workflow: z.string().optional()
@@ -235,10 +283,14 @@ export function createProjectplanerServer(): McpServer {
     "packet_write",
     {
       description:
-        "Write a compact Orientation Packet v1 and attach it to an entity. Leave machine-oriented deltas, not chat transcripts.",
+        "Write Orientation Packet v1 (requires metadata.state + metadata.next) and stamp reason onto the target entity narrative.",
       inputSchema: {
         entityId: z.string(),
-        metadata: z.record(z.unknown()).describe("Packet fields: workflow, state, targetIds, next, confidence, ..."),
+        reason: z.string().describe("Durable reason stamped onto the target entity"),
+        proposal: z.string().optional(),
+        metadata: z
+          .record(z.unknown())
+          .describe("Packet fields: must include state and next; optional confidence, workflow, ..."),
         id: z.string().optional().describe("Existing packet reference id to update"),
         title: z.string().optional(),
         summary: z.string().optional(),

@@ -12,9 +12,10 @@ export function EntityBadges({
   entityKey?: string | null;
   extras?: Array<string | null | undefined>;
 }) {
+  const typeLabel = formatEntityType(type || "unknown");
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Badge tone={type}>{formatEntityType(type)}</Badge>
+      <Badge tone={type || "reference"}>{typeLabel}</Badge>
       <Badge>{formatStatus(status)}</Badge>
       {entityKey ? <Badge>{entityKey}</Badge> : null}
       {extras.filter(Boolean).map((item) => (

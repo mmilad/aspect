@@ -10,3 +10,5 @@ coverage
 dev-*.log
 dev-*.err.log
 *.tsbuildinfo
+
+docs/plan-archive/.local/

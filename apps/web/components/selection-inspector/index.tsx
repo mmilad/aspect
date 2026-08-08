@@ -2,21 +2,21 @@
 
 import Link from "next/link";
 import { LocateFixed, PanelRight } from "lucide-react";
-import type { Feature, ProjectNode, ProjectPlanSnapshot, Task } from "@projectplaner/core";
+import type { Feature, JsonRecord, ProjectNode, ProjectPlanSnapshot, Task } from "@projectplaner/core";
 import { Badge, GhostButton, ToolbarLink, Metric } from "../ui";
 import { EntityHeader, TagList } from "../entity-chrome";
-import type { EntityPreview } from "../../lib/entity-preview";
+import { toEntityPreview, type EntityPreview } from "../../lib/entity-preview";
 import { formatStatus } from "../../lib/entity-label";
 import { projectPaths } from "../../lib/project-paths";
 import styles from "./style.module.css";
 
-export type PreviewEntity = EntityPreview;
+export type PreviewEntity = EntityPreview & { metadata?: JsonRecord };
 
 interface SelectionInspectorProps {
   projectKey: string;
   center: ProjectNode;
   node: ProjectNode;
-  entity: EntityPreview;
+  entity: PreviewEntity;
   feature: Feature | null;
   relatedFeatures?: Feature[];
   directTasks?: Task[];
@@ -44,15 +44,32 @@ export function SelectionInspector({
   onCenter
 }: SelectionInspectorProps) {
   const isAspect = entity.type === "aspect";
-  const preview: EntityPreview = {
-    id: feature?.id ?? entity.id,
-    type: feature ? "feature" : entity.type,
-    key: feature?.key ?? entity.key,
-    title: feature?.title ?? entity.title,
-    summary: feature?.summary ?? entity.summary,
-    status: feature?.status ?? entity.status,
-    path: entity.path
-  };
+  const preview = toEntityPreview(
+    feature
+      ? {
+          id: feature.id,
+          type: "feature",
+          key: feature.key,
+          title: feature.title,
+          summary: feature.summary,
+          body: feature.body,
+          status: feature.status,
+          path: entity.path,
+          metadata: feature.metadata
+        }
+      : {
+          id: entity.id,
+          type: entity.type,
+          key: entity.key,
+          title: entity.title,
+          summary: entity.summary,
+          body: entity.body,
+          status: entity.status,
+          path: entity.path,
+          metadata: entity.metadata,
+          priority: entity.priority
+        }
+  );
   const taskCount = directTasks.length + featureTasks.length + subaspectTasks.length;
 
   return (
@@ -88,6 +105,7 @@ export function SelectionInspector({
 
       <EntityHeader
         entity={preview}
+        extras={[preview.priority]}
         titleClassName={styles.title}
         summaryClassName={styles.summary}
       />

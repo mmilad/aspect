@@ -719,8 +719,7 @@ export async function createTask(db: DatabaseSync, input: CreateTaskInput) {
     sortOrder: nextNumber,
     metadata: {
       priority: input.priority,
-      acceptanceCriteria: input.acceptanceCriteria.filter(Boolean),
-      legacy: { kind: "task" }
+      acceptanceCriteria: input.acceptanceCriteria.filter(Boolean)
     }
   });
   insertGenericRelation(db, {

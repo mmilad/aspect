@@ -1,8 +1,8 @@
 import type { Entity } from "@projectplaner/core";
 import { EntityLink, Field, ToolbarLink } from "../ui";
-import { AcceptanceList, RelationList, TagList, type RelationListItem } from "../entity-chrome";
+import { AcceptanceList, TagList, type RelationListItem } from "../entity-chrome";
 import { TaskCanceledToggle } from "../task-canceled-toggle";
-import { formatStatus } from "../../lib/entity-label";
+import { formatEntityType, formatStatus } from "../../lib/entity-label";
 import { projectPaths } from "../../lib/project-paths";
 import type { Tag } from "@projectplaner/core";
 
@@ -40,10 +40,11 @@ export function OverviewTab({
         </section>
       ) : null}
 
-      {isTask ? (
-        <section className="grid gap-3 sm:grid-cols-3">
-          <Field label="Status" value={formatStatus(entity.status)} />
-          <Field label="Priority" value={priority ?? "—"} />
+      <section className={isTask ? "grid gap-3 sm:grid-cols-4" : "grid gap-3 sm:grid-cols-2"}>
+        <Field label="Type" value={formatEntityType(entity.type)} />
+        <Field label="Status" value={formatStatus(entity.status)} />
+        {isTask ? <Field label="Priority" value={priority ?? "—"} /> : null}
+        {isTask ? (
           <Field
             label="Primary link"
             value={
@@ -54,8 +55,8 @@ export function OverviewTab({
               )
             }
           />
-        </section>
-      ) : null}
+        ) : null}
+      </section>
 
       {isTask ? <TaskCanceledToggle entityId={entity.id} metadata={entity.metadata} /> : null}
 

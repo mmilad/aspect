@@ -6,6 +6,7 @@ import type { EntityType, LegacyEntityRelation } from "@projectplaner/core";
 import { formatEntityType, isCompleteStatus } from "../../lib/entity-label";
 import { graphDotStatusByStatus, graphDotToneByType } from "../../lib/entity-tones";
 import { cn } from "../../lib/utils";
+import { spatialEdgeClass, spatialEdgeWidth } from "./lib/edge-style";
 import type { GraphMatch } from "./types";
 
 interface SpatialGraphCanvasProps {
@@ -86,8 +87,9 @@ export function SpatialGraphCanvas({
                 y1={source.y}
                 x2={target.x}
                 y2={target.y}
-                className={cn(isSelected ? "stroke-zinc-950" : "stroke-teal-700/45")}
-                strokeWidth={isSelected ? 2.4 : 1.3}
+                className={cn(spatialEdgeClass(isSelected))}
+                strokeWidth={spatialEdgeWidth(isSelected)}
+                opacity={isSelected ? 1 : 0.35}
                 strokeDasharray={relation.type === "references" ? "6 7" : undefined}
               />
             );

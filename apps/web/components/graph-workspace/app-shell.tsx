@@ -11,6 +11,7 @@ import { WorkspaceCenter } from "../workspace-center";
 import { projectPaths } from "../../lib/project-paths";
 import { getAncestors } from "./lib/ancestors";
 import { buildGraphEntities } from "./lib/build-graph-entities";
+import { graphEdgeStroke } from "./lib/edge-style";
 import { scoreEntity } from "./lib/score-entity";
 import { getVisibleEntityRelations } from "./lib/visible-relations";
 import { GraphCanvas } from "./graph-canvas";
@@ -93,16 +94,6 @@ export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: App
 
   const childIds = new Set(graph.nodes.filter((node) => node.parentId === centerNode.id).map((node) => node.id));
   const relationIds = new Set(graph.relations.map((relation) => `${relation.sourceNodeId}:${relation.targetNodeId}`));
-  const hierarchyEdges: Edge[] = graph.nodes
-    .filter((node) => node.parentId === centerNode.id && !relationIds.has(`${centerNode.id}:${node.id}`))
-    .map((node) => ({
-      id: `tree-${centerNode.id}-${node.id}`,
-      source: centerNode.id,
-      target: node.id,
-      label: "plans",
-      type: "smoothstep",
-      style: { stroke: "#94a3b8", strokeDasharray: "4 4" }
-    }));
 
   const scopedNodes: Node<GraphFlowNodeData>[] = graph.nodes.map((node, index) => {
     const layout = node.metadata.layout as { x?: number; y?: number } | undefined;
@@ -178,15 +169,40 @@ export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: App
     setFlowNodes(graphNodes);
   }, [graphNodes, setFlowNodes]);
 
-  const relationEdges: Edge[] = graph.relations.map((relation) => ({
-    id: relation.id,
-    source: relation.sourceNodeId,
-    target: relation.targetNodeId,
-    label: relation.label ?? relation.type,
-    type: "smoothstep",
-    animated: relation.type === "blocks" || relation.type === "conflicts_with",
-    style: { stroke: relation.type === "conflicts_with" ? "#be123c" : "#0f766e" }
-  }));
+  const focusId = selectedFeatureId ?? selectedId;
+
+  const relationEdges: Edge[] = graph.relations.map((relation) => {
+    const selected = relation.sourceNodeId === focusId || relation.targetNodeId === focusId;
+    const conflict = relation.type === "conflicts_with";
+    return {
+      id: relation.id,
+      source: relation.sourceNodeId,
+      target: relation.targetNodeId,
+      label: relation.label ?? relation.type,
+      type: "smoothstep",
+      animated: selected || relation.type === "blocks" || relation.type === "conflicts_with",
+      zIndex: selected ? 8 : 0,
+      style: graphEdgeStroke({ selected, conflict })
+    };
+  });
+
+  const hierarchyEdges: Edge[] = graph.nodes
+    .filter((node) => node.parentId === centerNode.id && !relationIds.has(`${centerNode.id}:${node.id}`))
+    .map((node) => {
+      const selected = centerNode.id === focusId || node.id === focusId;
+      return {
+        id: `tree-${centerNode.id}-${node.id}`,
+        source: centerNode.id,
+        target: node.id,
+        label: "plans",
+        type: "smoothstep",
+        zIndex: selected ? 8 : 0,
+        style: {
+          ...graphEdgeStroke({ selected }),
+          strokeDasharray: "4 4"
+        }
+      };
+    });
 
   const visibleEntityRelations = getVisibleEntityRelations(snapshot);
   const displayedMatches: GraphMatch[] =
@@ -194,15 +210,24 @@ export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: App
   const displayedIds = new Set(displayedMatches.map(({ entity }) => entity.id));
   const fullRelationEdges: Edge[] = visibleEntityRelations
     .filter((relation) => displayedIds.has(relation.sourceId) && displayedIds.has(relation.targetId))
-    .map((relation) => ({
-      id: relation.id,
-      source: relation.sourceId,
-      target: relation.targetId,
-      label: relation.label ?? relation.type,
-      type: "smoothstep",
-      animated: relation.type === "blocks" || relation.type === "conflicts_with" || relation.type === "blocked_by",
-      style: { stroke: relation.type === "conflicts_with" || relation.type === "blocked_by" ? "#be123c" : "#0f766e" }
-    }));
+    .map((relation) => {
+      const selected = relation.sourceId === focusId || relation.targetId === focusId;
+      const conflict = relation.type === "conflicts_with" || relation.type === "blocked_by";
+      return {
+        id: relation.id,
+        source: relation.sourceId,
+        target: relation.targetId,
+        label: relation.label ?? relation.type,
+        type: "smoothstep",
+        animated:
+          selected ||
+          relation.type === "blocks" ||
+          relation.type === "conflicts_with" ||
+          relation.type === "blocked_by",
+        zIndex: selected ? 8 : 0,
+        style: graphEdgeStroke({ selected, conflict })
+      };
+    });
 
   const flowEdges = graphMode === "full" ? fullRelationEdges : [...hierarchyEdges, ...relationEdges];
   const incoming = snapshot.relations.filter((relation) => relation.targetNodeId === selectedNode.id);

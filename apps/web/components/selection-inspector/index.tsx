@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { LocateFixed, PanelRight } from "lucide-react";
 import type { Feature, ProjectNode, ProjectPlanSnapshot, Task } from "@projectplaner/core";
-import { Badge, EntityBadges, GhostButton, ToolbarLink, Metric } from "../ui";
+import { Badge, GhostButton, ToolbarLink, Metric } from "../ui";
+import { EntityHeader, TagList } from "../entity-chrome";
 import type { EntityPreview } from "../../lib/entity-preview";
 import { formatStatus } from "../../lib/entity-label";
 import { projectPaths } from "../../lib/project-paths";
@@ -43,11 +44,15 @@ export function SelectionInspector({
   onCenter
 }: SelectionInspectorProps) {
   const isAspect = entity.type === "aspect";
-  const selectedTitle = feature?.title ?? entity.title;
-  const selectedSummary = feature?.summary ?? entity.summary;
-  const selectedStatus = feature?.status ?? entity.status;
-  const selectedKey = feature?.key ?? entity.key;
-  const selectedType = feature ? "feature" : String(entity.type);
+  const preview: EntityPreview = {
+    id: feature?.id ?? entity.id,
+    type: feature ? "feature" : entity.type,
+    key: feature?.key ?? entity.key,
+    title: feature?.title ?? entity.title,
+    summary: feature?.summary ?? entity.summary,
+    status: feature?.status ?? entity.status,
+    path: entity.path
+  };
   const taskCount = directTasks.length + featureTasks.length + subaspectTasks.length;
 
   return (
@@ -81,14 +86,11 @@ export function SelectionInspector({
         </div>
       ) : null}
 
-      <EntityBadges type={selectedType} status={String(selectedStatus)} entityKey={selectedKey} />
-      <h1 className={styles.title}>{selectedTitle}</h1>
-      {entity.path ? (
-        <div className="mt-2 truncate rounded-md border border-border bg-background px-2 py-1 font-mono text-xs text-muted-foreground">
-          {entity.path}
-        </div>
-      ) : null}
-      {selectedSummary ? <p className={styles.summary}>{selectedSummary}</p> : null}
+      <EntityHeader
+        entity={preview}
+        titleClassName={styles.title}
+        summaryClassName={styles.summary}
+      />
 
       <section className={styles.section}>
         <div className={styles.sectionTitle}>Work Signal</div>
@@ -122,15 +124,7 @@ export function SelectionInspector({
 
       <section className={styles.section}>
         <div className={styles.sectionTitle}>Tags</div>
-        {tags.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No tags.</p>
-        ) : (
-          <div className="flex flex-wrap gap-1">
-            {tags.map((tag) => (
-              <Badge key={tag.id}>{tag.label}</Badge>
-            ))}
-          </div>
-        )}
+        <TagList tags={tags} />
       </section>
     </div>
   );

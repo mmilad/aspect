@@ -1,6 +1,6 @@
 import path from "node:path";
 import { NextResponse } from "next/server";
-import { createDatabase, createTask, seedSelfPlanningProject } from "@projectplaner/db";
+import { createDatabase, createTask } from "@projectplaner/db";
 
 export async function POST(request: Request) {
   const body = (await request.json()) as {
@@ -23,7 +23,6 @@ export async function POST(request: Request) {
   const db = createDatabase(dbPath);
 
   try {
-    await seedSelfPlanningProject(db);
     const task = await createTask(db, {
       projectKey: body.projectKey,
       title: body.title,

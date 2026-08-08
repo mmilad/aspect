@@ -4,7 +4,6 @@ import {
   createDatabase,
   createEntity,
   listEntities,
-  seedSelfPlanningProject,
   updateEntity,
   type CreateEntityInput,
   type UpdateEntityInput
@@ -19,7 +18,6 @@ export async function GET(request: Request) {
   const db = openDb();
 
   try {
-    await seedSelfPlanningProject(db);
     return NextResponse.json({
       entities: await listEntities(db, {
         projectKey: url.searchParams.get("projectKey") ?? "PLAN",
@@ -37,7 +35,6 @@ export async function POST(request: Request) {
   const db = openDb();
 
   try {
-    await seedSelfPlanningProject(db);
     const result = await createEntity(db, { ...body, projectKey: body.projectKey ?? "PLAN" });
     return NextResponse.json(result);
   } catch (error) {
@@ -52,7 +49,6 @@ export async function PATCH(request: Request) {
   const db = openDb();
 
   try {
-    await seedSelfPlanningProject(db);
     return NextResponse.json({ entity: await updateEntity(db, body) });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Could not update entity." }, { status: 400 });

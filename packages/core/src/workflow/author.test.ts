@@ -4,8 +4,8 @@ import {
   extractJsonObject,
   parseGeneratedWorkflowGraph,
   scaffoldWorkflowFromBrief
-} from "./workflow-author";
-import { parseWorkflowGraph } from "./workflow";
+} from "./author";
+import { parseWorkflowGraph } from "./schema";
 
 describe("workflow author", () => {
   it("builds prompts that mention v1 constraints", () => {

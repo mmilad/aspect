@@ -5,8 +5,7 @@ import {
   createDatabase,
   getEntity,
   getProjectSnapshot,
-  listRelations,
-  seedSelfPlanningProject
+  listRelations
 } from "@projectplaner/db";
 
 function openDb() {
@@ -17,7 +16,6 @@ export async function loadProject(key = "PLAN") {
   const db = openDb();
 
   try {
-    await seedSelfPlanningProject(db);
     return await getProjectSnapshot(db, key);
   } finally {
     db.close();
@@ -49,7 +47,6 @@ export async function loadEntityDetail(projectKey: string, entityId: string): Pr
   const db = openDb();
 
   try {
-    await seedSelfPlanningProject(db);
     const snapshot = await getProjectSnapshot(db, projectKey);
     if (!snapshot) {
       return null;

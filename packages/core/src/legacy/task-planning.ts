@@ -7,7 +7,7 @@ import type {
   Tag,
   Task,
   TaskLink
-} from "./types";
+} from "../domain/types";
 
 export interface AspectTaskQueryOptions {
   includeSubaspects?: boolean;

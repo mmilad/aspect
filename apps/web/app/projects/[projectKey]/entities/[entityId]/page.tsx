@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Entity, JsonRecord } from "@projectplaner/core";
 import { ProjectViewShell } from "../../../../../components/project-view-shell";
+import { TaskCanceledToggle } from "../../../../../components/task-canceled-toggle";
 import { Badge, EntityBadges, EntityLink, Field, ToolbarLink } from "../../../../../components/ui";
 import { cn } from "../../../../../lib/utils";
 import { projectPaths } from "../../../../../lib/project-paths";
@@ -174,6 +175,8 @@ function OverviewTab({
           />
         </section>
       ) : null}
+
+      {isTask ? <TaskCanceledToggle entityId={entity.id} metadata={entity.metadata} /> : null}
 
       {entity.body ? (
         <section className="rounded-md border border-border bg-white p-4 text-sm leading-6 text-zinc-700 whitespace-pre-wrap">

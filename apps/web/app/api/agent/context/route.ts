@@ -1,7 +1,7 @@
 import path from "node:path";
 import { NextResponse } from "next/server";
 import { entitySearchValues, rankedByQuery, type Entity, type EntityRelation } from "@projectplaner/core";
-import { createDatabase, listEntities, listRelations, seedSelfPlanningProject } from "@projectplaner/db";
+import { createDatabase, listEntities, listRelations } from "@projectplaner/db";
 
 function openDb() {
   return createDatabase(process.env.PROJECTPLANER_DB_PATH ?? path.resolve(process.cwd(), "../../projectplaner.db"));
@@ -113,7 +113,6 @@ export async function GET(request: Request) {
   const db = openDb();
 
   try {
-    await seedSelfPlanningProject(db);
 
     const entities = await listEntities(db, { projectKey });
     const relations = await listRelations(db, { projectKey });

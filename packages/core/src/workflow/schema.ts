@@ -1,4 +1,4 @@
-import type { EntityType, JsonRecord } from "./types";
+import type { EntityType, JsonRecord } from "../domain/types";
 
 export const workflowNodeTypes = [
   "start",
@@ -25,19 +25,39 @@ export interface WorkflowFilterWhere {
 }
 
 export interface WorkflowLoadContextAuto {
-  queryFrom: string;
+  /** Default "query" uses rankedByQuery; "all" loads the full (optionally typed) graph snapshot. */
+  mode?: "query" | "all";
+  /** Bag key for the search string. Required when mode is "query". */
+  queryFrom?: string;
   types?: EntityType[];
   limit?: number;
+  /** When true and writes include a relations key, also write compact relations. */
+  includeRelations?: boolean;
 }
 
 export interface WorkflowFilterAuto {
   from: string;
   keys?: string[];
   where?: WorkflowFilterWhere;
+  /** Rank/filter open unblocked tasks from the loaded graph using domain candidacy. */
+  rank?: "task_candidates";
 }
 
 export interface WorkflowAssignAuto {
-  set: Record<string, unknown>;
+  set?: Record<string, unknown>;
+  /** Copy bag[from][0] into the first declared write key. */
+  pickFirst?: { from: string };
+  /** Build 1-hop neighborhood of bag[of] from in-bag entities/relations. */
+  neighborhoodOf?: {
+    of: string;
+    entitiesFrom?: string;
+    relationsFrom?: string;
+  };
+  /** Compose agentPrompt from selected task + neighborhood context. */
+  composeTaskPrompt?: {
+    taskFrom: string;
+    contextFrom: string;
+  };
 }
 
 export interface WorkflowAutoConfig {
@@ -542,6 +562,147 @@ export const exampleWorkflowGraph: WorkflowGraph = {
       id: "end",
       type: "end",
       position: { x: 1000, y: 0 },
+      data: { title: "End" }
+    }
+  ]
+};
+
+/** Pick next eligible task: load full graph → rank → neighborhood → agent prompt. */
+export const newTaskWorkflowGraph: WorkflowGraph = {
+  version: 1,
+  edges: [
+    { id: "e1", source: "start", target: "load" },
+    { id: "e2", source: "load", target: "rank" },
+    { id: "e3", source: "rank", target: "gate" },
+    { id: "e4", source: "gate", target: "pick" },
+    { id: "e5", source: "pick", target: "neighborhood" },
+    { id: "e6", source: "neighborhood", target: "prompt" },
+    { id: "e7", source: "prompt", target: "llm" },
+    { id: "e8", source: "llm", target: "end" }
+  ],
+  nodes: [
+    {
+      id: "start",
+      type: "start",
+      position: { x: 0, y: 80 },
+      data: { title: "Start", writes: ["goal"] }
+    },
+    {
+      id: "load",
+      type: "context",
+      position: { x: 180, y: 80 },
+      data: {
+        title: "Load graph",
+        writes: ["entities", "relations"],
+        auto: {
+          loadContext: {
+            mode: "all",
+            includeRelations: true
+          }
+        }
+      }
+    },
+    {
+      id: "rank",
+      type: "filter",
+      position: { x: 360, y: 80 },
+      data: {
+        title: "Rank candidates",
+        reads: ["entities", "relations"],
+        writes: ["candidates", "hasCandidates"],
+        auto: {
+          filter: {
+            from: "entities",
+            rank: "task_candidates"
+          }
+        }
+      }
+    },
+    {
+      id: "gate",
+      type: "gate",
+      position: { x: 540, y: 80 },
+      data: {
+        title: "Any candidates?",
+        reads: ["hasCandidates"],
+        gate: {
+          askUserIf: "!hasCandidates"
+        }
+      }
+    },
+    {
+      id: "pick",
+      type: "filter",
+      position: { x: 720, y: 80 },
+      data: {
+        title: "Pick top task",
+        reads: ["candidates"],
+        writes: ["selectedTask"],
+        auto: {
+          assign: {
+            pickFirst: { from: "candidates" }
+          }
+        }
+      }
+    },
+    {
+      id: "neighborhood",
+      type: "filter",
+      position: { x: 900, y: 80 },
+      data: {
+        title: "Task neighborhood",
+        reads: ["selectedTask", "entities", "relations"],
+        writes: ["taskContext"],
+        auto: {
+          assign: {
+            neighborhoodOf: {
+              of: "selectedTask",
+              entitiesFrom: "entities",
+              relationsFrom: "relations"
+            }
+          }
+        }
+      }
+    },
+    {
+      id: "prompt",
+      type: "filter",
+      position: { x: 1080, y: 80 },
+      data: {
+        title: "Compose prompt",
+        reads: ["selectedTask", "taskContext"],
+        writes: ["agentPrompt"],
+        auto: {
+          assign: {
+            composeTaskPrompt: {
+              taskFrom: "selectedTask",
+              contextFrom: "taskContext"
+            }
+          }
+        }
+      }
+    },
+    {
+      id: "llm",
+      type: "llm",
+      position: { x: 1260, y: 80 },
+      data: {
+        title: "Agent handoff",
+        reads: ["agentPrompt", "selectedTask"],
+        writes: ["ack"],
+        llm: {
+          inputKeys: ["agentPrompt", "selectedTask"],
+          instructions:
+            "Execute the selected Projectplaner task using agentPrompt as your full brief. Return ack=true when you have accepted the handoff.",
+          outputSchema: ["ack"],
+          tools: []
+        }
+      }
+    },
+    {
+      id: "end",
+      type: "end",
+      position: { x: 1440, y: 80 },
       data: { title: "End" }
     }
   ]

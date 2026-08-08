@@ -10,13 +10,13 @@ entity/relation tools, `packet_read` / `packet_write`). Serialize those calls.
 Prefer a Feature when one fits; otherwise the smallest truthful Aspect; `Misc`
 only when unclear. Leave follow-ups as linked graph tasks, not chat-only notes.
 
-CLI fallback: `pnpm plan …`. SQLite is living state; seed is bootstrap only.
+CLI fallback: `pnpm plan …`. SQLite is living state (no bootstrap seeder).
 
 ## Architecture
 
 - `apps/web` — Next.js App Router + React Flow graph
-- `packages/core` — domain types and helpers
-- `packages/db` — SQLite (`node:sqlite`) + repository
+- `packages/core` — domain types/helpers (`domain/`), workflow schema (`workflow/`), generators (`generator/`), legacy snapshot adapters (`legacy/`)
+- `packages/db` — SQLite (`node:sqlite`) + repository (storage adapter; swap later without moving domain logic)
 - `packages/mcp` — local stdio MCP
 - Project key: `PLAN`
 

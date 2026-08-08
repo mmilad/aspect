@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 import {
   createDatabase,
   createEntity,
-  seedSelfPlanningProject,
   updateEntity
 } from "@projectplaner/db";
 import {
@@ -32,7 +31,6 @@ export async function POST(request: Request) {
   const db = openDb();
 
   try {
-    await seedSelfPlanningProject(db);
     const created = await createEntity(db, {
       projectKey: body.projectKey ?? "PLAN",
       type: "flow",

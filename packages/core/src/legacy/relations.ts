@@ -1,4 +1,4 @@
-import { relationTypes, type ProjectNode, type ProjectRelation, type RelationType } from "./types";
+import { relationTypes, type ProjectNode, type ProjectRelation, type RelationType } from "../domain/types";
 
 export function isRelationType(value: string): value is RelationType {
   return relationTypes.includes(value as RelationType);

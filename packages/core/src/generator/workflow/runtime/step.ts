@@ -1,5 +1,13 @@
-import { rankedByQuery, entitySearchValues } from "./search";
-import type { Entity, EntityType, JsonRecord } from "./types";
+import { rankedByQuery, entitySearchValues } from "../../../domain/search";
+import {
+  compactEntity,
+  compactRelation,
+  composeTaskPrompt,
+  neighborhoodContext,
+  rankTaskCandidates,
+  type RankedTaskCandidate
+} from "../../../domain/task-candidacy";
+import type { Entity, EntityRelation, EntityType, JsonRecord } from "../../../domain/types";
 import {
   applyBagWrites,
   findNode,
@@ -11,42 +19,19 @@ import {
   type WorkflowGraph,
   type WorkflowNode,
   type WorkflowFilterWhere
-} from "./workflow";
+} from "../../../workflow";
+import type { WorkflowAdapters, WorkflowMatch, WorkflowToolResult } from "./adapters";
 
-export interface WorkflowMatch {
-  id: string;
-  type: EntityType;
-  title: string;
-  status: string;
-  summary?: string;
-  score?: number;
-  [key: string]: unknown;
-}
-
-export interface WorkflowToolCall {
-  name: string;
-  args: Record<string, unknown>;
-}
-
-export interface WorkflowToolResult {
-  values: Record<string, unknown>;
-}
-
-export interface WorkflowWriteCall {
-  action: "create_entity" | "update_entity";
-  args: Record<string, unknown>;
-}
-
-export interface WorkflowAdapters {
-  loadContext?: (input: {
-    query: string;
-    types?: EntityType[];
-    limit: number;
-  }) => Promise<WorkflowMatch[]> | WorkflowMatch[];
-  runTool?: (call: WorkflowToolCall) => Promise<WorkflowToolResult> | WorkflowToolResult;
-  runWrite?: (call: WorkflowWriteCall) => Promise<WorkflowToolResult> | WorkflowToolResult;
-  resolveInstruction?: (instructionRef: string) => Promise<string | null> | string | null;
-}
+export type {
+  FunctionRegistry,
+  WorkflowAdapters,
+  WorkflowFunctionHandler,
+  WorkflowMatch,
+  WorkflowToolCall,
+  WorkflowToolResult,
+  WorkflowWriteCall
+} from "./adapters";
+export { adaptersFromRegistry, createFunctionRegistry } from "./adapters";
 
 export type WorkflowStepKind =
   | "advanced"
@@ -158,6 +143,72 @@ function defaultLoadContext(
   }));
 }
 
+function loadAllEntities(entities: Entity[], types?: EntityType[], limit?: number): WorkflowMatch[] {
+  const pool = types?.length ? entities.filter((entity) => types.includes(entity.type)) : entities;
+  const sliced = typeof limit === "number" ? pool.slice(0, limit) : pool;
+  return sliced.map((item) => ({
+    id: item.id,
+    type: item.type,
+    title: item.title,
+    status: item.status,
+    summary: item.summary,
+    key: item.key
+  }));
+}
+
+function asEntityList(value: unknown, fallback: Entity[]): Entity[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    return fallback;
+  }
+  if (value.every((item) => typeof item === "object" && item !== null && "id" in item && "type" in item)) {
+    return value as Entity[];
+  }
+  return fallback;
+}
+
+function asRelationList(value: unknown, fallback: EntityRelation[]): EntityRelation[] {
+  if (!Array.isArray(value)) {
+    return fallback;
+  }
+  if (
+    value.every(
+      (item) =>
+        typeof item === "object" &&
+        item !== null &&
+        ("sourceEntityId" in item || "from" in item) &&
+        ("targetEntityId" in item || "to" in item)
+    )
+  ) {
+    return value.map((item) => {
+      const record = item as Record<string, unknown>;
+      if (typeof record.sourceEntityId === "string" && typeof record.targetEntityId === "string") {
+        return item as EntityRelation;
+      }
+      return {
+        id: typeof record.id === "string" ? record.id : `${record.from}->${record.to}`,
+        projectId: typeof record.projectId === "string" ? record.projectId : "project",
+        sourceEntityId: String(record.from),
+        targetEntityId: String(record.to),
+        type: (typeof record.type === "string" ? record.type : "related_to") as EntityRelation["type"],
+        label: typeof record.label === "string" ? record.label : null,
+        isPrimary: Boolean(record.primary),
+        metadata: {}
+      };
+    });
+  }
+  return fallback;
+}
+
+function selectedEntityId(value: unknown): string | null {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value === "object" && value !== null && "id" in value && typeof (value as { id: unknown }).id === "string") {
+    return (value as { id: string }).id;
+  }
+  return null;
+}
+
 async function advanceCursor(
   graph: WorkflowGraph,
   bag: WorkflowContextBag,
@@ -210,23 +261,51 @@ async function runContext(
   node: WorkflowNode,
   bag: WorkflowContextBag,
   adapters: WorkflowAdapters,
-  entities: Entity[]
+  entities: Entity[],
+  relations: EntityRelation[]
 ): Promise<WorkflowStepResult> {
   const load = node.data.auto?.loadContext;
   if (!load) {
     return fail(bag, node.id, `Context node ${node.id} requires auto.loadContext.`);
   }
-  const queryValue = bag.keys[load.queryFrom];
-  if (typeof queryValue !== "string") {
-    return fail(bag, node.id, `Context node ${node.id} queryFrom '${load.queryFrom}' is not a string.`);
-  }
-  const limit = load.limit ?? 10;
-  const matches = adapters.loadContext
-    ? await adapters.loadContext({ query: queryValue, types: load.types, limit })
-    : defaultLoadContext(entities, { query: queryValue, types: load.types, limit });
 
+  const mode = load.mode ?? "query";
   const writes = getNodeWrites(node);
-  const applied = applyBagWrites(bag, writes, { [writes[0] ?? "matches"]: matches });
+  const values: Record<string, unknown> = {};
+
+  if (mode === "all") {
+    const matches = adapters.loadContext
+      ? await adapters.loadContext({
+          query: "",
+          types: load.types,
+          limit: load.limit ?? Number.MAX_SAFE_INTEGER,
+          mode: "all"
+        })
+      : loadAllEntities(entities, load.types, load.limit);
+    const entityWrite = writes.find((key) => key !== "relations") ?? writes[0] ?? "entities";
+    values[entityWrite] = matches.map((item) => {
+      const full = entities.find((entity) => entity.id === item.id);
+      return full ? compactEntity(full) : item;
+    });
+    if (writes.includes("relations")) {
+      values.relations = relations.map(compactRelation);
+    }
+  } else {
+    if (!load.queryFrom) {
+      return fail(bag, node.id, `Context node ${node.id} requires auto.loadContext.queryFrom when mode is query.`);
+    }
+    const queryValue = bag.keys[load.queryFrom];
+    if (typeof queryValue !== "string") {
+      return fail(bag, node.id, `Context node ${node.id} queryFrom '${load.queryFrom}' is not a string.`);
+    }
+    const limit = load.limit ?? 10;
+    const matches = adapters.loadContext
+      ? await adapters.loadContext({ query: queryValue, types: load.types, limit, mode: "query" })
+      : defaultLoadContext(entities, { query: queryValue, types: load.types, limit });
+    values[writes[0] ?? "matches"] = matches;
+  }
+
+  const applied = applyBagWrites(bag, writes, values);
   if (!applied.ok) {
     return fail(bag, node.id, applied.error);
   }
@@ -236,18 +315,46 @@ async function runContext(
 async function runFilter(
   graph: WorkflowGraph,
   node: WorkflowNode,
-  bag: WorkflowContextBag
+  bag: WorkflowContextBag,
+  entities: Entity[],
+  relations: EntityRelation[],
+  adapters: WorkflowAdapters
 ): Promise<WorkflowStepResult> {
   const filter = node.data.auto?.filter;
   if (!filter) {
     return fail(bag, node.id, `Filter node ${node.id} requires auto.filter.`);
   }
+  const writes = getNodeWrites(node);
+
+  if (filter.rank === "task_candidates") {
+    // Prefer full runtime entities (bag may only hold compact projections).
+    const candidates = rankTaskCandidates(entities, relations, {
+      criticalTaggedIds: adapters.criticalTaggedIds
+    });
+    const projected = filter.keys
+      ? candidates.map((item) => projectKeys(item, filter.keys) as RankedTaskCandidate)
+      : candidates;
+    const values: Record<string, unknown> = {};
+    if (writes.includes("candidates")) {
+      values.candidates = projected;
+    } else {
+      values[writes[0] ?? "candidates"] = projected;
+    }
+    if (writes.includes("hasCandidates")) {
+      values.hasCandidates = projected.length > 0;
+    }
+    const applied = applyBagWrites(bag, writes, values);
+    if (!applied.ok) {
+      return fail(bag, node.id, applied.error);
+    }
+    return advanceCursor(graph, applied.bag, node.id);
+  }
+
   const source = bag.keys[filter.from];
   if (!Array.isArray(source)) {
     return fail(bag, node.id, `Filter node ${node.id} source '${filter.from}' is not an array.`);
   }
   const filtered = source.filter((item) => matchesWhere(item, filter.where)).map((item) => projectKeys(item, filter.keys));
-  const writes = getNodeWrites(node);
   const applied = applyBagWrites(bag, writes, { [writes[0] ?? "filtered"]: filtered });
   if (!applied.ok) {
     return fail(bag, node.id, applied.error);
@@ -258,18 +365,95 @@ async function runFilter(
 async function runAssign(
   graph: WorkflowGraph,
   node: WorkflowNode,
-  bag: WorkflowContextBag
+  bag: WorkflowContextBag,
+  entities: Entity[],
+  relations: EntityRelation[]
 ): Promise<WorkflowStepResult> {
   const assign = node.data.auto?.assign;
-  if (!assign?.set) {
-    return fail(bag, node.id, `Assign requires auto.assign.set on node ${node.id}.`);
+  if (!assign) {
+    return fail(bag, node.id, `Assign requires auto.assign on node ${node.id}.`);
   }
   const writes = getNodeWrites(node);
-  const applied = applyBagWrites(bag, writes, assign.set);
+  const values: Record<string, unknown> = { ...(assign.set ?? {}) };
+
+  if (assign.pickFirst) {
+    const source = bag.keys[assign.pickFirst.from];
+    if (!Array.isArray(source) || source.length === 0) {
+      return fail(bag, node.id, `pickFirst source '${assign.pickFirst.from}' is empty.`);
+    }
+    const targetKey = writes.find((key) => !(key in values)) ?? writes[0] ?? "selected";
+    values[targetKey] = source[0];
+  }
+
+  if (assign.neighborhoodOf) {
+    const selectedId = selectedEntityId(bag.keys[assign.neighborhoodOf.of]);
+    if (!selectedId) {
+      return fail(bag, node.id, `neighborhoodOf.of '${assign.neighborhoodOf.of}' has no id.`);
+    }
+    const entityList = asEntityList(
+      bag.keys[assign.neighborhoodOf.entitiesFrom ?? "entities"],
+      entities
+    );
+    const relationList = asRelationList(
+      bag.keys[assign.neighborhoodOf.relationsFrom ?? "relations"],
+      relations
+    );
+    const targetKey = writes.find((key) => !(key in values)) ?? writes[0] ?? "taskContext";
+    values[targetKey] = neighborhoodContext(selectedId, entityList, relationList);
+  }
+
+  if (assign.composeTaskPrompt) {
+    const task = bag.keys[assign.composeTaskPrompt.taskFrom];
+    const context = bag.keys[assign.composeTaskPrompt.contextFrom];
+    if (!task || typeof task !== "object") {
+      return fail(bag, node.id, `composeTaskPrompt.taskFrom '${assign.composeTaskPrompt.taskFrom}' missing.`);
+    }
+    const targetKey = writes.find((key) => !(key in values)) ?? writes[0] ?? "agentPrompt";
+    values[targetKey] = composeTaskPrompt({
+      task: task as RankedTaskCandidate,
+      context: context ?? {}
+    });
+  }
+
+  if (!assign.set && !assign.pickFirst && !assign.neighborhoodOf && !assign.composeTaskPrompt) {
+    return fail(bag, node.id, `Assign requires auto.assign.set (or pickFirst/neighborhoodOf/composeTaskPrompt) on node ${node.id}.`);
+  }
+
+  const applied = applyBagWrites(bag, writes, values);
   if (!applied.ok) {
     return fail(bag, node.id, applied.error);
   }
   return advanceCursor(graph, applied.bag, node.id);
+}
+
+async function resolveToolResult(
+  adapters: WorkflowAdapters,
+  name: string,
+  args: Record<string, unknown>
+): Promise<WorkflowToolResult | { error: string }> {
+  if (adapters.runTool) {
+    return adapters.runTool({ name, args });
+  }
+  const handler = adapters.functions?.[name];
+  if (!handler) {
+    return { error: `No runTool adapter or registry function for tool '${name}'.` };
+  }
+  return handler(args);
+}
+
+async function resolveWriteResult(
+  adapters: WorkflowAdapters,
+  action: "create_entity" | "update_entity",
+  args: Record<string, unknown>
+): Promise<WorkflowToolResult | { error: string }> {
+  if (adapters.runWrite) {
+    return adapters.runWrite({ action, args });
+  }
+  const handler = adapters.functions?.[action];
+  if (!handler) {
+    return { error: `No runWrite adapter or registry function for action '${action}'.` };
+  }
+  return handler(args);
 }
 
 async function runTool(
@@ -282,11 +466,11 @@ async function runTool(
   if (!tool?.name) {
     return fail(bag, node.id, `Tool node ${node.id} requires tool.name.`);
   }
-  if (!adapters.runTool) {
-    return fail(bag, node.id, `No runTool adapter for tool '${tool.name}'.`);
-  }
   const args = mapArgsFromBag(tool.argsFromBag, bag);
-  const result = await adapters.runTool({ name: tool.name, args });
+  const result = await resolveToolResult(adapters, tool.name, args);
+  if ("error" in result) {
+    return fail(bag, node.id, result.error);
+  }
   const writes = getNodeWrites(node);
   const applied = applyBagWrites(bag, writes, result.values);
   if (!applied.ok) {
@@ -305,14 +489,14 @@ async function runWrite(
   if (!write?.action) {
     return fail(bag, node.id, `Write node ${node.id} requires write.action.`);
   }
-  if (!adapters.runWrite) {
-    return fail(bag, node.id, `No runWrite adapter for action '${write.action}'.`);
-  }
   const args = {
     ...(write.defaults ?? {}),
     ...mapArgsFromBag(write.argsFromBag, bag)
   };
-  const result = await adapters.runWrite({ action: write.action, args });
+  const result = await resolveWriteResult(adapters, write.action, args);
+  if ("error" in result) {
+    return fail(bag, node.id, result.error);
+  }
   const writes = getNodeWrites(node);
   const applied = applyBagWrites(bag, writes, result.values);
   if (!applied.ok) {
@@ -429,6 +613,7 @@ export async function stepWorkflow(input: {
   bag: WorkflowContextBag;
   adapters?: WorkflowAdapters;
   entities?: Entity[];
+  relations?: EntityRelation[];
   /** When completing an LLM node, supply writes produced by the model. */
   llmWrites?: Record<string, unknown>;
   /** When completing a user gate, choose a route label. */
@@ -436,6 +621,7 @@ export async function stepWorkflow(input: {
 }): Promise<WorkflowStepResult> {
   const adapters = input.adapters ?? {};
   const entities = input.entities ?? [];
+  const relations = input.relations ?? [];
   let bag = { ...input.bag, keys: { ...input.bag.keys } };
 
   if (!bag.cursor) {
@@ -477,23 +663,24 @@ export async function stepWorkflow(input: {
     return advanceCursor(input.graph, { ...bag, status: "running" }, node.id, input.userRoute);
   }
 
-  if (node.data.auto?.assign && (node.type === "context" || node.type === "filter")) {
-    // allow assign on auto-capable nodes when no load/filter present
-  }
+  const assignOnly =
+    Boolean(node.data.auto?.assign) &&
+    !node.data.auto?.loadContext &&
+    !node.data.auto?.filter;
 
   switch (node.type) {
     case "start":
       return runStart(input.graph, node, bag);
     case "context":
-      if (node.data.auto?.assign && !node.data.auto.loadContext) {
-        return runAssign(input.graph, node, bag);
+      if (assignOnly) {
+        return runAssign(input.graph, node, bag, entities, relations);
       }
-      return runContext(input.graph, node, bag, adapters, entities);
+      return runContext(input.graph, node, bag, adapters, entities, relations);
     case "filter":
-      if (node.data.auto?.assign && !node.data.auto.filter) {
-        return runAssign(input.graph, node, bag);
+      if (assignOnly) {
+        return runAssign(input.graph, node, bag, entities, relations);
       }
-      return runFilter(input.graph, node, bag);
+      return runFilter(input.graph, node, bag, entities, relations, adapters);
     case "tool":
       return runTool(input.graph, node, bag, adapters);
     case "write":
@@ -513,6 +700,7 @@ export async function runWorkflowUntilPause(input: {
   bag: WorkflowContextBag;
   adapters?: WorkflowAdapters;
   entities?: Entity[];
+  relations?: EntityRelation[];
   maxSteps?: number;
 }): Promise<WorkflowStepResult> {
   let bag = input.bag;
@@ -524,7 +712,8 @@ export async function runWorkflowUntilPause(input: {
       graph: input.graph,
       bag,
       adapters: input.adapters,
-      entities: input.entities
+      entities: input.entities,
+      relations: input.relations
     });
     bag = last.bag;
     if (last.kind !== "advanced") {

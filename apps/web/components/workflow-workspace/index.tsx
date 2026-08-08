@@ -19,6 +19,7 @@ import {
 import {
   emptyWorkflowGraph,
   exampleWorkflowGraph,
+  newTaskWorkflowGraph,
   parseWorkflowGraph,
   writeWorkflowGraph,
   workflowNodeTypes,
@@ -355,6 +356,9 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
           </GhostButton>
           <GhostButton size="xs" onClick={() => replaceGraph(exampleWorkflowGraph)}>
             Load example
+          </GhostButton>
+          <GhostButton size="xs" onClick={() => replaceGraph(newTaskWorkflowGraph)}>
+            Load New Task
           </GhostButton>
           <GhostButton size="xs" onClick={() => replaceGraph(emptyWorkflowGraph())}>
             Reset empty

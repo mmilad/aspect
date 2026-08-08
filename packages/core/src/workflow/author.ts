@@ -1,4 +1,4 @@
-import { parseWorkflowGraph, type WorkflowGraph } from "./workflow";
+import { parseWorkflowGraph, type WorkflowGraph } from "./schema";
 
 export interface WorkflowAuthorBrief {
   /** What the user wants the workflow to accomplish. */

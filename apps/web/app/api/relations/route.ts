@@ -4,7 +4,6 @@ import {
   createDatabase,
   createRelation,
   listRelations,
-  seedSelfPlanningProject,
   type CreateRelationInput
 } from "@projectplaner/db";
 
@@ -17,7 +16,6 @@ export async function GET(request: Request) {
   const db = openDb();
 
   try {
-    await seedSelfPlanningProject(db);
     return NextResponse.json({
       relations: await listRelations(db, {
         projectKey: url.searchParams.get("projectKey") ?? "PLAN",
@@ -36,7 +34,6 @@ export async function POST(request: Request) {
   const db = openDb();
 
   try {
-    await seedSelfPlanningProject(db);
     return NextResponse.json({ relation: await createRelation(db, { ...body, projectKey: body.projectKey ?? "PLAN" }) });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Could not create relation." }, { status: 400 });

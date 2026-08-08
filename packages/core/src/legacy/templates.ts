@@ -1,4 +1,4 @@
-import type { JsonRecord, NodeType, ProjectNode } from "./types";
+import type { JsonRecord, NodeType, ProjectNode } from "../domain/types";
 
 export interface FieldDescriptor {
   key: string;

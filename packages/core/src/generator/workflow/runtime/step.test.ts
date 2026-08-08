@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { Entity } from "./types";
-import { createContextBag, parseWorkflowGraph } from "./workflow";
-import { runWorkflowUntilPause, stepWorkflow } from "./workflow-runtime";
+import type { Entity } from "../../../domain/types";
+import { createContextBag, parseWorkflowGraph } from "../../../workflow";
+import { runWorkflowUntilPause, stepWorkflow } from "./step";
 
 const exampleFlow = {
   version: 1,
@@ -233,5 +233,92 @@ describe("workflow runtime", () => {
     });
     expect(failed.kind).toBe("failed");
     expect(failed.message).toMatch(/Undeclared write key/);
+  });
+
+  it("runs newTaskWorkflowGraph: load all → rank → pick → prompt → llm", async () => {
+    const { newTaskWorkflowGraph } = await import("../../../workflow");
+    const parsed = parseWorkflowGraph(newTaskWorkflowGraph);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) {
+      return;
+    }
+
+    const aspect = entity({ id: "aspect_1", type: "aspect", title: "Workspace", status: "planned" });
+    const top = entity({
+      id: "task_top",
+      type: "task",
+      title: "High priority open",
+      key: "PLAN-100",
+      status: "todo",
+      metadata: { priority: "critical" },
+      summary: "Do this first"
+    });
+    const blocked = entity({
+      id: "task_blocked",
+      type: "task",
+      title: "Waiting",
+      status: "todo",
+      metadata: { priority: "critical" }
+    });
+    const canceled = entity({
+      id: "task_canceled",
+      type: "task",
+      title: "Fallen branch",
+      status: "todo",
+      metadata: { priority: "critical", disabled: true }
+    });
+    const low = entity({
+      id: "task_low",
+      type: "task",
+      title: "Later",
+      status: "todo",
+      metadata: { priority: "low" }
+    });
+    const entities = [aspect, top, blocked, canceled, low];
+    const relations = [
+      {
+        id: "r1",
+        projectId: "project_test",
+        sourceEntityId: "task_blocked",
+        targetEntityId: "aspect_1",
+        type: "blocked_by" as const,
+        label: null,
+        isPrimary: false,
+        metadata: {}
+      },
+      {
+        id: "r2",
+        projectId: "project_test",
+        sourceEntityId: "task_top",
+        targetEntityId: "aspect_1",
+        type: "affects" as const,
+        label: null,
+        isPrimary: true,
+        metadata: {}
+      }
+    ];
+
+    const bag = createContextBag({
+      workflowId: "flow_new_task",
+      goal: "pick next work",
+      startNodeId: "start"
+    });
+
+    const paused = await runWorkflowUntilPause({
+      graph: parsed.graph,
+      bag,
+      entities,
+      relations
+    });
+
+    expect(paused.kind).toBe("pending_llm");
+    expect(paused.bag.keys.hasCandidates).toBe(true);
+    expect((paused.bag.keys.selectedTask as { id: string }).id).toBe("task_top");
+    expect(String(paused.bag.keys.agentPrompt)).toContain("PLAN-100");
+    expect(String(paused.bag.keys.agentPrompt)).toContain("High priority open");
+    expect(paused.llm?.reads).toHaveProperty("agentPrompt");
+    expect(Array.isArray(paused.bag.keys.candidates)).toBe(true);
+    const candidates = paused.bag.keys.candidates as Array<{ id: string }>;
+    expect(candidates.map((item) => item.id)).toEqual(["task_top", "task_low"]);
   });
 });

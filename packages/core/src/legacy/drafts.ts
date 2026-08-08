@@ -1,4 +1,4 @@
-import type { DraftChange, ProjectNode, ProjectRelation } from "./types";
+import type { DraftChange, ProjectNode, ProjectRelation } from "../domain/types";
 
 export interface DraftConflict {
   severity: "warning" | "error";

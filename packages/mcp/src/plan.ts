@@ -7,7 +7,6 @@ import {
   getEntity,
   listEntities,
   listRelations,
-  seedSelfPlanningProject,
   updateEntity
 } from "@projectplaner/db";
 
@@ -25,7 +24,6 @@ async function withDb<T>(fn: (db: Db) => Promise<T>): Promise<T> {
   const run = queue.then(async () => {
     const db = createDatabase(resolveDbPath());
     try {
-      await seedSelfPlanningProject(db);
       return await fn(db);
     } finally {
       db.close();

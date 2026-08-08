@@ -22,7 +22,6 @@ import {
   importGenericPlan,
   listEntities,
   listRelations,
-  seedSelfPlanningProject,
   updateEntity
 } from "./repository";
 
@@ -348,7 +347,6 @@ async function main(): Promise<void> {
 
   const db = createDatabase();
   try {
-    await seedSelfPlanningProject(db);
 
     if (command === "orient") {
       const snapshot = await import("./repository").then((mod) => mod.getProjectSnapshot(db, "PLAN"));

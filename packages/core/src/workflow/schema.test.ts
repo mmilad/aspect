@@ -7,7 +7,7 @@ import {
   readContextBag,
   writeContextBag,
   writeWorkflowGraph
-} from "./workflow";
+} from "./schema";
 
 const exampleFlow = {
   version: 1,

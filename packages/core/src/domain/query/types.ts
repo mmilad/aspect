@@ -1,4 +1,5 @@
 import type { EntityRelationType, EntityStatus, EntityType, TaskPriority } from "../types";
+import type { EntityNarrative } from "../narrative";
 
 export type EntitySelectMode = "compact" | "full";
 
@@ -13,6 +14,11 @@ export type NamedPredicate = "unblocked" | "task_candidate";
 
 export type EntityFieldName = "id" | "type" | "status" | "key" | "slug" | "title";
 
+export type NarrativeTextField =
+  | "metadata.narrative.reason"
+  | "metadata.narrative.proposal"
+  | "metadata.narrative.intent";
+
 export type FieldFilter =
   | {
       field: EntityFieldName;
@@ -25,7 +31,8 @@ export type FieldFilter =
       op: "eq" | "in";
       value: TaskPriority | TaskPriority[];
     }
-  | { field: "metadata.disabled"; op: "eq"; value: boolean };
+  | { field: "metadata.disabled"; op: "eq"; value: boolean }
+  | { field: NarrativeTextField; op: "eq" | "match"; value: string };
 
 export type RelationFilter = {
   direction: "out" | "in" | "either";
@@ -55,6 +62,19 @@ export type EntityListQuery = {
   limit?: number;
   offset?: number;
   select?: EntitySelectMode;
+  /** When select is compact, still attach metadata.narrative */
+  includeNarrative?: boolean;
+};
+
+export type EntitySearchQuery = {
+  projectKey?: string;
+  q: string;
+  where?: EntityFilter;
+  limit?: number;
+  select?: EntitySelectMode;
+  includeNarrative?: boolean;
+  /** Exclude orientation packet references from the search pool (default true). */
+  excludeOrientationPackets?: boolean;
 };
 
 export type RelatedToSugar = {
@@ -69,12 +89,20 @@ export type TaskListQuery = EntityListQuery & {
   priority?: TaskPriority | TaskPriority[];
 };
 
+export type TaskNextWorkQuery = {
+  projectKey?: string;
+  relatedTo?: RelatedToSugar;
+  limit?: number;
+  select?: EntitySelectMode;
+  includeNarrative?: boolean;
+};
+
 export type CompiledPredicate =
   | { kind: "true" }
   | {
       kind: "field";
-      field: EntityFieldName | "metadata.priority" | "metadata.disabled";
-      op: "eq" | "in" | "neq";
+      field: EntityFieldName | "metadata.priority" | "metadata.disabled" | NarrativeTextField;
+      op: "eq" | "in" | "neq" | "match";
       value: unknown;
     }
   | { kind: "match"; value: string }
@@ -92,6 +120,8 @@ export type CompiledPredicate =
 export type QueryPlan = {
   projectKey: string;
   where: CompiledPredicate;
+  /** Expanded EntityFilter used for meta.applied (null when unconstrained). */
+  applied: EntityFilter | null;
   orderBy: EntityOrderBy[];
   limit?: number;
   offset?: number;
@@ -105,8 +135,29 @@ export type CompactEntityView = {
   title: string;
   status: EntityStatus;
   summary: string;
+  narrative?: EntityNarrative;
+};
+
+export type RetrievalMode = "filter" | "relevance" | "work";
+
+export type ListMeta = {
+  projectKey: string;
+  select: EntitySelectMode;
+  mode: RetrievalMode;
+  applied: EntityFilter | null;
+  query?: string;
+  limit?: number;
+  offset?: number;
 };
 
 export type ListResult<T> = {
   items: T[];
+  meta: ListMeta;
+};
+
+export type RankedItem<T> = T & { score: number };
+
+export type RankedListResult<T> = {
+  items: RankedItem<T>[];
+  meta: ListMeta;
 };

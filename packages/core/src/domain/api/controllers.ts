@@ -1,13 +1,20 @@
-import { compactEntity } from "../task-candidacy";
-import type { Entity, EntityRelationType, EntityType, TaskPriority } from "../types";
+import { compactEntity, workScore } from "../task-candidacy";
+import { getNarrative } from "../narrative";
+import { rankedByQuery, relevanceSearchValues } from "../search";
+import type { Entity, EntityRelation, EntityRelationType, EntityType, TaskPriority } from "../types";
 import { compileListQuery } from "../query/compile";
 import type {
   CompactEntityView,
+  EntityFilter,
   EntityListQuery,
+  EntitySearchQuery,
   EntitySelectMode,
+  ListMeta,
   ListResult,
+  RankedListResult,
   RelatedToSugar,
-  TaskListQuery
+  TaskListQuery,
+  TaskNextWorkQuery
 } from "../query/types";
 import type { EntityStore } from "./store";
 
@@ -17,11 +24,46 @@ export type EntityOfType<T extends EntityType> = Entity & { type: T };
 
 export type EntityView<T extends EntityType = EntityType> = (CompactEntityView & { type: T }) | EntityOfType<T>;
 
-function projectEntity<T extends EntityType>(entity: Entity, select: EntitySelectMode): EntityView<T> {
+function isOrientationPacket(entity: Entity): boolean {
+  return (
+    entity.type === "reference" &&
+    (entity.metadata.kind === "orientation_packet" || typeof entity.metadata.workflow === "string")
+  );
+}
+
+function projectEntity<T extends EntityType>(
+  entity: Entity,
+  select: EntitySelectMode,
+  includeNarrative = false
+): EntityView<T> {
   if (select === "full") {
     return entity as EntityOfType<T>;
   }
-  return compactEntity(entity) as CompactEntityView & { type: T };
+  const compact = compactEntity(entity) as CompactEntityView & { type: T };
+  if (includeNarrative) {
+    compact.narrative = getNarrative(entity);
+  }
+  return compact;
+}
+
+function listMeta(input: {
+  projectKey: string;
+  select: EntitySelectMode;
+  mode: ListMeta["mode"];
+  applied: EntityFilter | null;
+  query?: string;
+  limit?: number;
+  offset?: number;
+}): ListMeta {
+  return {
+    projectKey: input.projectKey,
+    select: input.select,
+    mode: input.mode,
+    applied: input.applied,
+    query: input.query,
+    limit: input.limit,
+    offset: input.offset
+  };
 }
 
 export function expandTaskListQuery(query: TaskListQuery = {}): EntityListQuery {
@@ -71,7 +113,10 @@ export class EntityController<T extends EntityType = EntityType> {
     protected readonly type?: T
   ) {}
 
-  async get(id: string, opts?: { select?: EntitySelectMode }): Promise<EntityView<T> | null> {
+  async get(
+    id: string,
+    opts?: { select?: EntitySelectMode; includeNarrative?: boolean }
+  ): Promise<EntityView<T> | null> {
     const entity = await this.store.getById(id);
     if (!entity) {
       return null;
@@ -79,19 +124,69 @@ export class EntityController<T extends EntityType = EntityType> {
     if (this.type !== undefined && entity.type !== this.type) {
       return null;
     }
-    return projectEntity<T>(entity, opts?.select ?? "compact");
+    return projectEntity<T>(entity, opts?.select ?? "compact", opts?.includeNarrative === true);
   }
 
   async list(query: EntityListQuery = {}): Promise<ListResult<EntityView<T>>> {
     const plan = compileListQuery(query, this.type !== undefined ? { type: this.type } : undefined);
     const rows = await this.store.execute(plan);
     return {
-      items: rows.map((entity) => projectEntity<T>(entity, plan.select))
+      items: rows.map((entity) => projectEntity<T>(entity, plan.select, query.includeNarrative === true)),
+      meta: listMeta({
+        projectKey: plan.projectKey,
+        select: plan.select,
+        mode: "filter",
+        applied: plan.applied,
+        limit: plan.limit,
+        offset: plan.offset
+      })
+    };
+  }
+
+  async search(query: EntitySearchQuery): Promise<RankedListResult<EntityView<T>>> {
+    const q = query.q.trim();
+    const projectKey = query.projectKey ?? "PLAN";
+    const select = query.select ?? "compact";
+    const excludePackets = query.excludeOrientationPackets !== false;
+
+    const plan = compileListQuery(
+      {
+        projectKey,
+        where: query.where,
+        select: "full"
+      },
+      this.type !== undefined ? { type: this.type } : undefined
+    );
+    // Search ranks in memory after filter; do not apply list limit before scoring.
+    const poolPlan = { ...plan, limit: undefined, offset: undefined };
+    let pool = await this.store.execute(poolPlan);
+    if (excludePackets) {
+      pool = pool.filter((entity) => !isOrientationPacket(entity));
+    }
+
+    const ranked = q
+      ? rankedByQuery(pool, q, relevanceSearchValues)
+      : pool.map((item) => ({ item, score: 0 }));
+    const limited = typeof query.limit === "number" ? ranked.slice(0, query.limit) : ranked;
+
+    return {
+      items: limited.map((match) => ({
+        ...projectEntity<T>(match.item, select, query.includeNarrative === true),
+        score: match.score
+      })),
+      meta: listMeta({
+        projectKey,
+        select,
+        mode: "relevance",
+        applied: plan.applied,
+        query: q || undefined,
+        limit: query.limit
+      })
     };
   }
 }
 
-/** Task controller adds list sugar (`unblocked`, `relatedTo`, `priority`). */
+/** Task controller adds list sugar + nextWork candidacy ranking. */
 export class TaskController extends EntityController<"task"> {
   constructor(store: EntityStore) {
     super(store, "task");
@@ -99,6 +194,54 @@ export class TaskController extends EntityController<"task"> {
 
   override async list(query: TaskListQuery = {}): Promise<ListResult<EntityView<"task">>> {
     return super.list(expandTaskListQuery(query));
+  }
+
+  async nextWork(query: TaskNextWorkQuery = {}): Promise<RankedListResult<EntityView<"task">>> {
+    const projectKey = query.projectKey ?? "PLAN";
+    const select = query.select ?? "compact";
+    const listQuery = expandTaskListQuery({
+      projectKey,
+      relatedTo: query.relatedTo,
+      where: { pred: "task_candidate" },
+      select: "full"
+    });
+    const plan = compileListQuery(listQuery, { type: "task" });
+    const poolPlan = { ...plan, limit: undefined, offset: undefined };
+    const candidates = await this.store.execute(poolPlan);
+    const relations = await this.store.listRelations(projectKey);
+
+    const ranked = candidates
+      .map((task) => ({
+        task,
+        score: workScore(task, relations)
+      }))
+      .sort((a, b) => {
+        if (b.score !== a.score) {
+          return b.score - a.score;
+        }
+        const keyA = a.task.key ?? "";
+        const keyB = b.task.key ?? "";
+        if (keyA !== keyB) {
+          return keyA.localeCompare(keyB);
+        }
+        return a.task.id.localeCompare(b.task.id);
+      });
+
+    const limited = typeof query.limit === "number" ? ranked.slice(0, query.limit) : ranked;
+
+    return {
+      items: limited.map((item) => ({
+        ...projectEntity<"task">(item.task, select, query.includeNarrative === true),
+        score: item.score
+      })),
+      meta: listMeta({
+        projectKey,
+        select,
+        mode: "work",
+        applied: plan.applied,
+        limit: query.limit
+      })
+    };
   }
 }
 

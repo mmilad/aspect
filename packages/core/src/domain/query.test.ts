@@ -4,9 +4,11 @@ import {
   createPlanApi,
   expandNamedPredicates,
   evaluatePlan,
+  getNarrative,
   isTaskUnblocked,
   MemoryEntityStore,
   UNBLOCKED_FILTER,
+  withNarrative,
   type Entity,
   type EntityRelation
 } from "../index";
@@ -64,7 +66,6 @@ describe("query expand + evaluate", () => {
     relation("l4", "task_other", "aspect_b", "affects"),
     relation("b1", "task_blocked", "blocker", "blocked_by"),
     relation("b2", "task_resolved_blockers", "blocker_done", "blocked_by"),
-    // blockers belong to a different aspect so they are not in the aspect_a result set
     relation("l5", "blocker", "aspect_b", "affects"),
     relation("l6", "blocker_done", "aspect_b", "affects")
   ];
@@ -75,21 +76,24 @@ describe("query expand + evaluate", () => {
 
   it("matches isTaskUnblocked for evaluatePlan unblocked pred", () => {
     const byId = new Map(entities.map((item) => [item.id, item]));
-    const plan = compileListQuery({
-      projectKey,
-      where: {
-        and: [
-          { pred: "unblocked" },
-          {
-            rel: {
-              direction: "out",
-              types: ["affects", "implements", "validates", "investigates"],
-              some: { field: "id", op: "eq", value: "aspect_a" }
+    const plan = compileListQuery(
+      {
+        projectKey,
+        where: {
+          and: [
+            { pred: "unblocked" },
+            {
+              rel: {
+                direction: "out",
+                types: ["affects", "implements", "validates", "investigates"],
+                some: { field: "id", op: "eq", value: "aspect_a" }
+              }
             }
-          }
-        ]
-      }
-    }, { type: "task" });
+          ]
+        }
+      },
+      { type: "task" }
+    );
 
     const ids = evaluatePlan(plan, entities, relations, {
       projectIdByKey: new Map([[projectKey, projectId]])
@@ -117,10 +121,129 @@ describe("query expand + evaluate", () => {
       select: "compact"
     });
 
+    expect(result.meta.mode).toBe("filter");
+    expect(result.meta.applied).not.toBeNull();
     expect(result.items.map((item) => item.id).sort()).toEqual(
       ["task_open", "task_resolved_blockers"].sort()
     );
     expect(result.items.every((item) => item.type === "task")).toBe(true);
     expect(result.items[0] && "body" in result.items[0]).toBe(false);
+  });
+});
+
+describe("narrative + retrieval modes", () => {
+  it("getNarrative / withNarrative merge without clobbering priority", () => {
+    const task = entity({
+      id: "t1",
+      type: "task",
+      title: "T",
+      metadata: { priority: "high" }
+    });
+    const updated = withNarrative(task, { reason: "because graph", proposal: "ship filter api" });
+    expect(updated.metadata.priority).toBe("high");
+    expect(getNarrative(updated)).toMatchObject({
+      reason: "because graph",
+      proposal: "ship filter api"
+    });
+  });
+
+  it("search ranks an entity when only narrative.reason matches", async () => {
+    const visible = withNarrative(
+      entity({ id: "aspect_reason", type: "aspect", title: "Unrelated Title" }),
+      { reason: "unique-zebra-handoff context" }
+    );
+    const other = entity({ id: "aspect_other", type: "aspect", title: "Something Else" });
+    const api = createPlanApi(
+      new MemoryEntityStore({
+        entities: [visible, other],
+        relations: [],
+        projectIdByKey: new Map([[projectKey, projectId]])
+      })
+    );
+
+    const result = await api.entities.search({
+      projectKey,
+      q: "unique-zebra-handoff",
+      limit: 5,
+      select: "compact"
+    });
+
+    expect(result.meta.mode).toBe("relevance");
+    expect(result.items.map((item) => item.id)).toEqual(["aspect_reason"]);
+    expect(result.items[0]?.score).toBeGreaterThan(0);
+  });
+
+  it("filters by metadata.narrative.reason match", () => {
+    const visible = withNarrative(entity({ id: "a1", type: "aspect", title: "A" }), {
+      reason: "needle-in-reason"
+    });
+    const other = withNarrative(entity({ id: "a2", type: "aspect", title: "B" }), {
+      reason: "different"
+    });
+    const plan = compileListQuery({
+      projectKey,
+      where: { field: "metadata.narrative.reason", op: "match", value: "needle-in-reason" }
+    });
+    const ids = evaluatePlan(plan, [visible, other], [], {
+      projectIdByKey: new Map([[projectKey, projectId]])
+    }).map((item) => item.id);
+    expect(ids).toEqual(["a1"]);
+  });
+
+  it("nextWork orders by workScore and respects relatedTo + unblocked candidacy", async () => {
+    const aspect = entity({ id: "aspect_a", type: "aspect", title: "Aspect A" });
+    const high = entity({
+      id: "task_high",
+      type: "task",
+      title: "High",
+      key: "T-2",
+      metadata: { priority: "critical" }
+    });
+    const low = entity({
+      id: "task_low",
+      type: "task",
+      title: "Low",
+      key: "T-1",
+      metadata: { priority: "low" }
+    });
+    const blocked = entity({
+      id: "task_blocked",
+      type: "task",
+      title: "Blocked",
+      metadata: { priority: "critical" }
+    });
+    const blocker = entity({ id: "blocker", type: "task", title: "Blocker", status: "todo" });
+    const otherAspect = entity({ id: "aspect_b", type: "aspect", title: "B" });
+    const elsewhere = entity({
+      id: "task_elsewhere",
+      type: "task",
+      title: "Elsewhere",
+      metadata: { priority: "critical" }
+    });
+
+    const api = createPlanApi(
+      new MemoryEntityStore({
+        entities: [aspect, otherAspect, high, low, blocked, blocker, elsewhere],
+        relations: [
+          relation("r1", "task_high", "aspect_a", "affects"),
+          relation("r2", "task_low", "aspect_a", "affects"),
+          relation("r3", "task_blocked", "aspect_a", "affects"),
+          relation("r4", "task_blocked", "blocker", "blocked_by"),
+          relation("r5", "blocker", "aspect_b", "affects"),
+          relation("r6", "task_elsewhere", "aspect_b", "affects")
+        ],
+        projectIdByKey: new Map([[projectKey, projectId]])
+      })
+    );
+
+    const result = await api.tasks.nextWork({
+      projectKey,
+      relatedTo: { id: "aspect_a" },
+      limit: 10
+    });
+
+    expect(result.meta.mode).toBe("work");
+    expect(result.items.map((item) => item.id)).toEqual(["task_high", "task_low"]);
+    expect(result.items[0]!.score).toBeGreaterThan(result.items[1]!.score);
   });
 });

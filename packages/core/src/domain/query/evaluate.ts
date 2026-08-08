@@ -1,4 +1,5 @@
 import type { Entity, EntityRelation, EntityRelationType } from "../types";
+import { narrativeSearchValues } from "../narrative";
 import type { CompiledPredicate, EntityOrderBy, QueryPlan } from "./types";
 
 function asStringArray(value: unknown): string[] {
@@ -26,6 +27,27 @@ function readField(entity: Entity, field: string): unknown {
       return entity.metadata.priority;
     case "metadata.disabled":
       return entity.metadata.disabled === true;
+    case "metadata.narrative.reason":
+      return typeof entity.metadata.narrative === "object" &&
+        entity.metadata.narrative &&
+        !Array.isArray(entity.metadata.narrative) &&
+        typeof (entity.metadata.narrative as { reason?: unknown }).reason === "string"
+        ? (entity.metadata.narrative as { reason: string }).reason
+        : undefined;
+    case "metadata.narrative.proposal":
+      return typeof entity.metadata.narrative === "object" &&
+        entity.metadata.narrative &&
+        !Array.isArray(entity.metadata.narrative) &&
+        typeof (entity.metadata.narrative as { proposal?: unknown }).proposal === "string"
+        ? (entity.metadata.narrative as { proposal: string }).proposal
+        : undefined;
+    case "metadata.narrative.intent":
+      return typeof entity.metadata.narrative === "object" &&
+        entity.metadata.narrative &&
+        !Array.isArray(entity.metadata.narrative) &&
+        typeof (entity.metadata.narrative as { intent?: unknown }).intent === "string"
+        ? (entity.metadata.narrative as { intent: string }).intent
+        : undefined;
     default:
       return undefined;
   }
@@ -33,6 +55,19 @@ function readField(entity: Entity, field: string): unknown {
 
 function matchField(entity: Entity, predicate: Extract<CompiledPredicate, { kind: "field" }>): boolean {
   const actual = readField(entity, predicate.field);
+
+  if (predicate.op === "match") {
+    const needle = String(predicate.value ?? "")
+      .trim()
+      .toLowerCase();
+    if (!needle) {
+      return true;
+    }
+    return String(actual ?? "")
+      .toLowerCase()
+      .includes(needle);
+  }
+
   if (predicate.op === "eq") {
     if (predicate.field === "metadata.disabled") {
       return actual === Boolean(predicate.value);
@@ -45,7 +80,6 @@ function matchField(entity: Entity, predicate: Extract<CompiledPredicate, { kind
     }
     return actual !== predicate.value;
   }
-  // in
   const values = asStringArray(predicate.value);
   if (predicate.field === "metadata.disabled") {
     return values.map((item) => item === "true").includes(Boolean(actual));
@@ -58,7 +92,10 @@ function matchText(entity: Entity, query: string): boolean {
   if (!normalized) {
     return true;
   }
-  const haystack = [entity.title, entity.slug, entity.summary, entity.body].join(" ").toLowerCase();
+  const haystack = [entity.title, entity.slug, entity.summary, entity.body, ...narrativeSearchValues(entity)]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
   return haystack.includes(normalized);
 }
 
@@ -126,7 +163,6 @@ export function matchesPredicate(
       if (predicate.quantifier === "none") {
         return !related.some(relatedMatches);
       }
-      // every — vacuous true when no related edges
       return related.every(relatedMatches);
     }
     default: {
@@ -161,11 +197,6 @@ function compareEntities(a: Entity, b: Entity, orderBy: EntityOrderBy[]): number
   return a.id.localeCompare(b.id);
 }
 
-/**
- * Evaluate a QueryPlan against an in-memory graph.
- * Project scoping: when projectKey is set, only entities whose project matches
- * `projectKeyByProjectId` (or all entities if the map omits a project).
- */
 export function evaluatePlan(
   plan: QueryPlan,
   entities: Entity[],

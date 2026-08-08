@@ -6,6 +6,7 @@ export * from "./entities";
 export * from "./paths";
 export * from "./search";
 export * from "./task-candidacy";
+export * from "./narrative";
 export * from "./types";
 export * from "./query";
 export * from "./api";

@@ -6,7 +6,7 @@ import type {
 } from "@projectplaner/core";
 import type { Entity } from "@projectplaner/core";
 import type { DatabaseSync } from "node:sqlite";
-import { getEntity } from "./repository";
+import { getEntity, listRelations } from "./repository";
 
 type SqlValue = string | number | null;
 type SqlFragment = { sql: string; values: SqlValue[] };
@@ -83,6 +83,12 @@ function columnForField(alias: string, field: string): string {
       return `json_extract(${alias}.metadata_json, '$.priority')`;
     case "metadata.disabled":
       return `json_extract(${alias}.metadata_json, '$.disabled')`;
+    case "metadata.narrative.reason":
+      return `json_extract(${alias}.metadata_json, '$.narrative.reason')`;
+    case "metadata.narrative.proposal":
+      return `json_extract(${alias}.metadata_json, '$.narrative.proposal')`;
+    case "metadata.narrative.intent":
+      return `json_extract(${alias}.metadata_json, '$.narrative.intent')`;
     default:
       throw new Error(`Unsupported field in SQL compiler: ${field}`);
   }
@@ -105,6 +111,11 @@ function compileField(
     }
   }
 
+  if (predicate.op === "match") {
+    const pattern = `%${String(predicate.value ?? "")}%`;
+    return { sql: `CAST(${column} AS TEXT) LIKE ?`, values: [pattern] };
+  }
+
   if (predicate.op === "eq") {
     return { sql: `${column} = ?`, values: asList(predicate.value).slice(0, 1) };
   }
@@ -123,8 +134,11 @@ function compileField(
 function compileMatch(alias: string, value: string): SqlFragment {
   const pattern = `%${value}%`;
   return {
-    sql: `(${alias}.title LIKE ? OR ${alias}.slug LIKE ? OR ${alias}.summary LIKE ? OR ${alias}.body LIKE ?)`,
-    values: [pattern, pattern, pattern, pattern]
+    sql: `(${alias}.title LIKE ? OR ${alias}.slug LIKE ? OR ${alias}.summary LIKE ? OR ${alias}.body LIKE ?
+      OR CAST(json_extract(${alias}.metadata_json, '$.narrative.reason') AS TEXT) LIKE ?
+      OR CAST(json_extract(${alias}.metadata_json, '$.narrative.proposal') AS TEXT) LIKE ?
+      OR CAST(json_extract(${alias}.metadata_json, '$.narrative.intent') AS TEXT) LIKE ?)`,
+    values: [pattern, pattern, pattern, pattern, pattern, pattern, pattern]
   };
 }
 
@@ -294,6 +308,9 @@ export function createSqliteEntityStore(db: DatabaseSync): EntityStore {
     },
     execute(plan: QueryPlan) {
       return executePlan(db, plan);
+    },
+    listRelations(projectKey: string) {
+      return listRelations(db, { projectKey });
     }
   };
 }

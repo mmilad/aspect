@@ -1,4 +1,5 @@
 import type { Entity } from "./types";
+import { narrativeSearchValues } from "./narrative";
 
 export interface RankedResult<T> {
   item: T;
@@ -55,5 +56,19 @@ export function entitySearchValues(entity: Entity): Array<string | null | undefi
     entity.body,
     entity.status,
     JSON.stringify(entity.metadata)
+  ];
+}
+
+/** Lean corpus + narrative (no body / raw metadata JSON) for PlanApi.search. */
+export function relevanceSearchValues(entity: Entity): Array<string | null | undefined> {
+  return [
+    entity.id,
+    entity.type,
+    entity.key,
+    entity.slug,
+    entity.title,
+    entity.summary,
+    entity.status,
+    ...narrativeSearchValues(entity)
   ];
 }

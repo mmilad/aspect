@@ -1,11 +1,7 @@
-import path from "node:path";
 import { NextResponse } from "next/server";
-import { rankedByQuery, type Entity, type EntityRelation } from "@projectplaner/core";
-import { createDatabase, listEntities, listRelations } from "@projectplaner/db";
-
-function openDb() {
-  return createDatabase(process.env.PROJECTPLANER_DB_PATH ?? path.resolve(process.cwd(), "../../projectplaner.db"));
-}
+import type { Entity, EntityRelation } from "@projectplaner/core";
+import { listRelations } from "@projectplaner/db";
+import { createWebPlanApi, withDb } from "../../../../lib/plan-api";
 
 function parseLimit(value: string | null, fallback: number): number {
   const parsed = Number(value);
@@ -48,10 +44,6 @@ function relatedEntityIds(seedIds: Set<string>, relations: EntityRelation[], dep
   return ids;
 }
 
-function isOpenTask(entity: Entity): boolean {
-  return entity.type === "task" && entity.status !== "done";
-}
-
 function isOrientationPacket(entity: Entity): boolean {
   return entity.type === "reference" && (entity.metadata.kind === "orientation_packet" || typeof entity.metadata.workflow === "string");
 }
@@ -68,13 +60,18 @@ function truncate(value: string, max = 240): string {
   return `${trimmed.slice(0, max - 1)}…`;
 }
 
-function describeEntity(entity: Entity): string {
+function describeEntity(entity: Pick<Entity, "summary" | "body">): string {
   return truncate(entity.summary || entity.body || "");
 }
 
-/** Lean ranking fields — skip body/metadata so packets and flows do not dominate. */
-function contextSearchValues(entity: Entity): Array<string | null | undefined> {
-  return [entity.id, entity.type, entity.key, entity.slug, entity.title, entity.summary, entity.status];
+function asEntity(item: unknown): Entity | null {
+  if (!item || typeof item !== "object") {
+    return null;
+  }
+  if (!("projectId" in item) || !("body" in item)) {
+    return null;
+  }
+  return item as Entity;
 }
 
 function compactEntity(entity: Entity) {
@@ -88,7 +85,7 @@ function compactEntity(entity: Entity) {
   };
 }
 
-function compactTask(task: Entity) {
+function compactTask(task: Entity & { score?: number }) {
   return {
     ...compactEntity(task),
     priority: taskPriority(task),
@@ -156,137 +153,183 @@ export async function GET(request: Request) {
   const depth = parseDepth(url.searchParams.get("depth"), 1);
   const detail = url.searchParams.get("detail") === "full" ? "full" : "compact";
   const format = url.searchParams.get("format") === "prompt" ? "prompt" : "json";
-  const db = openDb();
 
   try {
-    const entities = await listEntities(db, { projectKey });
-    const relations = await listRelations(db, { projectKey });
-    const byId = new Map(entities.map((entity) => [entity.id, entity]));
-    const project = entities.find((entity) => entity.type === "project");
-    const searchPool = entities.filter((entity) => !isOrientationPacket(entity));
+    return await withDb(async (db) => {
+      const api = createWebPlanApi(db);
+      const relations = await listRelations(db, { projectKey });
 
-    const searchMatches = query ? rankedByQuery(searchPool, query, contextSearchValues).slice(0, limit) : [];
-    const directTarget = entityId ? byId.get(entityId) : undefined;
-    const seeds = new Set<string>();
+      const search = query
+        ? await api.entities.search({ projectKey, q: query, limit, select: "full" })
+        : { items: [] as Array<Entity & { score: number }> };
 
-    if (directTarget) {
-      seeds.add(directTarget.id);
-    }
-    for (const match of searchMatches.slice(0, Math.min(3, limit))) {
-      seeds.add(match.item.id);
-    }
-    if (!directTarget && !query && project) {
-      seeds.add(project.id);
-    }
+      const searchEntities = search.items
+        .map((item) => {
+          const entity = asEntity(item);
+          return entity ? { entity, score: item.score } : null;
+        })
+        .filter((item): item is { entity: Entity; score: number } => Boolean(item));
 
-    const neighborhoodIds = relatedEntityIds(seeds, relations, depth);
-    const neighborhoodEntities = [...neighborhoodIds].map((id) => byId.get(id)).filter((entity): entity is Entity => Boolean(entity));
-    const neighborhoodRelations = relations.filter(
-      (relation) => neighborhoodIds.has(relation.sourceEntityId) && neighborhoodIds.has(relation.targetEntityId)
-    );
-    const openTasks = entities
-      .filter(isOpenTask)
-      .filter(
-        (task) =>
-          seeds.has(task.id) ||
-          relations.some((relation) => relation.sourceEntityId === task.id && seeds.has(relation.targetEntityId))
-      )
-      .sort((a, b) => a.sortOrder - b.sortOrder)
-      .slice(0, limit);
-    const orientationPackets = neighborhoodEntities.filter(isOrientationPacket);
-    const target = directTarget ?? searchMatches[0]?.item ?? null;
-    const productRules = [
-      "Graph is the primary navigation surface.",
-      "Aspects are meaning anchors.",
-      "Features and tasks are first-class entities.",
-      "Every task must link to at least one Aspect or Feature.",
-      "Use depends_on for structural dependencies and blocked_by for temporary execution blockers.",
-      "Agents should orient through the graph before broad code reading and leave linked context after work."
-    ];
-    const workflow = [
-      "Read product rules and target first.",
-      "Use matches and relations to select the smallest truthful Aspect or Feature anchor.",
-      "Inspect detailed entities only when the compact packet is insufficient.",
-      "Record new tasks, questions, decisions, or references as linked graph entities."
-    ];
+      const directTarget = entityId ? asEntity(await api.entities.get(entityId, { select: "full" })) : null;
+      const target = directTarget ?? searchEntities[0]?.entity ?? null;
 
-    const compactResponse = {
-      project: project ? { key: project.key, title: project.title } : { key: projectKey },
-      retrieval: {
-        mode: "fuzzy",
-        query,
-        entityId,
-        detail,
-        format,
-        next: "Use detail=full only when you need raw entity metadata. Embeddings can later back this same contract."
-      },
-      product: {
-        purpose: "Local graph-first planning for software projects.",
-        rules: productRules
-      },
-      target: target ? compactEntity(target) : null,
-      matches: searchMatches.slice(0, limit).map((match) => ({
-        score: match.score,
-        ...compactEntity(match.item)
-      })),
-      relations: neighborhoodRelations.slice(0, limit).map((relation) => compactRelation(relation, byId)),
-      openTasks: openTasks.map(compactTask),
-      orientationPackets: orientationPackets.map(compactPacket),
-      workflow
-    };
+      const seeds = new Set<string>();
+      if (directTarget) {
+        seeds.add(directTarget.id);
+      }
+      for (const match of searchEntities.slice(0, Math.min(3, limit))) {
+        seeds.add(match.entity.id);
+      }
 
-    if (format === "prompt") {
-      const lines = [
-        `Project: ${compactResponse.project.key} ${compactResponse.project.title ?? ""}`.trim(),
-        `Retrieval: ${compactResponse.retrieval.mode}; query="${query || "none"}"; detail=${detail}`,
-        "",
-        "Product rules:",
-        bulletList(productRules),
-        "",
-        "Target:",
-        target ? `- ${target.type} ${target.id}${target.key ? ` ${target.key}` : ""}: ${target.title} [${target.status}]` : "- none",
-        target && describeEntity(target) ? `  ${describeEntity(target)}` : "",
-        "",
-        "Matches:",
-        bulletList(compactResponse.matches.map((match) => `${match.score} ${match.type} ${match.id}: ${match.title} [${match.status}]`)),
-        "",
-        "Relations:",
-        bulletList(compactResponse.relations.map((relation) => `${relation.fromTitle} -[${relation.type}]-> ${relation.toTitle}`)),
-        "",
-        "Open tasks:",
-        bulletList(compactResponse.openTasks.map((task) => `${task.key ?? task.id}: ${task.title} [${task.status}/${task.priority}]`)),
-        "",
-        "Workflow:",
-        bulletList(workflow)
-      ].filter((line) => line !== "");
+      if (seeds.size === 0) {
+        const project = asEntity(
+          (
+            await api.entities.list({
+              projectKey,
+              where: { field: "type", op: "eq", value: "project" },
+              limit: 1,
+              select: "full"
+            })
+          ).items[0]
+        );
+        if (project) {
+          seeds.add(project.id);
+        }
+      }
 
-      return new Response(`${lines.join("\n")}\n`, {
-        headers: { "content-type": "text/plain; charset=utf-8" }
+      const primarySeed = directTarget?.id ?? [...seeds][0];
+      const nextWork = await api.tasks.nextWork({
+        projectKey,
+        relatedTo: primarySeed ? { id: primarySeed } : undefined,
+        limit: Math.max(limit * 3, limit),
+        select: "full"
       });
-    }
 
-    if (detail === "compact") {
-      return NextResponse.json(compactResponse);
-    }
+      const openTasks = nextWork.items
+        .map((item) => asEntity(item))
+        .filter((task): task is Entity => Boolean(task))
+        .filter(
+          (task) =>
+            seeds.size === 0 ||
+            seeds.has(task.id) ||
+            relations.some((relation) => relation.sourceEntityId === task.id && seeds.has(relation.targetEntityId))
+        )
+        .slice(0, limit);
 
-    return NextResponse.json({
-      ...compactResponse,
-      retrieval: {
-        ...compactResponse.retrieval,
-        limit,
-        depth,
-        future: "Embeddings can replace or supplement fuzzy ranking while preserving this response shape."
-      },
-      target: target ? compactEntityDetailFull(target) : null,
-      neighborhood: {
-        entities: neighborhoodEntities.filter((entity) => !isOrientationPacket(entity)).map(compactEntity),
-        relations: neighborhoodRelations.map((relation) => compactRelation(relation, byId))
-      },
-      orientationPackets: orientationPackets.map(compactPacket)
+      const neighborhoodIds = relatedEntityIds(seeds, relations, depth);
+      const neighborhoodEntities = (
+        await Promise.all([...neighborhoodIds].map((id) => api.entities.get(id, { select: "full" })))
+      )
+        .map(asEntity)
+        .filter((entity): entity is Entity => Boolean(entity));
+
+      const byId = new Map(neighborhoodEntities.map((entity) => [entity.id, entity]));
+      for (const task of openTasks) {
+        byId.set(task.id, task);
+      }
+      if (target) {
+        byId.set(target.id, target);
+      }
+
+      const neighborhoodRelations = relations.filter(
+        (relation) => neighborhoodIds.has(relation.sourceEntityId) && neighborhoodIds.has(relation.targetEntityId)
+      );
+      const orientationPackets = neighborhoodEntities.filter(isOrientationPacket);
+      const projectEntity = [...byId.values()].find((entity) => entity.type === "project");
+
+      const productRules = [
+        "Graph is the primary navigation surface.",
+        "Aspects are meaning anchors.",
+        "Features and tasks are first-class entities.",
+        "Every task must link to at least one Aspect or Feature.",
+        "Use depends_on for structural dependencies and blocked_by for temporary execution blockers.",
+        "Agents should orient through the graph before broad code reading and leave linked context after work."
+      ];
+      const workflow = [
+        "Read product rules and target first.",
+        "Use matches and relations to select the smallest truthful Aspect or Feature anchor.",
+        "Inspect detailed entities only when the compact packet is insufficient.",
+        "Record new tasks, questions, decisions, or references as linked graph entities."
+      ];
+
+      const compactResponse = {
+        project: projectEntity
+          ? { key: projectEntity.key, title: projectEntity.title }
+          : { key: projectKey },
+        retrieval: {
+          mode: query ? "relevance" : "filter",
+          query,
+          entityId,
+          detail,
+          format,
+          next: "Use detail=full only when you need raw entity metadata. Embeddings can later back this same contract."
+        },
+        product: {
+          purpose: "Local graph-first planning for software projects.",
+          rules: productRules
+        },
+        target: target ? compactEntity(target) : null,
+        matches: searchEntities.slice(0, limit).map((match) => ({
+          score: match.score,
+          ...compactEntity(match.entity)
+        })),
+        relations: neighborhoodRelations.slice(0, limit).map((relation) => compactRelation(relation, byId)),
+        openTasks: openTasks.map(compactTask),
+        orientationPackets: orientationPackets.map(compactPacket),
+        workflow
+      };
+
+      if (format === "prompt") {
+        const lines = [
+          `Project: ${compactResponse.project.key} ${compactResponse.project.title ?? ""}`.trim(),
+          `Retrieval: ${compactResponse.retrieval.mode}; query="${query || "none"}"; detail=${detail}`,
+          "",
+          "Product rules:",
+          bulletList(productRules),
+          "",
+          "Target:",
+          target ? `- ${target.type} ${target.id}${target.key ? ` ${target.key}` : ""}: ${target.title} [${target.status}]` : "- none",
+          target && describeEntity(target) ? `  ${describeEntity(target)}` : "",
+          "",
+          "Matches:",
+          bulletList(compactResponse.matches.map((match) => `${match.score} ${match.type} ${match.id}: ${match.title} [${match.status}]`)),
+          "",
+          "Relations:",
+          bulletList(compactResponse.relations.map((relation) => `${relation.fromTitle} -[${relation.type}]-> ${relation.toTitle}`)),
+          "",
+          "Open tasks:",
+          bulletList(compactResponse.openTasks.map((task) => `${task.key ?? task.id}: ${task.title} [${task.status}/${task.priority}]`)),
+          "",
+          "Workflow:",
+          bulletList(workflow)
+        ].filter((line) => line !== "");
+
+        return new Response(`${lines.join("\n")}\n`, {
+          headers: { "content-type": "text/plain; charset=utf-8" }
+        });
+      }
+
+      if (detail === "compact") {
+        return NextResponse.json(compactResponse);
+      }
+
+      return NextResponse.json({
+        ...compactResponse,
+        retrieval: {
+          ...compactResponse.retrieval,
+          limit,
+          depth,
+          future: "Embeddings can replace or supplement fuzzy ranking while preserving this response shape."
+        },
+        target: target ? compactEntityDetailFull(target) : null,
+        neighborhood: {
+          entities: neighborhoodEntities.filter((entity) => !isOrientationPacket(entity)).map(compactEntity),
+          relations: neighborhoodRelations.map((relation) => compactRelation(relation, byId))
+        },
+        orientationPackets: orientationPackets.map(compactPacket)
+      });
     });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Could not build agent context." }, { status: 400 });
-  } finally {
-    db.close();
   }
 }

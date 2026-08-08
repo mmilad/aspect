@@ -90,7 +90,6 @@ function compileRelation(rel: RelationFilter): CompiledPredicate {
   }
 
   if (parts.length === 0) {
-    // Relation present with only types/direction: treat as "some related edge exists".
     parts.push({
       kind: "rel",
       direction: rel.direction,
@@ -117,10 +116,11 @@ function combineWhere(parts: EntityFilter[]): EntityFilter | undefined {
 
 const DEFAULT_ORDER: EntityOrderBy[] = [{ field: "sortOrder", dir: "asc" }];
 
-export function compileListQuery(
+/** Expanded filter that will be compiled (type constraint + where). */
+export function resolveAppliedFilter(
   query: EntityListQuery = {},
   options?: { type?: EntityType }
-): QueryPlan {
+): EntityFilter | null {
   const whereParts: EntityFilter[] = [];
   if (options?.type) {
     whereParts.push({ field: "type", op: "eq", value: options.type });
@@ -128,11 +128,18 @@ export function compileListQuery(
   if (query.where) {
     whereParts.push(expandNamedPredicates(query.where));
   }
+  return combineWhere(whereParts) ?? null;
+}
 
-  const combined = combineWhere(whereParts);
+export function compileListQuery(
+  query: EntityListQuery = {},
+  options?: { type?: EntityType }
+): QueryPlan {
+  const applied = resolveAppliedFilter(query, options);
   return {
     projectKey: query.projectKey ?? "PLAN",
-    where: combined ? compileFilter(combined) : { kind: "true" },
+    where: applied ? compileFilter(applied) : { kind: "true" },
+    applied,
     orderBy: query.orderBy?.length ? query.orderBy : DEFAULT_ORDER,
     limit: query.limit,
     offset: query.offset,

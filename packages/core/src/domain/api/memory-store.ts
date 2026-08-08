@@ -30,4 +30,12 @@ export class MemoryEntityStore implements EntityStore {
       projectIdByKey: this.projectIdByKey
     });
   }
+
+  async listRelations(projectKey: string): Promise<EntityRelation[]> {
+    const projectId = this.projectIdByKey.get(projectKey);
+    if (!projectId) {
+      return this.relations;
+    }
+    return this.relations.filter((relation) => relation.projectId === projectId);
+  }
 }

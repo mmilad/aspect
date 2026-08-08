@@ -1,25 +1,10 @@
-import path from "node:path";
 import type { Entity, EntityRelation, Tag } from "@projectplaner/core";
 import { getTagsForEntity } from "@projectplaner/core";
-import {
-  createDatabase,
-  getEntity,
-  getProjectSnapshot,
-  listRelations
-} from "@projectplaner/db";
-
-function openDb() {
-  return createDatabase(process.env.PROJECTPLANER_DB_PATH ?? path.resolve(process.cwd(), "../../projectplaner.db"));
-}
+import { getProjectSnapshot, listRelations } from "@projectplaner/db";
+import { createWebPlanApi, withDb } from "./plan-api";
 
 export async function loadProject(key = "PLAN") {
-  const db = openDb();
-
-  try {
-    return await getProjectSnapshot(db, key);
-  } finally {
-    db.close();
-  }
+  return withDb(async (db) => getProjectSnapshot(db, key));
 }
 
 export type EntityDetailRelation = {
@@ -44,16 +29,15 @@ export type EntityDetailData = {
 };
 
 export async function loadEntityDetail(projectKey: string, entityId: string): Promise<EntityDetailData | null> {
-  const db = openDb();
-
-  try {
+  return withDb(async (db) => {
     const snapshot = await getProjectSnapshot(db, projectKey);
     if (!snapshot) {
       return null;
     }
 
-    const entity = await getEntity(db, entityId);
-    if (!entity || entity.projectId !== snapshot.project.id) {
+    const api = createWebPlanApi(db);
+    const entity = await api.entities.get(entityId, { select: "full" });
+    if (!entity || !("projectId" in entity) || entity.projectId !== snapshot.project.id) {
       return null;
     }
 
@@ -68,9 +52,13 @@ export async function loadEntityDetail(projectKey: string, entityId: string): Pr
         ...incoming.map((relation) => relation.sourceEntityId)
       ])
     ];
-    const relatedEntities = await Promise.all(relatedIds.map((id) => getEntity(db, id)));
+    const relatedEntities = await Promise.all(
+      relatedIds.map((id) => api.entities.get(id, { select: "full" }))
+    );
     const relatedById = new Map(
-      relatedEntities.filter((item): item is Entity => Boolean(item)).map((item) => [item.id, item])
+      relatedEntities
+        .filter((item): item is Entity => Boolean(item) && "projectId" in (item as object))
+        .map((item) => [item.id, item as Entity])
     );
 
     const relations: EntityDetailRelation[] = [
@@ -93,14 +81,12 @@ export async function loadEntityDetail(projectKey: string, entityId: string): Pr
 
     return {
       project: snapshot.project,
-      entity,
+      entity: entity as Entity,
       relations,
       tags: getTagsForEntity({ type: entity.type, id: entity.id }, snapshot),
       notes,
       references,
       relatedWork
     };
-  } finally {
-    db.close();
-  }
+  });
 }

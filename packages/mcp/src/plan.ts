@@ -1,5 +1,13 @@
 import path from "node:path";
-import { entitySearchValues, rankedByQuery, type Entity, type EntityRelation, type EntityRelationType, type EntityStatus, type EntityType, type JsonRecord } from "@projectplaner/core";
+import {
+  rankedByQuery,
+  type Entity,
+  type EntityRelation,
+  type EntityRelationType,
+  type EntityStatus,
+  type EntityType,
+  type JsonRecord
+} from "@projectplaner/core";
 import {
   createDatabase,
   createEntity,
@@ -11,6 +19,9 @@ import {
 } from "@projectplaner/db";
 
 const DEFAULT_PROJECT_KEY = "PLAN";
+const SUMMARY_MAX = 240;
+const BODY_MAX = 2000;
+const DEFAULT_LIST_LIMIT = 30;
 
 type Db = ReturnType<typeof createDatabase>;
 
@@ -36,6 +47,14 @@ async function withDb<T>(fn: (db: Db) => Promise<T>): Promise<T> {
   return run;
 }
 
+function truncate(value: string, max: number): string {
+  const trimmed = value.trim();
+  if (trimmed.length <= max) {
+    return trimmed;
+  }
+  return `${trimmed.slice(0, max - 1)}…`;
+}
+
 function compactEntity(entity: Entity) {
   return {
     id: entity.id,
@@ -43,8 +62,13 @@ function compactEntity(entity: Entity) {
     key: entity.key,
     title: entity.title,
     status: entity.status,
-    summary: entity.summary || entity.body || ""
+    summary: truncate(entity.summary || entity.body || "", SUMMARY_MAX)
   };
+}
+
+/** Lean fields for ranking — avoid body/metadata so packets and flows do not dominate. */
+function orientSearchValues(entity: Entity): Array<string | null | undefined> {
+  return [entity.id, entity.type, entity.key, entity.slug, entity.title, entity.summary, entity.status];
 }
 
 function isOrientationPacket(entity: Entity, workflow?: string): boolean {
@@ -57,11 +81,63 @@ function isOrientationPacket(entity: Entity, workflow?: string): boolean {
   return entity.metadata.kind === "orientation_packet" || typeof entity.metadata.workflow === "string";
 }
 
-function relationTouchesPacket(relation: EntityRelation, entityId: string, packetIds: Set<string>): boolean {
-  return (
-    (relation.sourceEntityId === entityId && packetIds.has(relation.targetEntityId)) ||
-    (relation.targetEntityId === entityId && packetIds.has(relation.sourceEntityId))
-  );
+function isOrientCandidate(entity: Entity): boolean {
+  return !isOrientationPacket(entity);
+}
+
+const PACKET_METADATA_KEYS = [
+  "kind",
+  "workflow",
+  "state",
+  "next",
+  "confidence",
+  "targetIds",
+  "updatedAt"
+] as const;
+
+function compactPacketMetadata(metadata: JsonRecord): JsonRecord {
+  const out: JsonRecord = {};
+  for (const key of PACKET_METADATA_KEYS) {
+    if (metadata[key] !== undefined) {
+      out[key] = metadata[key];
+    }
+  }
+  return out;
+}
+
+function compactPacket(entity: Entity) {
+  return {
+    ...compactEntity(entity),
+    metadata: compactPacketMetadata(entity.metadata)
+  };
+}
+
+function compactEntityDetail(
+  entity: Entity,
+  options: { includeBody?: boolean; includeMetadata?: boolean } = {}
+) {
+  const base = compactEntity(entity);
+  const detail: Record<string, unknown> = { ...base };
+
+  if (entity.type === "task") {
+    detail.priority =
+      typeof entity.metadata.priority === "string" ? entity.metadata.priority : "medium";
+    detail.acceptanceCriteria = Array.isArray(entity.metadata.acceptanceCriteria)
+      ? entity.metadata.acceptanceCriteria.filter((item): item is string => typeof item === "string")
+      : [];
+    if (entity.metadata.disabled === true) {
+      detail.disabled = true;
+    }
+  }
+
+  if (options.includeBody && entity.body) {
+    detail.body = truncate(entity.body, BODY_MAX);
+  }
+  if (options.includeMetadata) {
+    detail.metadata = entity.metadata;
+  }
+
+  return detail;
 }
 
 function normalizePacketMetadata(metadata: JsonRecord, entityId: string, workflow?: string): JsonRecord {
@@ -80,9 +156,11 @@ export async function orient(query?: string, limit = 10) {
     const entities = await listEntities(db, { projectKey: DEFAULT_PROJECT_KEY });
     const relations = await listRelations(db, { projectKey: DEFAULT_PROJECT_KEY });
     const project = entities.find((entity) => entity.type === "project");
+    const candidates = entities.filter(isOrientCandidate);
+
     const matches = query
-      ? rankedByQuery(entities, query, entitySearchValues).slice(0, limit)
-      : entities
+      ? rankedByQuery(candidates, query, orientSearchValues).slice(0, limit)
+      : candidates
           .filter((entity) => entity.type === "aspect")
           .slice(0, limit)
           .map((item) => ({ item, score: 0 }));
@@ -123,13 +201,16 @@ export async function orient(query?: string, limit = 10) {
   });
 }
 
-export async function getPlanEntity(id: string) {
+export async function getPlanEntity(
+  id: string,
+  options: { includeBody?: boolean; includeMetadata?: boolean } = {}
+) {
   return withDb(async (db) => {
     const entity = await getEntity(db, id);
     if (!entity) {
       throw new Error(`Entity not found: ${id}`);
     }
-    return entity;
+    return compactEntityDetail(entity, options);
   });
 }
 
@@ -140,7 +221,10 @@ export async function listPlanEntities(input: { type?: EntityType; query?: strin
       type: input.type,
       query: input.query
     });
-    return entities.slice(0, input.limit ?? 50).map(compactEntity);
+    return entities
+      .filter((entity) => !isOrientationPacket(entity) || input.type === "reference")
+      .slice(0, input.limit ?? DEFAULT_LIST_LIMIT)
+      .map(compactEntity);
   });
 }
 
@@ -278,15 +362,23 @@ export async function packetRead(entityId: string, workflow?: string) {
     if (!entity) {
       throw new Error(`Entity not found: ${entityId}`);
     }
-    const references = await listEntities(db, { projectKey: DEFAULT_PROJECT_KEY, type: "reference" });
-    const packetIds = new Set(references.filter((reference) => isOrientationPacket(reference, workflow)).map((reference) => reference.id));
-    const relations = await listRelations(db, { projectKey: DEFAULT_PROJECT_KEY });
-    const attachedIds = new Set(
-      relations
-        .filter((relation) => relationTouchesPacket(relation, entityId, packetIds))
-        .map((relation) => (relation.sourceEntityId === entityId ? relation.targetEntityId : relation.sourceEntityId))
+
+    const [outgoing, incoming] = await Promise.all([
+      listRelations(db, { projectKey: DEFAULT_PROJECT_KEY, sourceEntityId: entityId }),
+      listRelations(db, { projectKey: DEFAULT_PROJECT_KEY, targetEntityId: entityId })
+    ]);
+
+    const neighborIds = [
+      ...new Set([
+        ...outgoing.map((relation) => relation.targetEntityId),
+        ...incoming.map((relation) => relation.sourceEntityId)
+      ])
+    ];
+
+    const neighbors = (await Promise.all(neighborIds.map((id) => getEntity(db, id)))).filter(
+      (item): item is Entity => item != null
     );
-    return references.filter((reference) => attachedIds.has(reference.id));
+    return neighbors.filter((item) => isOrientationPacket(item, workflow)).map(compactPacket);
   });
 }
 
@@ -340,13 +432,13 @@ export async function packetWrite(input: {
       });
     }
 
-    return compactEntity(packet);
+    return compactPacket(packet);
   });
 }
 
 export function textResult(data: unknown) {
   return {
-    content: [{ type: "text" as const, text: typeof data === "string" ? data : JSON.stringify(data, null, 2) }]
+    content: [{ type: "text" as const, text: typeof data === "string" ? data : JSON.stringify(data) }]
   };
 }
 

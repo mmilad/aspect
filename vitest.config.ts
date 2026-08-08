@@ -1,14 +1,19 @@
 import { defineConfig } from "vitest/config";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const root = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   test: {
     include: ["packages/**/*.test.ts", "tests/**/*.test.ts"],
+    exclude: ["**/node_modules/**", "packages/db/**"],
     environment: "node"
   },
   resolve: {
     alias: {
-      "@projectplaner/core": new URL("./packages/core/src/index.ts", import.meta.url).pathname,
-      "@projectplaner/db": new URL("./packages/db/src/index.ts", import.meta.url).pathname
+      "@projectplaner/core": path.join(root, "packages/core/src/index.ts"),
+      "@projectplaner/db": path.join(root, "packages/db/src/index.ts")
     }
   }
 });

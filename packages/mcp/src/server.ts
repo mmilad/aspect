@@ -101,14 +101,17 @@ export function createProjectplanerServer(): McpServer {
   server.registerTool(
     "get_entity",
     {
-      description: "Fetch one Projectplaner entity by id (Aspect, Feature, Task, Reference, etc.).",
+      description:
+        "Fetch one Projectplaner entity by id. Returns a compact summary by default. Set includeBody/includeMetadata only when needed.",
       inputSchema: {
-        id: z.string().describe("Entity id")
+        id: z.string().describe("Entity id"),
+        includeBody: z.boolean().optional().describe("Include truncated body text"),
+        includeMetadata: z.boolean().optional().describe("Include full metadata JSON")
       }
     },
-    async ({ id }) => {
+    async ({ id, includeBody, includeMetadata }) => {
       try {
-        return textResult(await getPlanEntity(id));
+        return textResult(await getPlanEntity(id, { includeBody, includeMetadata }));
       } catch (error) {
         return errorResult(error);
       }
@@ -122,7 +125,7 @@ export function createProjectplanerServer(): McpServer {
       inputSchema: {
         type: entityTypeSchema.optional(),
         query: z.string().optional(),
-        limit: z.number().int().min(1).max(100).optional()
+        limit: z.number().int().min(1).max(100).optional().describe("Max entities to return (default 30)")
       }
     },
     async (input) => {

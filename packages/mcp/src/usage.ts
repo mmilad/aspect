@@ -4,7 +4,7 @@ Projectplaner is a local graph-first planning store. Use these tools to navigate
 
 ## First moves
 1. Call \`orient\` with a short query for the work area.
-2. Call \`get_entity\` on the best Aspect or Feature match.
+2. Call \`get_entity\` on the best Aspect or Feature match (compact by default).
 3. For an assigned task, call \`packet_read\` before broad code search.
 4. Keep writes small: create/update linked entities, then \`packet_write\` a compact handoff.
 
@@ -13,10 +13,11 @@ Projectplaner is a local graph-first planning store. Use these tools to navigate
 - Every task must link to an existing Aspect or Feature (\`targetEntityId\` + link type).
 - Prefer the smallest truthful Aspect/Feature anchor. Create one only when nothing fits.
 - Orientation packets are compact JSON handoffs, not chat transcripts.
+- Prefer compact reads. Only set \`includeBody\` / \`includeMetadata\` on \`get_entity\` when the summary is insufficient.
 
 ## Tool map
-- orient: ranked neighborhood for a query
-- get_entity / list_entities: inspect graph objects
+- orient: ranked neighborhood for a query (excludes orientation packets from matches)
+- get_entity / list_entities: inspect graph objects (compact summaries)
 - create_entity / update_entity: add or change Aspects, Features, Tasks, References, etc.
 - create_relation: link entities (\`depends_on\`, \`contains\`, \`implements\`, \`affects\`, ...)
 - packet_read / packet_write: consume and leave Orientation Packet v1 handoffs

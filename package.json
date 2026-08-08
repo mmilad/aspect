@@ -7,7 +7,7 @@
     "dev": "pnpm --filter @projectplaner/web dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
-    "test": "vitest run",
+    "test": "vitest run && pnpm --filter @projectplaner/db test:node",
     "plan": "pnpm --filter @projectplaner/db plan",
     "db:push": "pnpm --filter @projectplaner/db db:push"
   },

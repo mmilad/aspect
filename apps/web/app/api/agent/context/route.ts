@@ -1,6 +1,6 @@
 import path from "node:path";
 import { NextResponse } from "next/server";
-import { entitySearchValues, rankedByQuery, type Entity, type EntityRelation } from "@projectplaner/core";
+import { rankedByQuery, type Entity, type EntityRelation } from "@projectplaner/core";
 import { createDatabase, listEntities, listRelations } from "@projectplaner/db";
 
 function openDb() {
@@ -60,8 +60,21 @@ function taskPriority(entity: Entity): string {
   return typeof entity.metadata.priority === "string" ? entity.metadata.priority : "medium";
 }
 
+function truncate(value: string, max = 240): string {
+  const trimmed = value.trim();
+  if (trimmed.length <= max) {
+    return trimmed;
+  }
+  return `${trimmed.slice(0, max - 1)}…`;
+}
+
 function describeEntity(entity: Entity): string {
-  return entity.summary || entity.body || "";
+  return truncate(entity.summary || entity.body || "");
+}
+
+/** Lean ranking fields — skip body/metadata so packets and flows do not dominate. */
+function contextSearchValues(entity: Entity): Array<string | null | undefined> {
+  return [entity.id, entity.type, entity.key, entity.slug, entity.title, entity.summary, entity.status];
 }
 
 function compactEntity(entity: Entity) {
@@ -97,6 +110,39 @@ function compactRelation(relation: EntityRelation, byId: Map<string, Entity>) {
   };
 }
 
+function compactPacket(entity: Entity) {
+  const metadata = entity.metadata;
+  return {
+    ...compactEntity(entity),
+    metadata: {
+      kind: metadata.kind,
+      workflow: metadata.workflow,
+      state: metadata.state,
+      next: metadata.next,
+      confidence: metadata.confidence,
+      targetIds: metadata.targetIds,
+      updatedAt: metadata.updatedAt
+    }
+  };
+}
+
+function compactEntityDetailFull(entity: Entity) {
+  return {
+    ...compactEntity(entity),
+    body: truncate(entity.body, 2000),
+    metadata:
+      entity.type === "task"
+        ? {
+            priority: taskPriority(entity),
+            acceptanceCriteria: Array.isArray(entity.metadata.acceptanceCriteria)
+              ? entity.metadata.acceptanceCriteria.filter((item): item is string => typeof item === "string")
+              : [],
+            disabled: entity.metadata.disabled === true ? true : undefined
+          }
+        : undefined
+  };
+}
+
 function bulletList(values: string[]): string {
   return values.length > 0 ? values.map((value) => `- ${value}`).join("\n") : "- none";
 }
@@ -113,15 +159,13 @@ export async function GET(request: Request) {
   const db = openDb();
 
   try {
-
     const entities = await listEntities(db, { projectKey });
     const relations = await listRelations(db, { projectKey });
     const byId = new Map(entities.map((entity) => [entity.id, entity]));
     const project = entities.find((entity) => entity.type === "project");
+    const searchPool = entities.filter((entity) => !isOrientationPacket(entity));
 
-    const searchMatches = query
-      ? rankedByQuery(entities, query, entitySearchValues).slice(0, limit)
-      : [];
+    const searchMatches = query ? rankedByQuery(searchPool, query, contextSearchValues).slice(0, limit) : [];
     const directTarget = entityId ? byId.get(entityId) : undefined;
     const seeds = new Set<string>();
 
@@ -187,7 +231,7 @@ export async function GET(request: Request) {
       })),
       relations: neighborhoodRelations.slice(0, limit).map((relation) => compactRelation(relation, byId)),
       openTasks: openTasks.map(compactTask),
-      orientationPackets: orientationPackets.map(compactEntity),
+      orientationPackets: orientationPackets.map(compactPacket),
       workflow
     };
 
@@ -226,53 +270,19 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({
-      project: project
-        ? {
-            id: project.id,
-            key: project.key,
-            title: project.title,
-            description: project.summary || project.body
-          }
-        : { key: projectKey },
+      ...compactResponse,
       retrieval: {
-        mode: "fuzzy",
-        query,
-        entityId,
+        ...compactResponse.retrieval,
         limit,
         depth,
         future: "Embeddings can replace or supplement fuzzy ranking while preserving this response shape."
       },
-      productContract: {
-        purpose: "Projectplaner is a local graph-first planning tool for software projects.",
-        rules: [
-          "Graph is the primary navigation surface.",
-          "Aspects are meaning anchors.",
-          "Features and tasks are first-class entities.",
-          "Every task must link to at least one Aspect or Feature.",
-          "Use depends_on for structural dependencies and blocked_by for temporary execution blockers.",
-          "Agents should orient through the graph before broad code reading and leave linked context after work."
-        ]
-      },
-      matches: searchMatches.map((match) => ({
-        score: match.score,
-        entity: match.item
-      })),
-      target,
+      target: target ? compactEntityDetailFull(target) : null,
       neighborhood: {
-        entities: neighborhoodEntities,
-        relations: neighborhoodRelations
+        entities: neighborhoodEntities.filter((entity) => !isOrientationPacket(entity)).map(compactEntity),
+        relations: neighborhoodRelations.map((relation) => compactRelation(relation, byId))
       },
-      openTasks: openTasks.map((task) => ({
-        ...task,
-        priority: taskPriority(task)
-      })),
-      orientationPackets,
-      workflow: [
-        "Read the productContract and target before inspecting files.",
-        "Use matches and neighborhood relations to choose the smallest truthful Aspect or Feature anchor.",
-        "Create or update linked task, question, decision, or reference entities when the work changes project knowledge.",
-        "Verify the implementation and report the graph entities affected."
-      ]
+      orientationPackets: orientationPackets.map(compactPacket)
     });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Could not build agent context." }, { status: 400 });

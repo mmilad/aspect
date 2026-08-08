@@ -165,10 +165,10 @@ export function orientBriefing() {
       "Leave narrative.proposal / openQuestions when useful; use packet_write for execution handoffs."
     ],
     tools: {
-      search: "Relevance search (titles, summaries, narrative.reason/proposal/…).",
+      search: "Relevance search (titles, summaries; narrative fields when present).",
       next_work: "Eligible tasks ranked by work score (unblocked candidates).",
       get_entity: "Compact entity + narrative by default.",
-      list_entities: "Filtered list (type / optional text filter).",
+      list_entities: "Filtered list only (type / optional text filter — not ranked search).",
       create_entity: "Create node; requires reason.",
       update_entity: "Update node; requires reason.",
       create_relation: "Link two entities.",

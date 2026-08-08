@@ -8,8 +8,13 @@ import {
   packetWrite,
   searchPlanEntities
 } from "./plan";
+import { createProjectplanerServer, listRegisteredToolNames } from "./server";
+import { assertExpectedToolNames } from "./tools";
 
 async function main(): Promise<void> {
+  const server = createProjectplanerServer();
+  assertExpectedToolNames(listRegisteredToolNames(server));
+
   const briefing = orientBriefing();
   if (briefing.project.key !== "PLAN") {
     throw new Error("Expected PLAN project.");
@@ -49,6 +54,22 @@ async function main(): Promise<void> {
     throw new Error("Expected next_work meta.mode=work.");
   }
 
+  let missingReasonFailed = false;
+  try {
+    await createPlanEntity({
+      type: "task",
+      title: "should fail without reason",
+      reason: "   ",
+      targetEntityId: "node_agent_orientation",
+      linkType: "affects"
+    });
+  } catch (error) {
+    missingReasonFailed = error instanceof Error && /requires reason/i.test(error.message);
+  }
+  if (!missingReasonFailed) {
+    throw new Error("Expected create_entity to reject blank reason.");
+  }
+
   const written = await packetWrite({
     entityId: created.entity.id,
     reason: "Smoke packet handoff with narrative stamp.",
@@ -68,7 +89,7 @@ async function main(): Promise<void> {
   }
 
   console.log(
-    `ok ${created.entity.id} ${written.packet.id} db=${process.env.PROJECTPLANER_DB_PATH ?? path.resolve("projectplaner.db")}`
+    `ok tools=${listRegisteredToolNames(server).sort().join(",")} ${created.entity.id} ${written.packet.id} db=${process.env.PROJECTPLANER_DB_PATH ?? path.resolve("projectplaner.db")}`
   );
 }
 

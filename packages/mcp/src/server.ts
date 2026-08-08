@@ -14,7 +14,10 @@ import {
   textResult,
   updatePlanEntity
 } from "./plan";
+import { assertExpectedToolNames } from "./tools";
 import { USAGE_GUIDE } from "./usage";
+
+export { EXPECTED_MCP_TOOLS, assertExpectedToolNames } from "./tools";
 
 const entityTypeSchema = z.enum([
   "project",
@@ -85,8 +88,7 @@ export function createProjectplanerServer(): McpServer {
     "orient",
     {
       description:
-        "One-time onboarding for a new agent session. Returns product rules and which tools to use next. Does not search the graph — call search or next_work after this. Serialize with other Projectplaner tools.",
-      inputSchema: {}
+        "One-time onboarding for a new agent session. Returns product rules and which tools to use next. Does not search the graph — call search or next_work after this. Serialize with other Projectplaner tools."
     },
     async () => {
       try {
@@ -101,7 +103,7 @@ export function createProjectplanerServer(): McpServer {
     "search",
     {
       description:
-        "Relevance search over the graph (titles, summaries, narrative.reason/proposal/intent). Use for finding context. Excludes orientation packets by default.",
+        "Relevance search over the graph (titles, summaries; narrative fields when present). Use for finding context — not a raw filter. Excludes orientation packets by default.",
       inputSchema: {
         q: z.string().describe("Short relevance query"),
         type: entityTypeSchema.optional(),
@@ -307,5 +309,21 @@ export function createProjectplanerServer(): McpServer {
     }
   );
 
+  assertExpectedToolNames(listRegisteredToolNames(server));
   return server;
+}
+
+/** Inspect registered tool names (SDK private map; used by smoke/tests). */
+export function listRegisteredToolNames(server: McpServer): string[] {
+  const tools = (server as unknown as { _registeredTools: Record<string, unknown> })._registeredTools;
+  return Object.keys(tools);
+}
+
+/** Registered tool defs for schema honesty checks in tests. */
+export function listRegisteredToolDefs(server: McpServer): Record<
+  string,
+  { description?: string; inputSchema?: unknown }
+> {
+  return (server as unknown as { _registeredTools: Record<string, { description?: string; inputSchema?: unknown }> })
+    ._registeredTools;
 }

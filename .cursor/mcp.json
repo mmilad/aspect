@@ -3,7 +3,10 @@
     "projectplaner": {
       "command": "pnpm",
       "args": ["--filter", "@projectplaner/mcp", "start"],
-      "cwd": "${workspaceFolder}"
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PROJECTPLANER_MCP_SURFACE": "v2"
+      }
     }
   }
 }

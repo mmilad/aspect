@@ -5,8 +5,15 @@ attach to them. Not a Jira/Kanban clone.
 
 ## Agent orientation
 
-Use the Projectplaner MCP for graph navigation and planning writes (`orient`,
-entity/relation tools, `packet_read` / `packet_write`). Serialize those calls.
+Use the Projectplaner MCP for graph navigation and planning writes. Serialize
+those calls (no parallel DB tools).
+
+1. Call `orient` once per session (onboarding / rules — not a graph search).
+2. Call `search` for relevant context, or `next_work` to pick an eligible task.
+3. `get_entity` (and `packet_read` when consuming a handoff) before broad code reading.
+4. On writes (`create_entity`, `update_entity`, `packet_write`), always pass `reason`.
+   End with `packet_write` when handing off execution.
+
 Prefer a Feature when one fits; otherwise the smallest truthful Aspect; `Misc`
 only when unclear. Leave follow-ups as linked graph tasks, not chat-only notes.
 
@@ -29,6 +36,10 @@ pnpm build
 ```
 
 Stale Next runtime: stop dev, remove `apps/web/.next`, restart `pnpm dev`.
+
+Stale MCP tool catalog (missing `search` / `next_work`, old `orient` schema):
+restart the Projectplaner MCP server in Cursor and confirm discovery matches
+`packages/mcp/src/server.ts`.
 
 ## UX
 

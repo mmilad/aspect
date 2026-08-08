@@ -17,9 +17,10 @@ Local graph-first planning store. Aspects are meaning anchors; features and task
 
 ## Tool map
 - orient: session briefing / rules (no graph query)
-- search: relevance ranking (includes narrative.reason)
+- search: relevance ranking (titles, summaries; narrative fields when present)
 - next_work: unblocked task candidates by work score
-- get_entity / list_entities: inspect / filter
+- get_entity: inspect one entity (compact + narrative)
+- list_entities: filter/list only (not ranked search)
 - create_entity / update_entity: writes with enforced narrative
 - create_relation: link entities
 - packet_read / packet_write: execution handoffs (+ narrative stamp on target)

@@ -38,6 +38,7 @@ fills them from declared reads before returning `pending_llm`.
 ## Architecture
 
 - `apps/web` — Next.js App Router + React Flow graph
+- `apps/agent` — thin semi-agent workflow host (run_workflow + pending_llm; no freeform tools)
 - `packages/core` — domain types/helpers (`domain/`), workflow schema (`workflow/`), generators (`generator/`), legacy snapshot adapters (`legacy/`)
 - `packages/db` — SQLite (`node:sqlite`) + repository (storage adapter; swap later without moving domain logic)
 - `packages/mcp` — local stdio MCP

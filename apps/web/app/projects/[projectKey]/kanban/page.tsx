@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { OperationalPane } from "../../../../components/operational-pane";
+import { KanbanBoard } from "../../../../components/kanban-board";
 import { ProjectViewShell } from "../../../../components/project-view-shell";
 import { loadProject } from "../../../../lib/data";
 
@@ -8,7 +8,7 @@ export default async function ProjectKanbanPage({
   searchParams
 }: {
   params: Promise<{ projectKey: string }>;
-  searchParams: Promise<{ selected?: string }>;
+  searchParams: Promise<{ selected?: string; scope?: string }>;
 }) {
   const { projectKey } = await params;
   const query = await searchParams;
@@ -18,18 +18,20 @@ export default async function ProjectKanbanPage({
     notFound();
   }
 
+  const scopeId = query.scope ?? null;
+  const scopeNode = scopeId ? snapshot.nodes.find((node) => node.id === scopeId) : null;
+  const scopeFeature = scopeId ? snapshot.features.find((feature) => feature.id === scopeId) : null;
+  const scopeLabel = scopeNode?.title ?? scopeFeature?.title ?? "kanban";
+
   return (
     <ProjectViewShell
       snapshot={snapshot}
       activeView="kanban"
-      scopeLabel="kanban"
-      selectedId={query.selected}
+      scopeLabel={scopeLabel}
+      selectedId={query.selected ?? scopeId ?? undefined}
       scrollCenter
       center={
-        <OperationalPane
-          title="Kanban"
-          purpose="Operational kanban tab. Full board depth is out of scope for this shell; use Graph for planning navigation."
-        />
+        <KanbanBoard snapshot={snapshot} scopeId={scopeId} selectedId={query.selected ?? scopeId ?? undefined} />
       }
     />
   );

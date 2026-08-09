@@ -12,9 +12,6 @@ import {
   type Connection
 } from "@xyflow/react";
 import {
-  emptyWorkflowGraph,
-  exampleWorkflowGraph,
-  newTaskWorkflowGraph,
   parseWorkflowGraph,
   bagViewAtNode,
   renderWorkflowStory,
@@ -479,9 +476,6 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
         onToggleAuthor={() => setAuthorOpen((open) => !open)}
         onToggleStory={() => setStoryOpen((open) => !open)}
         onToggleDiagram={() => setDiagramOpen((open) => !open)}
-        onLoadExample={() => replaceGraph(exampleWorkflowGraph)}
-        onLoadNewTask={() => replaceGraph(newTaskWorkflowGraph)}
-        onResetEmpty={() => replaceGraph(emptyWorkflowGraph())}
         onSave={() => void save()}
         onRun={() => void startRun()}
       />

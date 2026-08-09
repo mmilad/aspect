@@ -16,9 +16,6 @@ interface WorkflowToolbarProps {
   onToggleAuthor: () => void;
   onToggleStory: () => void;
   onToggleDiagram: () => void;
-  onLoadExample: () => void;
-  onLoadNewTask: () => void;
-  onResetEmpty: () => void;
   onSave: () => void;
   onRun?: () => void;
 }
@@ -35,9 +32,6 @@ export function WorkflowToolbar({
   onToggleAuthor,
   onToggleStory,
   onToggleDiagram,
-  onLoadExample,
-  onLoadNewTask,
-  onResetEmpty,
   onSave,
   onRun
 }: WorkflowToolbarProps) {
@@ -65,15 +59,6 @@ export function WorkflowToolbar({
           onClick={onToggleDiagram}
         >
           Diagram
-        </GhostButton>
-        <GhostButton size="xs" onClick={onLoadExample}>
-          Load example
-        </GhostButton>
-        <GhostButton size="xs" onClick={onLoadNewTask}>
-          Load New Task
-        </GhostButton>
-        <GhostButton size="xs" onClick={onResetEmpty}>
-          Reset empty
         </GhostButton>
         {onRun ? (
           <GhostButton size="xs" onClick={onRun}>

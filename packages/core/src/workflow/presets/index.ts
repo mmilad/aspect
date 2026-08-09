@@ -1,3 +1,4 @@
+import { authorWorkflowPreset } from "./author-workflow";
 import { ensureAspectPreset } from "./ensure-aspect";
 import { listCrudPresets, parseMutationPresetKey, presetKeyFor } from "./crud";
 import { nextWorkPreset } from "./next-work";
@@ -10,6 +11,7 @@ export type {
   EnsureWorkflowPresetsResult,
   WorkflowPreset
 } from "./types";
+export { authorWorkflowGraph, authorWorkflowPreset } from "./author-workflow";
 export { ensureAspectGraph, ensureAspectPreset } from "./ensure-aspect";
 export {
   listCrudPresetKeys,
@@ -29,7 +31,8 @@ export function listWorkflowPresets(): WorkflowPreset[] {
     ...listCrudPresets(),
     nextWorkPreset,
     onboardingPreset,
-    rollupParentStatusPreset
+    rollupParentStatusPreset,
+    authorWorkflowPreset
   ];
 }
 

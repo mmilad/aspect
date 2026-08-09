@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import {
-  buildWorkflowAuthorSystemPrompt,
-  buildWorkflowAuthorUserPrompt,
-  parseGeneratedWorkflowGraph,
-  scaffoldWorkflowFromBrief,
-  type WorkflowGraph
+  buildWorkflowCompileSystemPrompt,
+  buildWorkflowCompileUserPrompt,
+  buildWorkflowOutlineSystemPrompt,
+  buildWorkflowOutlineUserPrompt,
+  generateWorkflowTwoTurn,
+  readLlmChatConfigFromEnv,
+  scaffoldWorkflowFromBrief
 } from "@projectplaner/core";
 
 interface GenerateBody {
@@ -12,58 +14,6 @@ interface GenerateBody {
   title?: string;
   /** When true, skip LLM and always return the deterministic scaffold. */
   scaffoldOnly?: boolean;
-}
-
-function llmConfig() {
-  const baseUrl = process.env.PROJECTPLANER_LLM_BASE_URL?.replace(/\/$/, "");
-  const model = process.env.PROJECTPLANER_LLM_MODEL;
-  const apiKey = process.env.PROJECTPLANER_LLM_API_KEY;
-  if (!baseUrl || !model) {
-    return null;
-  }
-  return { baseUrl, model, apiKey };
-}
-
-async function generateWithLlm(brief: string, title?: string): Promise<WorkflowGraph> {
-  const config = llmConfig();
-  if (!config) {
-    throw new Error("LLM is not configured.");
-  }
-
-  const response = await fetch(`${config.baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      ...(config.apiKey ? { authorization: `Bearer ${config.apiKey}` } : {})
-    },
-    body: JSON.stringify({
-      model: config.model,
-      temperature: 0.2,
-      messages: [
-        { role: "system", content: buildWorkflowAuthorSystemPrompt() },
-        { role: "user", content: buildWorkflowAuthorUserPrompt({ brief, title }) }
-      ]
-    })
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`LLM request failed (${response.status}): ${text.slice(0, 240)}`);
-  }
-
-  const payload = (await response.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
-  };
-  const content = payload.choices?.[0]?.message?.content;
-  if (!content) {
-    throw new Error("LLM returned an empty response.");
-  }
-
-  const parsed = parseGeneratedWorkflowGraph(content);
-  if (!parsed.ok) {
-    throw new Error(parsed.errors.join("; "));
-  }
-  return parsed.graph;
 }
 
 export async function POST(request: Request) {
@@ -75,25 +25,50 @@ export async function POST(request: Request) {
     }
 
     const title = body.title?.trim();
-    const configured = Boolean(llmConfig());
+    const config = readLlmChatConfigFromEnv();
+    const configured = Boolean(config);
 
-    if (body.scaffoldOnly || !configured) {
+    if (body.scaffoldOnly || !config) {
       const graph = scaffoldWorkflowFromBrief({ brief, title });
       return NextResponse.json({
         graph,
         source: "scaffold",
         llmConfigured: configured,
         prompt: {
-          system: buildWorkflowAuthorSystemPrompt(),
-          user: buildWorkflowAuthorUserPrompt({ brief, title })
+          outline: {
+            system: buildWorkflowOutlineSystemPrompt(),
+            user: buildWorkflowOutlineUserPrompt({ brief, title })
+          },
+          compile: {
+            system: buildWorkflowCompileSystemPrompt(),
+            user: buildWorkflowCompileUserPrompt({
+              brief,
+              title,
+              outline: "(outline from turn 1)"
+            })
+          }
         }
       });
     }
 
-    const graph = await generateWithLlm(brief, title);
+    const result = await generateWorkflowTwoTurn({ brief, title }, config);
+    if (!result.graph) {
+      return NextResponse.json(
+        {
+          error: result.parseErrors?.join("; ") ?? "Generated JSON failed schema checks.",
+          outline: result.outline,
+          graphJson: result.graphJson,
+          source: "llm_two_turn",
+          llmConfigured: true
+        },
+        { status: 400 }
+      );
+    }
     return NextResponse.json({
-      graph,
-      source: "llm",
+      graph: result.graph,
+      outline: result.outline,
+      graphJson: result.graphJson,
+      source: "llm_two_turn",
       llmConfigured: true
     });
   } catch (error) {

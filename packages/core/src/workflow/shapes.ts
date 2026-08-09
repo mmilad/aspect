@@ -458,6 +458,63 @@ export function isRecordShape(value: unknown): value is Record<string, unknown> 
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/**
+ * Validate a bag write value against a BagShape.
+ * `any` / `unknown` always pass; fail closed on clear mismatches.
+ */
+export function validateValueAgainstShape(
+  value: unknown,
+  shape: BagShape | undefined
+): { ok: true } | { ok: false; error: string } {
+  const resolved = resolveBagShape(shape);
+  if (resolved.kind === "any" || resolved.kind === "unknown") {
+    return { ok: true };
+  }
+  if (resolved.kind === "primitive") {
+    if (resolved.type === "null") {
+      return value === null ? { ok: true } : { ok: false, error: "expected null" };
+    }
+    if (resolved.type === "string" && typeof value !== "string") {
+      return { ok: false, error: "expected string" };
+    }
+    if (resolved.type === "number" && typeof value !== "number") {
+      return { ok: false, error: "expected number" };
+    }
+    if (resolved.type === "boolean" && typeof value !== "boolean") {
+      return { ok: false, error: "expected boolean" };
+    }
+    return { ok: true };
+  }
+  if (resolved.kind === "array") {
+    if (!Array.isArray(value)) {
+      return { ok: false, error: "expected array" };
+    }
+    for (let i = 0; i < value.length; i++) {
+      const item = validateValueAgainstShape(value[i], resolved.items);
+      if (!item.ok) {
+        return { ok: false, error: `[${i}]: ${item.error}` };
+      }
+    }
+    return { ok: true };
+  }
+  if (resolved.kind === "object") {
+    if (!isRecordShape(value)) {
+      return { ok: false, error: "expected object" };
+    }
+    for (const [key, fieldShape] of Object.entries(resolved.fields)) {
+      if (!(key in value)) {
+        continue;
+      }
+      const field = validateValueAgainstShape(value[key], fieldShape);
+      if (!field.ok) {
+        return { ok: false, error: `${key}: ${field.error}` };
+      }
+    }
+    return { ok: true };
+  }
+  return { ok: true };
+}
+
 /** Parse BagShape from JSON (lenient). */
 export function parseBagShape(raw: unknown): BagShape | undefined {
   if (!isRecordShape(raw) || typeof raw.kind !== "string") {

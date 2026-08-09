@@ -441,6 +441,8 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
         });
         const payload = (await response.json()) as {
           graph?: WorkflowGraph;
+          outline?: string;
+          graphJson?: string;
           source?: string;
           error?: string;
           llmConfigured?: boolean;
@@ -450,13 +452,18 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
         }
         const parsed = parseWorkflowGraph(payload.graph);
         replaceGraph(parsed.ok ? parsed.graph : payload.graph);
-        setStatus(
-          payload.source === "llm"
-            ? "Generated with local LLM. Review nodes, then Save."
-            : payload.llmConfigured
-              ? "Scaffold applied (forced). Review, then Save."
-              : "Scaffold applied (no LLM configured). Set PROJECTPLANER_LLM_BASE_URL + PROJECTPLANER_LLM_MODEL to generate with a model."
-        );
+        if (payload.source === "llm_two_turn" || payload.source === "llm") {
+          const outlineHint = payload.outline?.trim()
+            ? ` Outline: ${payload.outline.trim().slice(0, 120)}${payload.outline.trim().length > 120 ? "…" : ""}`
+            : "";
+          setStatus(`Generated with local LLM (outline → JSON).${outlineHint} Review nodes, then Save.`);
+        } else if (payload.llmConfigured) {
+          setStatus("Scaffold applied (forced). Review, then Save.");
+        } else {
+          setStatus(
+            "Scaffold applied (no LLM configured). Set PROJECTPLANER_LLM_BASE_URL + PROJECTPLANER_LLM_MODEL to generate with a model."
+          );
+        }
         setAuthorOpen(false);
       } catch (error) {
         setStatus(error instanceof Error ? error.message : "Generate failed.");

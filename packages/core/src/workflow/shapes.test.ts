@@ -7,7 +7,8 @@ import {
   listShapePaths,
   serializeBagViewSlim,
   serializeShapeSlim,
-  slimShapesForReads
+  slimShapesForReads,
+  validateValueAgainstShape
 } from "./shapes";
 
 describe("workflow bag shapes", () => {
@@ -95,5 +96,22 @@ describe("workflow bag shapes", () => {
       goal: "string",
       filteredEntities: "Entity[]"
     });
+  });
+
+  it("validateValueAgainstShape checks primitives and arrays", () => {
+    expect(validateValueAgainstShape("ok", { kind: "primitive", type: "string" }).ok).toBe(true);
+    expect(validateValueAgainstShape(1, { kind: "primitive", type: "string" }).ok).toBe(false);
+    expect(
+      validateValueAgainstShape(["a", "b"], {
+        kind: "array",
+        items: { kind: "primitive", type: "string" }
+      }).ok
+    ).toBe(true);
+    expect(
+      validateValueAgainstShape(["a", 2], {
+        kind: "array",
+        items: { kind: "primitive", type: "string" }
+      }).ok
+    ).toBe(false);
   });
 });

@@ -79,12 +79,15 @@ function parseArgs(argv: string[]): ParsedArgs {
     const equalsIndex = rawOption.indexOf("=");
     const rawKey = equalsIndex === -1 ? rawOption : rawOption.slice(0, equalsIndex);
     const inlineValue = equalsIndex === -1 ? undefined : rawOption.slice(equalsIndex + 1);
-    const value = inlineValue ?? argv[index + 1];
-    if (inlineValue === undefined) {
+    const next = argv[index + 1];
+    const value =
+      inlineValue ??
+      (next !== undefined && !next.startsWith("--") ? next : "");
+    if (inlineValue === undefined && next !== undefined && !next.startsWith("--")) {
       index++;
     }
 
-    options[rawKey] = [...(options[rawKey] ?? []), value ?? ""];
+    options[rawKey] = [...(options[rawKey] ?? []), value];
   }
 
   return { positionals, options };
@@ -343,6 +346,7 @@ async function main(): Promise<void> {
     console.log("  pnpm plan export --out <file>");
     console.log("  pnpm plan import --from <file>");
     console.log("  pnpm plan presets-ensure [--force] [--only ensure_aspect]");
+    console.log("  pnpm plan author-demo --brief <text> [--title <text>] [--json] [--outline-only]");
     return;
   }
 
@@ -360,6 +364,98 @@ async function main(): Promise<void> {
     } finally {
       db.close();
     }
+  }
+
+  if (command === "author-demo") {
+    const { loadEnv } = await import("./client");
+    loadEnv();
+    const {
+      generateWorkflowOutline,
+      generateWorkflowTwoTurn,
+      readLlmChatConfigFromEnv
+    } = await import("@projectplaner/core");
+
+    const brief =
+      first(args.options, "brief")?.trim() ||
+      args.positionals.slice(1).join(" ").trim();
+    const title = first(args.options, "title")?.trim();
+    const asJson = "json" in args.options;
+    const outlineOnly = "outline-only" in args.options;
+
+    if (!brief) {
+      throw new Error(
+        'author-demo requires --brief "<what the workflow should do>" (or a trailing brief).'
+      );
+    }
+
+    const config = readLlmChatConfigFromEnv();
+    if (!config) {
+      throw new Error(
+        "LLM not configured. Set PROJECTPLANER_LLM_BASE_URL and PROJECTPLANER_LLM_MODEL in .env (e.g. Ollama)."
+      );
+    }
+
+    if (outlineOnly) {
+      const outline = await generateWorkflowOutline({ brief, title }, config);
+      if (asJson) {
+        console.log(JSON.stringify({ outline, model: config.model }, null, 2));
+        return;
+      }
+      console.log(`Model: ${config.model}`);
+      console.log("");
+      console.log("=== OUTLINE ===");
+      console.log(outline.trim());
+      return;
+    }
+
+    const result = await generateWorkflowTwoTurn({ brief, title }, config);
+
+    if (asJson) {
+      console.log(
+        JSON.stringify(
+          {
+            outline: result.outline,
+            graphJson: result.graphJson,
+            graph: result.graph ?? null,
+            parseErrors: result.parseErrors ?? null,
+            model: config.model
+          },
+          null,
+          2
+        )
+      );
+      return;
+    }
+
+    console.log(`Model: ${config.model}`);
+    console.log("");
+    console.log("=== OUTLINE ===");
+    console.log(result.outline.trim());
+    console.log("");
+    console.log("=== GRAPH JSON ===");
+    try {
+      console.log(JSON.stringify(JSON.parse(result.graphJson), null, 2));
+    } catch {
+      console.log(result.graphJson.trim());
+    }
+    if (result.parseErrors?.length) {
+      console.log("");
+      console.log("=== PARSE ERRORS ===");
+      for (const error of result.parseErrors) {
+        console.log(`- ${error}`);
+      }
+      process.exitCode = 1;
+      return;
+    }
+    if (result.graph) {
+      console.log("");
+      console.log(
+        `=== SUMMARY === nodes=${result.graph.nodes.length} edges=${result.graph.edges.length} types=${[
+          ...new Set(result.graph.nodes.map((node) => node.type))
+        ].join(",")}`
+      );
+    }
+    return;
   }
 
   const { openDatabase } = await import("./client");

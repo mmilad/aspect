@@ -57,7 +57,8 @@ function findEnvFiles(startDir: string): string[] {
   }
 }
 
-function loadEnv(): void {
+/** Load nearest `.env` files into `process.env` (once). */
+export function loadEnv(): void {
   if (loadedEnv) {
     return;
   }

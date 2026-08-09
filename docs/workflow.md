@@ -13,8 +13,15 @@ Examples:
 | `next_work` | Pick eligible task |
 | `onboarding` | Session onboarding pack |
 | `rollup_parent_status` | Derive parent process status and recurse |
+| `author_workflow` | Two LLM steps: text `outline` → `graphJson` (Workflow Step Graph v2) |
 
 Prefer `run_workflow` over raw `create_entity` / `update_entity` when a matching mutation preset is seeded.
+
+### Authoring (`author_workflow` + Generate)
+
+- **Preset** `author_workflow`: Start → Outline as text → Compile to JSON → End. Bag writes `outline` (plain text) then `graphJson` (JSON string). Both are visible in Story / bag inspector when you run the flow.
+- **UI Generate** (Describe): when `PROJECTPLANER_LLM_*` is set, uses the same two-turn path (`outline` then compile) and returns `{ graph, outline, graphJson, source: "llm_two_turn" }`. Without LLM, deterministic scaffold only.
+- Typed LLM writes: `outputContracts` / `pending_llm.outputs` carry `BagShape`; resume validates `llmWrites` against those shapes.
 
 ## Runtime
 
@@ -28,6 +35,19 @@ Prefer `run_workflow` over raw `create_entity` / `update_entity` when a matching
 ```bash
 pnpm plan presets-ensure --force
 # or PROJECTPLANER_PRESETS_FORCE=1
+```
+
+Terminal two-turn author demo (prints outline text, then graph JSON):
+
+```bash
+pnpm plan author-demo --brief "Search aspects, LLM picks one, end"
+# optional: --title "..."  --outline-only  --json
+```
+
+Optional live LLM checks (Ollama etc.; not in default `pnpm test`):
+
+```bash
+pnpm test:llm
 ```
 
 Code: `packages/core/src/workflow/`, `packages/db/src/workflow-runtime.ts`, `packages/db/src/presets.ts`.

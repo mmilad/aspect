@@ -18,6 +18,9 @@ import {
   resolveRouteNextNodeId,
   renderBagTemplate,
   slimShapesForReads,
+  resolveLlmOutputContracts,
+  serializeShapeSlim,
+  validateValueAgainstShape,
   type WorkflowContextBag,
   type WorkflowGraph,
   type WorkflowNode,
@@ -43,6 +46,8 @@ export type WorkflowStepKind =
   | "completed"
   | "failed";
 
+import type { BagShape } from "../../../workflow/types";
+
 export interface WorkflowLlmPending {
   nodeId: string;
   /** Instructions with bag templates already filled. */
@@ -51,6 +56,8 @@ export interface WorkflowLlmPending {
   /** Slim bag shapes for declared reads (AI-friendly). */
   shapes?: Record<string, string>;
   outputSchema: string[];
+  /** Typed write contracts (BagShape) for each outputSchema key. */
+  outputs?: Record<string, { shape: BagShape; required?: boolean; slim?: string }>;
   tools: string[];
   /** Template fill warnings (unknown/disallowed tokens). */
   warnings?: string[];
@@ -583,7 +590,7 @@ async function runLlm(
   }
 
   const inputKeys = llm.inputKeys ?? node.data.reads ?? [];
-  const outputSchema = llm.outputSchema ?? getNodeWrites(node);
+  const { keys: outputSchema, outputs: contracts } = resolveLlmOutputContracts(node);
   const reads = pickBagKeys(bag, inputKeys);
   const shapes = slimShapesForReads(graph, node.id, inputKeys).keys;
   const rendered = renderBagTemplate(instructions, {
@@ -591,6 +598,15 @@ async function runLlm(
     allowedKeys: inputKeys,
     shapes
   });
+
+  const outputs: NonNullable<WorkflowLlmPending["outputs"]> = {};
+  for (const [key, contract] of Object.entries(contracts)) {
+    outputs[key] = {
+      shape: contract.shape,
+      required: contract.required,
+      slim: serializeShapeSlim(contract.shape)
+    };
+  }
 
   return {
     kind: "pending_llm",
@@ -603,6 +619,7 @@ async function runLlm(
       reads,
       shapes,
       outputSchema,
+      outputs,
       tools: llm.tools ?? [],
       ...(rendered.warnings.length > 0 ? { warnings: rendered.warnings } : {})
     }
@@ -728,7 +745,20 @@ export async function stepWorkflow(input: {
   }
 
   if (node.type === "llm" && input.llmWrites) {
-    const applied = applyBagWrites(bag, getNodeWrites(node), input.llmWrites);
+    const { outputs } = resolveLlmOutputContracts(node);
+    for (const [key, contract] of Object.entries(outputs)) {
+      if (!(key in input.llmWrites)) {
+        if (contract.required) {
+          return fail(bag, node.id, `Missing declared LLM write key: ${key}`);
+        }
+        continue;
+      }
+      const check = validateValueAgainstShape(input.llmWrites[key], contract.shape);
+      if (!check.ok) {
+        return fail(bag, node.id, `LLM write '${key}' failed shape check: ${check.error}`);
+      }
+    }
+    const applied = applyBagWrites(bag, Object.keys(outputs), input.llmWrites);
     if (!applied.ok) {
       return fail(bag, node.id, applied.error);
     }

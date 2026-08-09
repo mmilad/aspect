@@ -20,13 +20,20 @@ Local graph-first planning store. Aspects are meaning anchors; features and task
 - LLM instructions may include bag templates (\`{{key}}\`, \`{{@reads}}\`); filled before pause.
 - Compact reads by default; only set includeBody / includeMetadata when needed.
 
+## relatedTo (read carefully)
+- \`relatedTo\` filters to entities that have an **outgoing** relation **targeting** that id.
+- Example that works: tasks with \`implements\`/\`affects\`/… → Feature X; or parent Feature with \`contains\` → child Feature Y when you pass **Y**.
+- Example that returns empty: \`relatedTo\` on a **contains-parent** (e.g. Application Shell) expecting its children. Children do not link out to the parent; the parent links out to them.
+- For feature trees: search by title, open the leaf Feature, use \`next_work({ relatedTo: leafId })\`, or CLI \`pnpm plan orient "<name>"\`.
+- Do not create reverse \`contains\` edges to “fix” empty incoming on the parent — one directed edge is enough.
+
 ## Tool map
 - orient: session briefing / rules (no graph query)
-- search: relevance ranking (titles, summaries; narrative fields when present); archived excluded by default
-- next_work: unblocked task candidates by work score
+- search: relevance ranking (titles, summaries; narrative fields when present); archived excluded by default; optional relatedTo = outgoing→id
+- next_work: unblocked task candidates by work score; relatedTo = tasks linking out to that Aspect/Feature
 - get_entity: inspect one entity (compact + narrative), including archived by id
-- list_entities: filter/list only (not ranked search); archived excluded by default
+- list_entities: filter/list only (not ranked search); archived excluded by default; optional relatedTo = outgoing→id
 - create_entity / update_entity: writes with enforced narrative
-- create_relation: link entities
+- create_relation: link entities (directed)
 - packet_read / packet_write: execution handoffs (+ narrative stamp on target)
 `;

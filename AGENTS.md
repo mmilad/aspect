@@ -14,6 +14,12 @@ those calls (no parallel DB tools).
 4. On writes (`create_entity`, `update_entity`, `packet_write`), always pass `reason`.
    End with `packet_write` when handing off execution.
 
+`relatedTo` means entities with an **outgoing** link **to** that id — not “children of
+this parent.” A Feature that `contains` others will not list those children when you
+pass the parent id; search by title, open the leaf Feature, or use `pnpm plan orient`.
+Scope `next_work` to the Aspect/Feature tasks actually `implements`/`affects`. Relations
+are directed; do not duplicate reverse `contains` edges.
+
 Prefer a Feature when one fits; otherwise the smallest truthful Aspect; `Misc`
 only when unclear. Leave follow-ups as linked graph tasks, not chat-only notes.
 

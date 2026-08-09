@@ -22,6 +22,9 @@ async function main(): Promise<void> {
   if (!briefing.next.includes("search")) {
     throw new Error("Expected orient briefing to point at search/next_work.");
   }
+  if (!briefing.rules.some((rule) => /relatedTo means entities with an outgoing link/i.test(rule))) {
+    throw new Error("Expected orient briefing to explain relatedTo outgoing semantics.");
+  }
 
   const searched = await searchPlanEntities({ q: "agent orientation", limit: 5 });
   if (searched.items.length === 0) {

@@ -45,12 +45,13 @@ describe("projectplaner MCP tool surface", () => {
     for (const key of ["relatedTo", "limit"]) {
       assert.ok(shapeKeys(defs.next_work?.inputSchema).includes(key), `next_work missing ${key}`);
     }
+    assert.match(defs.next_work?.description ?? "", /leaf Feature|outgoing affects\/implements/i);
 
     for (const key of ["id", "includeBody", "includeMetadata"]) {
       assert.ok(shapeKeys(defs.get_entity?.inputSchema).includes(key), `get_entity missing ${key}`);
     }
 
-    assert.match(defs.list_entities?.description ?? "", /not ranked/i);
+    assert.match(defs.list_entities?.description ?? "", /outgoing links targeting/i);
 
     for (const key of ["type", "title", "reason"]) {
       assert.ok(shapeKeys(defs.create_entity?.inputSchema).includes(key), `create_entity missing ${key}`);

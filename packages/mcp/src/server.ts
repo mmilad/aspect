@@ -108,7 +108,12 @@ export function createProjectplanerServer(): McpServer {
       inputSchema: {
         q: z.string().describe("Short relevance query"),
         type: entityTypeSchema.optional(),
-        relatedTo: z.string().optional().describe("Only entities linked out to this id"),
+        relatedTo: z
+          .string()
+          .optional()
+          .describe(
+            "Only entities with an outgoing relation targeting this id (not contains-children of a parent). Pass a leaf/target id."
+          ),
         limit: z.number().int().min(1).max(50).optional(),
         includeArchived: z
           .boolean()
@@ -129,9 +134,14 @@ export function createProjectplanerServer(): McpServer {
     "next_work",
     {
       description:
-        "Pick eligible tasks (unblocked candidates) ranked by work score. Optional relatedTo Aspect/Feature id.",
+        "Pick eligible tasks (unblocked candidates) ranked by work score. Optional relatedTo scopes to tasks with outgoing affects/implements/validates/investigates to that Aspect/Feature (use leaf Feature ids, not contains-parents).",
       inputSchema: {
-        relatedTo: z.string().optional().describe("Aspect or Feature id to scope tasks"),
+        relatedTo: z
+          .string()
+          .optional()
+          .describe(
+            "Aspect/Feature id tasks link out to (affects/implements/…). Empty for contains-parents that only nest child features."
+          ),
         limit: z.number().int().min(1).max(50).optional()
       }
     },
@@ -168,11 +178,16 @@ export function createProjectplanerServer(): McpServer {
     "list_entities",
     {
       description:
-        "Filter/list entities (not ranked). For tasks supports unblocked + relatedTo sugar. Excludes archived entities by default.",
+        "Filter/list entities (not ranked). For tasks supports unblocked + relatedTo sugar. relatedTo = outgoing links targeting that id (not children under a contains-parent). Excludes archived entities by default.",
       inputSchema: {
         type: entityTypeSchema.optional(),
         query: z.string().optional().describe("Optional text match filter"),
-        relatedTo: z.string().optional(),
+        relatedTo: z
+          .string()
+          .optional()
+          .describe(
+            "Only entities with an outgoing relation targeting this id. Pass leaf/target ids for contains trees."
+          ),
         unblocked: z.boolean().optional().describe("Tasks only: no unresolved blocked_by"),
         limit: z.number().int().min(1).max(100).optional(),
         includeArchived: z

@@ -1,11 +1,16 @@
 {
   "mcpServers": {
     "projectplaner": {
-      "command": "pnpm",
-      "args": ["--filter", "@projectplaner/mcp", "start"],
+      "type": "stdio",
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "args": [
+        "${workspaceFolder}/node_modules/tsx/dist/cli.mjs",
+        "${workspaceFolder}/packages/mcp/src/index.ts"
+      ],
       "cwd": "${workspaceFolder}",
       "env": {
-        "PROJECTPLANER_MCP_SURFACE": "v2"
+        "PROJECTPLANER_MCP_SURFACE": "v2",
+        "PROJECTPLANER_DB_PATH": "${workspaceFolder}/projectplaner.db"
       }
     }
   }

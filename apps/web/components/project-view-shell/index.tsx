@@ -5,7 +5,7 @@ import type { ProjectView } from "../../lib/project-view";
 import type { HeaderChromeContext } from "../project-header";
 import { ProjectLeftSidebar } from "../project-left-sidebar";
 import { ProjectShell } from "../project-shell";
-import { SelectionInspector } from "../selection-inspector";
+import { EntityInspector } from "../inspector";
 import { WorkspaceCenter } from "../workspace-center";
 
 export type ProjectViewShellProps = {
@@ -92,7 +92,7 @@ export function ProjectViewShell({
       center={<WorkspaceCenter scroll={scrollCenter}>{center}</WorkspaceCenter>}
       rightSidebar={
         rightSidebar ?? (
-          <SelectionInspector
+          <EntityInspector
             projectKey={snapshot.project.key}
             center={node}
             node={node}

@@ -1,6 +1,7 @@
 "use client";
 
 import { Badge, GhostButton } from "../../ui";
+import type { ReactNode } from "react";
 
 interface WorkflowToolbarProps {
   projectKey: string;
@@ -18,6 +19,7 @@ interface WorkflowToolbarProps {
   onToggleDiagram: () => void;
   onSave: () => void;
   onRun?: () => void;
+  addSlot?: React.ReactNode;
 }
 
 export function WorkflowToolbar({
@@ -33,7 +35,8 @@ export function WorkflowToolbar({
   onToggleStory,
   onToggleDiagram,
   onSave,
-  onRun
+  onRun,
+  addSlot
 }: WorkflowToolbarProps) {
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-border bg-white px-3 py-2">
@@ -60,6 +63,7 @@ export function WorkflowToolbar({
         >
           Diagram
         </GhostButton>
+        {addSlot}
         {onRun ? (
           <GhostButton size="xs" onClick={onRun}>
             Run

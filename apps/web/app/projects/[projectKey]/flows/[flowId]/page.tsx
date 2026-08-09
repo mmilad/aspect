@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
-import { WorkflowWorkspace } from "../../../../../components/workflow-workspace";
-import { ProjectViewShell } from "../../../../../components/project-view-shell";
+import { WorkflowEditorShell } from "../../../../../components/workflow-workspace/workflow-editor-shell";
 import { loadEntityDetail, loadProject } from "../../../../../lib/data";
 
 export default async function FlowWorkflowPage({
@@ -22,17 +21,14 @@ export default async function FlowWorkflowPage({
   const selectedFeature = snapshot.features.find((feature) => feature.id === entity.id) ?? null;
 
   return (
-    <ProjectViewShell
+    <WorkflowEditorShell
       snapshot={snapshot}
-      activeView="workflow"
-      scopeLabel={`workflow / ${entity.title}`}
+      flow={entity}
       selectedNode={selectedNode}
       selectedFeature={selectedFeature}
-      entity={entity}
       tags={detail.tags}
       incomingCount={detail.relations.filter((item) => item.direction === "incoming").length}
       outgoingCount={detail.relations.filter((item) => item.direction === "outgoing").length}
-      center={<WorkflowWorkspace projectKey={snapshot.project.key} flow={entity} />}
     />
   );
 }

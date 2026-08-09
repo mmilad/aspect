@@ -39,8 +39,8 @@ import { WorkflowToolbar } from "./workflow-toolbar";
 import { WorkflowAuthorPanel } from "./workflow-author-panel";
 import { WorkflowStoryPanel } from "./workflow-story-panel";
 import { WorkflowDiagramPanel } from "./workflow-diagram-panel";
-import { WorkflowPalette } from "./workflow-palette";
-import { WorkflowNodeInspector } from "./workflow-node-inspector";
+import { WorkflowCanvasContextMenu, WorkflowToolbarAdd } from "./workflow-add-menu";
+import { useWorkflowInspectorPublisher } from "./workflow-inspector-context";
 
 interface WorkflowWorkspaceProps {
   projectKey: string;
@@ -133,8 +133,10 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
   );
   const [storyOpen, setStoryOpen] = useState(false);
   const [diagramOpen, setDiagramOpen] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const presetKey = typeof flow.metadata.presetKey === "string" ? flow.metadata.presetKey : null;
   const [presetDirty, setPresetDirty] = useState(flow.metadata.presetDirty === true);
+  const inspector = useWorkflowInspectorPublisher();
 
   const selected = nodes.find((node) => node.id === selectedId)?.data.workflow ?? null;
   const bagView = useMemo(() => {
@@ -329,6 +331,29 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
     syncSelection(null);
   }, [selectedId, setNodes, setEdges, syncSelection]);
 
+  useEffect(() => {
+    inspector.publish({
+      diagramOpen,
+      selected,
+      bagView,
+      onUpdateData: updateSelectedData,
+      onUpdateType: updateSelectedType,
+      onDelete: deleteSelected
+    });
+  }, [
+    inspector,
+    diagramOpen,
+    selected,
+    bagView,
+    updateSelectedData,
+    updateSelectedType,
+    deleteSelected
+  ]);
+
+  useEffect(() => {
+    return () => inspector.clear();
+  }, [inspector]);
+
   const save = useCallback(async () => {
     const graph = currentGraph();
     const parsed = parseWorkflowGraph(graph);
@@ -478,7 +503,28 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
         onToggleDiagram={() => setDiagramOpen((open) => !open)}
         onSave={() => void save()}
         onRun={() => void startRun()}
+        addSlot={
+          diagramOpen ? null : (
+            <WorkflowToolbarAdd
+              connectKind={connectKind}
+              onConnectKindChange={setConnectKind}
+              onAddNode={addNode}
+            />
+          )
+        }
       />
+
+      {status || errors.length > 0 || warnings.length > 0 ? (
+        <div className="border-b border-border bg-white px-3 py-1.5 text-xs text-muted-foreground">
+          {status ? <span>{status}</span> : null}
+          {errors.length > 0 ? (
+            <span className="ml-2 text-rose-700">{errors.join(" · ")}</span>
+          ) : null}
+          {warnings.length > 0 ? (
+            <span className="ml-2 text-amber-700">{warnings.join(" · ")}</span>
+          ) : null}
+        </div>
+      ) : null}
 
       {authorOpen ? (
         <WorkflowAuthorPanel
@@ -496,41 +542,40 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
           <WorkflowDiagramPanel source={mermaidSource} />
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1">
-          <WorkflowPalette
-            status={status}
-            errors={errors}
-            warnings={warnings}
+        <div className="relative min-h-0 min-w-0 flex-1">
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            nodeTypes={workflowRfNodeTypes}
+            fitView
+            onNodeClick={(_, node) => syncSelection(node.id)}
+            onPaneClick={() => {
+              syncSelection(null);
+              setContextMenu(null);
+            }}
+            onPaneContextMenu={(event) => {
+              event.preventDefault();
+              setContextMenu({ x: event.clientX, y: event.clientY });
+            }}
+            onNodeContextMenu={(event) => {
+              event.preventDefault();
+              setContextMenu({ x: event.clientX, y: event.clientY });
+            }}
+            deleteKeyCode={["Backspace", "Delete"]}
+          >
+            <Background gap={18} size={1} />
+            <Controls />
+            <MiniMap pannable zoomable />
+          </ReactFlow>
+          <WorkflowCanvasContextMenu
+            position={contextMenu}
             connectKind={connectKind}
             onConnectKindChange={setConnectKind}
             onAddNode={addNode}
-          />
-
-          <div className="min-w-0 flex-1">
-            <ReactFlow
-              nodes={nodes}
-              edges={edges}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
-              onConnect={onConnect}
-              nodeTypes={workflowRfNodeTypes}
-              fitView
-              onNodeClick={(_, node) => syncSelection(node.id)}
-              onPaneClick={() => syncSelection(null)}
-              deleteKeyCode={["Backspace", "Delete"]}
-            >
-              <Background gap={18} size={1} />
-              <Controls />
-              <MiniMap pannable zoomable />
-            </ReactFlow>
-          </div>
-
-          <WorkflowNodeInspector
-            selected={selected}
-            bagView={bagView}
-            onUpdateData={updateSelectedData}
-            onUpdateType={updateSelectedType}
-            onDelete={deleteSelected}
+            onClose={() => setContextMenu(null)}
           />
         </div>
       )}

@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useNodesState, type Edge, type Node } from "@xyflow/react";
-import { focusGraph, getTagsForEntity, getTasksForAspect, type EntityType, type Feature, type ProjectPlanSnapshot } from "@projectplaner/core";
+import { useNodesState } from "@xyflow/react";
+import { focusGraph, type EntityType, type ProjectPlanSnapshot } from "@projectplaner/core";
 import { ProjectLeftSidebar } from "../project-left-sidebar";
 import { ProjectShell } from "../project-shell";
 import { SelectionInspector } from "../selection-inspector";
@@ -11,13 +11,24 @@ import { WorkspaceCenter } from "../workspace-center";
 import { projectPaths } from "../../lib/project-paths";
 import { getAncestors } from "./lib/ancestors";
 import { buildGraphEntities } from "./lib/build-graph-entities";
-import { graphEdgeStroke } from "./lib/edge-style";
+import {
+  buildFullFlowEdges,
+  buildFullFlowNodes,
+  buildScopedFlowEdges,
+  buildScopedFlowNodes
+} from "./lib/build-flow-nodes";
+import { orderedEntityTypes } from "./lib/ordered-entity-types";
 import { scoreEntity } from "./lib/score-entity";
+import {
+  buildInspectorSelectionData,
+  resolveInitialSelection,
+  resolveSelection
+} from "./lib/selection-context";
 import { getVisibleEntityRelations } from "./lib/visible-relations";
 import { GraphCanvas } from "./graph-canvas";
 import { GraphToolbar } from "./graph-toolbar";
 import { SpatialGraphCanvas } from "./spatial-graph-canvas";
-import type { GraphFlowNodeData, GraphMatch, GraphMode, GraphSurface } from "./types";
+import type { GraphMatch, GraphMode, GraphSurface } from "./types";
 
 interface AppShellProps {
   snapshot: ProjectPlanSnapshot;
@@ -28,53 +39,35 @@ interface AppShellProps {
 export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: AppShellProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const rootNode = snapshot.nodes[0];
   const allGraphEntities = useMemo(() => buildGraphEntities(snapshot), [snapshot]);
-  const initialSelectedEntity = allGraphEntities.find((entity) => entity.id === initialSelectedId) ?? rootNode;
-  const initialCenterNode =
-    initialSelectedEntity?.type === "aspect"
-      ? snapshot.nodes.find((node) => node.id === initialSelectedEntity.id)
-      : rootNode;
+  const { rootNode, initialSelectedEntity, initialCenterNode } = resolveInitialSelection({
+    snapshot,
+    allGraphEntities,
+    initialSelectedId
+  });
   const allEntityTypes = useMemo(
-    () =>
-      [...new Set(allGraphEntities.map((entity) => entity.type))].sort((left, right) => {
-        const order: EntityType[] = [
-          "project",
-          "aspect",
-          "feature",
-          "task",
-          "decision",
-          "question",
-          "reference",
-          "flow",
-          "entry",
-          "area",
-          "surface",
-          "task_group"
-        ];
-        return order.indexOf(left) - order.indexOf(right);
-      }),
+    () => orderedEntityTypes(allGraphEntities.map((entity) => entity.type)),
     [allGraphEntities]
   );
   const [graphMode, setGraphMode] = useState<GraphMode>("full");
   const [graphSurface, setGraphSurface] = useState<GraphSurface>("map");
   const [activeTypes, setActiveTypes] = useState<Set<EntityType>>(() => new Set(allGraphEntities.map((entity) => entity.type)));
-  const [centerId, setCenterId] = useState(initialCenterNode?.id);
-  const [selectedId, setSelectedId] = useState(initialSelectedEntity?.id ?? rootNode?.id);
+  const [centerId, setCenterId] = useState(initialCenterNode.id);
+  const [selectedId, setSelectedId] = useState(initialSelectedEntity.id ?? rootNode.id);
   const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(
-    initialSelectedEntity?.type === "feature" ? initialSelectedEntity.id : null
+    initialSelectedEntity.type === "feature" ? initialSelectedEntity.id : null
   );
   const [query, setQuery] = useState("");
 
   const centerNode = snapshot.nodes.find((node) => node.id === centerId) ?? rootNode;
-  const selectedEntity = allGraphEntities.find((entity) => entity.id === (selectedFeatureId ?? selectedId)) ?? allGraphEntities[0];
-  const selectedNode = snapshot.nodes.find((node) => node.id === selectedId) ?? centerNode;
-  const selectedFeature = selectedFeatureId
-    ? snapshot.features.find((feature) => feature.id === selectedFeatureId) ?? null
-    : selectedEntity?.type === "feature"
-      ? snapshot.features.find((feature) => feature.id === selectedEntity.id) ?? null
-      : null;
-  const parentNode = centerNode?.parentId ? snapshot.nodes.find((node) => node.id === centerNode.parentId) : null;
+  const { selectedEntity, selectedNode, selectedFeature } = resolveSelection({
+    snapshot,
+    allGraphEntities,
+    centerNode,
+    selectedId,
+    selectedFeatureId
+  });
+  const parentNode = centerNode.parentId ? snapshot.nodes.find((node) => node.id === centerNode.parentId) : null;
   const breadcrumbs = useMemo(() => getAncestors(centerNode, snapshot.nodes), [centerNode, snapshot.nodes]);
   const graph = useMemo(() => focusGraph(centerNode.id, snapshot.nodes, snapshot.relations), [centerNode.id, snapshot]);
 
@@ -92,42 +85,11 @@ export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: App
     });
   }, [allEntityTypes]);
 
-  const childIds = new Set(graph.nodes.filter((node) => node.parentId === centerNode.id).map((node) => node.id));
-  const relationIds = new Set(graph.relations.map((relation) => `${relation.sourceNodeId}:${relation.targetNodeId}`));
-
-  const scopedNodes: Node<GraphFlowNodeData>[] = graph.nodes.map((node, index) => {
-    const layout = node.metadata.layout as { x?: number; y?: number } | undefined;
-    const isCenter = node.id === centerNode.id;
-    const entity = allGraphEntities.find((item) => item.id === node.id);
-    const childIndex = Array.from(childIds).indexOf(node.id);
-    const childCount = Math.max(childIds.size, 1);
-    const childY = (childIndex - (childCount - 1) / 2) * 170;
-    const relatedIndex = Math.max(0, index - childIds.size);
-
-    return {
-      id: node.id,
-      type: "projectNode",
-      position: {
-        x: layout?.x ?? (isCenter ? 0 : childIds.has(node.id) ? 430 : -390),
-        y: layout?.y ?? (isCenter ? 0 : childIds.has(node.id) ? childY : (relatedIndex - 1) * 160)
-      },
-      data: {
-        entity: entity ?? {
-          id: node.id,
-          type: node.type,
-          key: null,
-          title: node.title,
-          summary: node.summary,
-          body: node.body,
-          status: node.status,
-          metadata: node.metadata,
-          sortOrder: node.sortOrder,
-          path: node.path
-        },
-        isCenter,
-        isSelected: selectedId === node.id
-      }
-    };
+  const scopedNodes = buildScopedFlowNodes({
+    nodes: graph.nodes,
+    centerNode,
+    allGraphEntities,
+    selectedId
   });
 
   const scoredEntities = useMemo(
@@ -139,28 +101,18 @@ export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: App
     [activeTypes, allGraphEntities, query]
   );
 
-  const fullGraphNodes: Node<GraphFlowNodeData>[] = useMemo(() => {
-    const lanes = new Map<EntityType, number>();
-    return scoredEntities.map(({ entity, score }) => {
-      const laneIndex = allEntityTypes.indexOf(entity.type);
-      const rowIndex = lanes.get(entity.type) ?? 0;
-      lanes.set(entity.type, rowIndex + 1);
-      return {
-        id: entity.id,
-        type: "projectNode",
-        position: {
-          x: laneIndex * 150,
-          y: rowIndex * 82
-        },
-        data: {
-          entity,
-          isCenter: entity.id === centerNode.id,
-          isSelected: entity.id === (selectedFeatureId ?? selectedId),
-          score: query.trim() ? score : undefined
-        }
-      };
-    });
-  }, [allEntityTypes, centerNode.id, query, scoredEntities, selectedFeatureId, selectedId]);
+  const fullGraphNodes = useMemo(
+    () =>
+      buildFullFlowNodes({
+        scoredEntities,
+        entityTypes: allEntityTypes,
+        centerId: centerNode.id,
+        selectedId,
+        selectedFeatureId,
+        query
+      }),
+    [allEntityTypes, centerNode.id, query, scoredEntities, selectedFeatureId, selectedId]
+  );
 
   const graphNodes = graphMode === "full" ? fullGraphNodes : scopedNodes;
   const [flowNodes, setFlowNodes, onNodesChange] = useNodesState(graphNodes);
@@ -170,84 +122,29 @@ export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: App
   }, [graphNodes, setFlowNodes]);
 
   const focusId = selectedFeatureId ?? selectedId;
-
-  const relationEdges: Edge[] = graph.relations.map((relation) => {
-    const selected = relation.sourceNodeId === focusId || relation.targetNodeId === focusId;
-    const conflict = relation.type === "conflicts_with";
-    return {
-      id: relation.id,
-      source: relation.sourceNodeId,
-      target: relation.targetNodeId,
-      label: relation.label ?? relation.type,
-      type: "smoothstep",
-      animated: selected || relation.type === "blocks" || relation.type === "conflicts_with",
-      zIndex: selected ? 8 : 0,
-      style: graphEdgeStroke({ selected, conflict })
-    };
-  });
-
-  const hierarchyEdges: Edge[] = graph.nodes
-    .filter((node) => node.parentId === centerNode.id && !relationIds.has(`${centerNode.id}:${node.id}`))
-    .map((node) => {
-      const selected = centerNode.id === focusId || node.id === focusId;
-      return {
-        id: `tree-${centerNode.id}-${node.id}`,
-        source: centerNode.id,
-        target: node.id,
-        label: "plans",
-        type: "smoothstep",
-        zIndex: selected ? 8 : 0,
-        style: {
-          ...graphEdgeStroke({ selected }),
-          strokeDasharray: "4 4"
-        }
-      };
-    });
-
   const visibleEntityRelations = getVisibleEntityRelations(snapshot);
   const displayedMatches: GraphMatch[] =
     graphMode === "full" ? scoredEntities : graphNodes.map((node) => ({ entity: node.data.entity, score: node.data.score ?? 0 }));
   const displayedIds = new Set(displayedMatches.map(({ entity }) => entity.id));
-  const fullRelationEdges: Edge[] = visibleEntityRelations
-    .filter((relation) => displayedIds.has(relation.sourceId) && displayedIds.has(relation.targetId))
-    .map((relation) => {
-      const selected = relation.sourceId === focusId || relation.targetId === focusId;
-      const conflict = relation.type === "conflicts_with" || relation.type === "blocked_by";
-      return {
-        id: relation.id,
-        source: relation.sourceId,
-        target: relation.targetId,
-        label: relation.label ?? relation.type,
-        type: "smoothstep",
-        animated:
-          selected ||
-          relation.type === "blocks" ||
-          relation.type === "conflicts_with" ||
-          relation.type === "blocked_by",
-        zIndex: selected ? 8 : 0,
-        style: graphEdgeStroke({ selected, conflict })
-      };
-    });
+  const flowEdges =
+    graphMode === "full"
+      ? buildFullFlowEdges({ relations: visibleEntityRelations, displayedIds, focusId })
+      : buildScopedFlowEdges({
+          nodes: graph.nodes,
+          relations: graph.relations,
+          centerNode,
+          focusId
+        });
 
-  const flowEdges = graphMode === "full" ? fullRelationEdges : [...hierarchyEdges, ...relationEdges];
-  const incoming = snapshot.relations.filter((relation) => relation.targetNodeId === selectedNode.id);
-  const outgoing = snapshot.relations.filter((relation) => relation.sourceNodeId === selectedNode.id);
-  const directAspectTasks = getTasksForAspect(selectedNode.id, snapshot);
-  const aspectAndFeatureTasks = getTasksForAspect(selectedNode.id, snapshot, { includeFeatures: true });
-  const allAspectTasks = getTasksForAspect(selectedNode.id, snapshot, { includeSubaspects: true, includeFeatures: true });
-  const directTaskIds = new Set(directAspectTasks.map((task) => task.id));
-  const aspectFeatureTaskIds = new Set(aspectAndFeatureTasks.map((task) => task.id));
-  const featureTasks = aspectAndFeatureTasks.filter((task) => !directTaskIds.has(task.id));
-  const subaspectTasks = allAspectTasks.filter((task) => !aspectFeatureTaskIds.has(task.id));
-  const relatedFeatures = snapshot.featureAspectLinks
-    .filter((link) => link.aspectId === selectedNode.id)
-    .map((link) => snapshot.features.find((feature) => feature.id === link.featureId))
-    .filter((feature): feature is Feature => Boolean(feature));
+  const inspector = buildInspectorSelectionData({
+    snapshot,
+    selectedNode,
+    selectedEntity
+  });
   const searchMatches = useMemo(
     () => scoredEntities.filter((match) => query.trim() && match.score > 0).slice(0, 8),
     [query, scoredEntities]
   );
-  const selectedTags = getTagsForEntity({ type: selectedEntity.type, id: selectedEntity.id }, snapshot);
 
   function selectEntity(id: string) {
     setSelectedId(id);
@@ -340,13 +237,13 @@ export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: App
           node={selectedNode}
           entity={selectedEntity}
           feature={selectedFeature}
-          relatedFeatures={relatedFeatures}
-          directTasks={directAspectTasks}
-          featureTasks={featureTasks}
-          subaspectTasks={subaspectTasks}
-          tags={selectedTags}
-          incomingCount={incoming.length}
-          outgoingCount={outgoing.length}
+          relatedFeatures={inspector.relatedFeatures}
+          directTasks={inspector.directTasks}
+          featureTasks={inspector.featureTasks}
+          subaspectTasks={inspector.subaspectTasks}
+          tags={inspector.tags}
+          incomingCount={inspector.incomingCount}
+          outgoingCount={inspector.outgoingCount}
           onCenter={openScope}
         />
       }

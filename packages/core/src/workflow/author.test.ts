@@ -8,9 +8,9 @@ import {
 import { parseWorkflowGraph } from "./schema";
 
 describe("workflow author", () => {
-  it("builds prompts that mention v1 constraints", () => {
+  it("builds prompts that mention v2 constraints", () => {
     const system = buildWorkflowAuthorSystemPrompt();
-    expect(system).toContain("Workflow Step Graph v1");
+    expect(system).toContain("Workflow Step Graph v2");
     expect(system).toContain("Return ONLY valid JSON");
   });
 

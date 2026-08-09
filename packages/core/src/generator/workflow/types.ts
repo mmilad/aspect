@@ -68,6 +68,7 @@ export const BUILTIN_FUNCTION_DESCRIPTIONS: Record<string, string> = {
   pickFirst: "Pick the first item from a bag array.",
   neighborhoodOf: "Build a 1-hop neighborhood around a selected entity.",
   composeTaskPrompt: "Compose an agent handoff prompt from a task and neighborhood context.",
+  map: "Project fields from a bag array/object into a new structure.",
   create_entity: "Create a Projectplaner entity.",
   update_entity: "Update fields on an existing entity."
 };

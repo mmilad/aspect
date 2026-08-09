@@ -10,11 +10,14 @@ interface WorkflowToolbarProps {
   version: number;
   authorOpen: boolean;
   saving: boolean;
+  presetKey?: string | null;
+  presetDirty?: boolean;
   onToggleAuthor: () => void;
   onLoadExample: () => void;
   onLoadNewTask: () => void;
   onResetEmpty: () => void;
   onSave: () => void;
+  onRun?: () => void;
 }
 
 export function WorkflowToolbar({
@@ -24,17 +27,25 @@ export function WorkflowToolbar({
   version,
   authorOpen,
   saving,
+  presetKey,
+  presetDirty,
   onToggleAuthor,
   onLoadExample,
   onLoadNewTask,
   onResetEmpty,
-  onSave
+  onSave,
+  onRun
 }: WorkflowToolbarProps) {
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-border bg-white px-3 py-2">
       <Badge tone="flow">workflow</Badge>
+      {presetKey ? <Badge tone="accent">preset</Badge> : null}
+      {presetKey && presetDirty ? <Badge tone="warning">modified</Badge> : null}
       <div className="text-sm font-medium text-zinc-900">{flowTitle}</div>
       <div className="font-mono text-xs text-muted-foreground">v{version}</div>
+      {presetKey ? (
+        <div className="font-mono text-[10px] text-muted-foreground">{presetKey}</div>
+      ) : null}
       <div className="ml-auto flex flex-wrap items-center gap-2">
         <ToolbarLink href={projectPaths.entity(projectKey, flowId)} size="xs">
           Entity
@@ -54,6 +65,11 @@ export function WorkflowToolbar({
         <GhostButton size="xs" onClick={onResetEmpty}>
           Reset empty
         </GhostButton>
+        {onRun ? (
+          <GhostButton size="xs" onClick={onRun}>
+            Run
+          </GhostButton>
+        ) : null}
         <GhostButton size="xs" tone="primary" disabled={saving} onClick={onSave}>
           {saving ? "Saving…" : "Save graph"}
         </GhostButton>

@@ -1,10 +1,10 @@
 import path from "node:path";
 import { createPlanApi, type EntityFilter, type EntityType } from "@projectplaner/core";
-import { createDatabase, createSqliteEntityStore } from "@projectplaner/db";
+import { openDatabase, createSqliteEntityStore } from "@projectplaner/db";
 import type { DatabaseSync } from "node:sqlite";
 
-export function openDb() {
-  return createDatabase(process.env.PROJECTPLANER_DB_PATH ?? path.resolve(process.cwd(), "../../projectplaner.db"));
+export async function openDb() {
+  return openDatabase(process.env.PROJECTPLANER_DB_PATH ?? path.resolve(process.cwd(), "../../projectplaner.db"));
 }
 
 export function createWebPlanApi(db: DatabaseSync) {
@@ -12,7 +12,7 @@ export function createWebPlanApi(db: DatabaseSync) {
 }
 
 export async function withDb<T>(fn: (db: DatabaseSync) => Promise<T>): Promise<T> {
-  const db = openDb();
+  const db = await openDb();
   try {
     return await fn(db);
   } finally {

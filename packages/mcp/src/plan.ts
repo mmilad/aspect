@@ -11,7 +11,7 @@ import {
   type JsonRecord
 } from "@projectplaner/core";
 import {
-  createDatabase,
+  openDatabase,
   createEntity,
   createRelation,
   createSqliteEntityStore,
@@ -25,7 +25,7 @@ const SUMMARY_MAX = 240;
 const BODY_MAX = 2000;
 const DEFAULT_LIST_LIMIT = 30;
 
-type Db = ReturnType<typeof createDatabase>;
+type Db = Awaited<ReturnType<typeof openDatabase>>;
 
 let queue: Promise<unknown> = Promise.resolve();
 
@@ -35,7 +35,7 @@ function resolveDbPath(): string | undefined {
 
 async function withDb<T>(fn: (db: Db) => Promise<T>): Promise<T> {
   const run = queue.then(async () => {
-    const db = createDatabase(resolveDbPath());
+    const db = await openDatabase(resolveDbPath());
     try {
       return await fn(db);
     } finally {
@@ -43,6 +43,7 @@ async function withDb<T>(fn: (db: Db) => Promise<T>): Promise<T> {
     }
   });
   queue = run.then(
+
     () => undefined,
     () => undefined
   );

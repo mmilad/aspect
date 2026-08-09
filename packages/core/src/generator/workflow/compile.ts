@@ -2,6 +2,7 @@ import {
   findStartNode,
   outgoingEdges,
   resolveNextNodeId,
+  slimShapesForReads,
   type WorkflowGraph,
   type WorkflowNode
 } from "../../workflow";
@@ -149,7 +150,7 @@ function compileNode(
         }
       ];
     }
-    case "filter": {
+    case "transform": {
       if (assignOnly) {
         return compileAssignSteps(node, seen, catalog);
       }
@@ -273,6 +274,50 @@ function compileNode(
         }
       ];
     }
+    case "switch": {
+      return [
+        {
+          kind: "branch",
+          condition: node.data.switch?.on ?? "route",
+          nodeId: node.id
+        }
+      ];
+    }
+    case "subworkflow": {
+      const ref = node.data.subworkflow?.workflowId ?? "unknown";
+      return [{ kind: "subworkflow", workflowRef: ref, nodeId: node.id }];
+    }
+    case "foreach": {
+      return [
+        {
+          kind: "loop",
+          nodeId: node.id,
+          note: `foreach ${node.data.foreach?.itemsFrom ?? "items"}`
+        }
+      ];
+    }
+    case "map": {
+      const map = node.data.map;
+      rememberFunction(seen, "map", catalog);
+      return [
+        {
+          kind: "function",
+          name: "map",
+          params: {
+            from: map?.from,
+            as: map?.as,
+            mode: map?.mode,
+            fields: map?.fields ?? []
+          },
+          resultHint: map ? `map ${map.from} → ${map.as}` : title,
+          nodeId: node.id
+        }
+      ];
+    }
+    case "fork":
+    case "join":
+    case "wait":
+    case "error_end":
     case "end":
       return [];
     default:
@@ -317,11 +362,26 @@ export function compileWorkflow(graph: WorkflowGraph, opts: CompileOptions = {})
       break;
     }
 
-    if (node.type === "end") {
+    if (node.type === "end" || node.type === "error_end") {
       break;
     }
 
     steps.push(...compileNode(node, seenFns, opts.functionCatalog));
+
+    if (node.type === "llm") {
+      const slim = slimShapesForReads(
+        graph,
+        node.id,
+        node.data.llm?.inputKeys ?? node.data.reads
+      );
+      if (Object.keys(slim.keys).length > 0) {
+        steps.push({
+          kind: "constraint",
+          text: `Bag shapes for reads: ${JSON.stringify(slim.keys)}`,
+          nodeId: node.id
+        });
+      }
+    }
 
     if (node.type === "gate") {
       const outs = outgoingEdges(graph, node.id);

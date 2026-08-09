@@ -1,4 +1,4 @@
-import { parseWorkflowGraph, type WorkflowGraph } from "./schema";
+import { parseWorkflowGraph, WORKFLOW_SCHEMA_VERSION, type WorkflowGraph } from "./schema";
 
 export interface WorkflowAuthorBrief {
   /** What the user wants the workflow to accomplish. */
@@ -9,15 +9,21 @@ export interface WorkflowAuthorBrief {
 
 export function buildWorkflowAuthorSystemPrompt(): string {
   return [
-    "You author Projectplaner Workflow Step Graph v1 JSON.",
-    "Return ONLY valid JSON for { version, nodes, edges } — no markdown fences, no prose.",
-    "Node types allowed: start, context, filter, tool, llm, write, gate, end.",
-    "Exactly one start node and at least one end node.",
+    "You author Projectplaner Workflow Step Graph v2 JSON.",
+    "Return ONLY valid JSON for { version: 2, nodes, edges } — no markdown fences, no prose.",
+    "Control node types: start, end, error_end, switch, fork, join, foreach, gate, wait, subworkflow.",
+    "Work node types: tool, llm, context, transform, map, write.",
+    "Exactly one start node and at least one end or error_end node.",
     "Each node needs id, type, position {x,y}, data.title.",
-    "Declare reads[] and writes[] on nodes that touch the per-task context bag.",
-    "Prefer deterministic context/filter/tool/write/gate nodes; use llm only for judgment.",
+    "Each edge needs id, source, target, kind (next|route|depends_on|error), optional label.",
+    "Declare reads[] and writes[] on nodes that touch the context bag.",
+    "Prefer outputContracts with shape refs (Entity, EntityRelation, RankedTaskCandidate) when known.",
+    "Use map nodes to project fields into new structures; foreach for per-item orchestration.",
+    "Prefer deterministic context/transform/map/tool/write/gate nodes; use llm only for judgment.",
     "LLM nodes must include data.llm.instructions and outputSchema matching writes.",
     "Tool nodes must include data.tool.name and argsFromBag when needed.",
+    "Use fork + depends_on into join for parallel arms; switch + route for conditionals.",
+    "foreach bodies should prefer type:subworkflow with workflowId.",
     "Never invent Aspect Graph entities; workflows are executable step diagrams.",
     "Lay nodes left-to-right with ~200px x spacing."
   ].join(" ");
@@ -30,7 +36,7 @@ export function buildWorkflowAuthorUserPrompt(input: WorkflowAuthorBrief): strin
     "User brief:",
     input.brief.trim(),
     "",
-    "Produce a compact Workflow Step Graph v1 that accomplishes this brief."
+    "Produce a compact Workflow Step Graph v2 that accomplishes this brief."
   ]
     .filter(Boolean)
     .join("\n");
@@ -72,7 +78,7 @@ export function scaffoldWorkflowFromBrief(input: WorkflowAuthorBrief): WorkflowG
   const title = input.title?.trim() || "Generated workflow";
 
   return {
-    version: 1,
+    version: WORKFLOW_SCHEMA_VERSION,
     nodes: [
       {
         id: "start",
@@ -128,9 +134,9 @@ export function scaffoldWorkflowFromBrief(input: WorkflowAuthorBrief): WorkflowG
       }
     ],
     edges: [
-      { id: "e1", source: "start", target: "load" },
-      { id: "e2", source: "load", target: "decide" },
-      { id: "e3", source: "decide", target: "end" }
+      { id: "e1", source: "start", target: "load", kind: "next" },
+      { id: "e2", source: "load", target: "decide", kind: "next" },
+      { id: "e3", source: "decide", target: "end", kind: "next" }
     ]
   };
 }

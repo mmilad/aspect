@@ -15,6 +15,7 @@ import {
   getNodeWrites,
   pickBagKeys,
   resolveNextNodeId,
+  slimShapesForReads,
   type WorkflowContextBag,
   type WorkflowGraph,
   type WorkflowNode,
@@ -44,6 +45,8 @@ export interface WorkflowLlmPending {
   nodeId: string;
   instructions: string;
   reads: Record<string, unknown>;
+  /** Slim bag shapes for declared reads (AI-friendly). */
+  shapes?: Record<string, string>;
   outputSchema: string[];
   tools: string[];
 }
@@ -123,6 +126,54 @@ function mapArgsFromBag(
     args[argName] = bag.keys[bagKey];
   }
   return args;
+}
+
+function readValuePath(value: unknown, path: string): unknown {
+  if (!path) {
+    return value;
+  }
+  return readPath(value, path);
+}
+
+function projectMapFields(
+  source: unknown,
+  fields: Array<{ from: string; as: string }>
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const field of fields) {
+    out[field.as] = readValuePath(source, field.from);
+  }
+  return out;
+}
+
+async function runMap(
+  graph: WorkflowGraph,
+  node: WorkflowNode,
+  bag: WorkflowContextBag
+): Promise<WorkflowStepResult> {
+  const map = node.data.map;
+  if (!map?.from || !map.as || !map.fields?.length) {
+    return fail(bag, node.id, "Map node requires map.from, map.as, and map.fields.");
+  }
+  const source = bag.keys[map.from];
+  const mode = map.mode ?? (Array.isArray(source) ? "array" : "object");
+  let value: unknown;
+  if (mode === "array") {
+    if (!Array.isArray(source)) {
+      return fail(bag, node.id, `Map ${node.id}: bag.${map.from} must be an array when mode=array.`);
+    }
+    value = source.map((item) => projectMapFields(item, map.fields));
+  } else {
+    if (typeof source !== "object" || source === null || Array.isArray(source)) {
+      return fail(bag, node.id, `Map ${node.id}: bag.${map.from} must be an object when mode=object.`);
+    }
+    value = projectMapFields(source, map.fields);
+  }
+  const applied = applyBagWrites(bag, [map.as], { [map.as]: value });
+  if (!applied.ok) {
+    return fail(bag, node.id, applied.error);
+  }
+  return advanceCursor(graph, applied.bag, node.id);
 }
 
 function defaultLoadContext(
@@ -508,7 +559,8 @@ async function runWrite(
 async function runLlm(
   node: WorkflowNode,
   bag: WorkflowContextBag,
-  adapters: WorkflowAdapters
+  adapters: WorkflowAdapters,
+  graph: WorkflowGraph
 ): Promise<WorkflowStepResult> {
   const llm = node.data.llm ?? {};
   let instructions = llm.instructions ?? "";
@@ -522,6 +574,7 @@ async function runLlm(
   const inputKeys = llm.inputKeys ?? node.data.reads ?? [];
   const outputSchema = llm.outputSchema ?? getNodeWrites(node);
   const reads = pickBagKeys(bag, inputKeys);
+  const shapes = slimShapesForReads(graph, node.id, inputKeys).keys;
 
   return {
     kind: "pending_llm",
@@ -532,6 +585,7 @@ async function runLlm(
       nodeId: node.id,
       instructions,
       reads,
+      shapes,
       outputSchema,
       tools: llm.tools ?? []
     }
@@ -642,12 +696,17 @@ export async function stepWorkflow(input: {
     return fail(bag, cursor, `Unknown cursor node: ${cursor}`);
   }
 
-  if (node.type === "end") {
+  if (node.type === "end" || node.type === "error_end") {
     return {
       kind: "completed",
-      bag: { ...bag, cursor: null, status: "completed", error: undefined },
+      bag: {
+        ...bag,
+        cursor: null,
+        status: node.type === "error_end" ? "failed" : "completed",
+        error: node.type === "error_end" ? "Workflow ended in error." : undefined
+      },
       nodeId: node.id,
-      message: "Workflow completed."
+      message: node.type === "error_end" ? "Workflow ended in error." : "Workflow completed."
     };
   }
 
@@ -676,19 +735,37 @@ export async function stepWorkflow(input: {
         return runAssign(input.graph, node, bag, entities, relations);
       }
       return runContext(input.graph, node, bag, adapters, entities, relations);
-    case "filter":
+    case "transform":
       if (assignOnly) {
         return runAssign(input.graph, node, bag, entities, relations);
       }
       return runFilter(input.graph, node, bag, entities, relations, adapters);
+    case "map":
+      return runMap(input.graph, node, bag);
     case "tool":
       return runTool(input.graph, node, bag, adapters);
     case "write":
       return runWrite(input.graph, node, bag, adapters);
     case "llm":
-      return runLlm(node, bag, adapters);
+      return runLlm(node, bag, adapters, input.graph);
     case "gate":
       return runGate(input.graph, node, bag);
+    case "switch": {
+      const on = node.data.switch?.on ?? "route";
+      const value = bag.keys[on];
+      const label = value === undefined || value === null ? "default" : String(value);
+      return advanceCursor(input.graph, bag, node.id, label);
+    }
+    case "fork":
+    case "join":
+    case "foreach":
+    case "wait":
+    case "subworkflow":
+      return fail(
+        bag,
+        node.id,
+        `Node type ${node.type} is in the v2 contract but not executed by the minimal runner yet.`
+      );
     default:
       return fail(bag, node.id, `Unsupported node type: ${(node as WorkflowNode).type}`);
   }

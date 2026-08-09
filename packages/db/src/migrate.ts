@@ -196,5 +196,106 @@ export function runMigrations(sqlite: MigrationDatabase): void {
       tag_id TEXT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
       entity_id TEXT NOT NULL REFERENCES entities(id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS workflow_defs (
+      workflow_id TEXT PRIMARY KEY REFERENCES entities(id) ON DELETE CASCADE,
+      project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      schema_version INTEGER NOT NULL DEFAULT 2,
+      published_version_id TEXT,
+      metadata_json TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS workflow_versions (
+      id TEXT PRIMARY KEY,
+      workflow_id TEXT NOT NULL REFERENCES workflow_defs(workflow_id) ON DELETE CASCADE,
+      name TEXT,
+      snapshot_json TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS workflow_nodes (
+      id TEXT NOT NULL,
+      workflow_id TEXT NOT NULL REFERENCES workflow_defs(workflow_id) ON DELETE CASCADE,
+      type TEXT NOT NULL,
+      title TEXT NOT NULL DEFAULT '',
+      pos_x REAL NOT NULL DEFAULT 0,
+      pos_y REAL NOT NULL DEFAULT 0,
+      config_json TEXT NOT NULL DEFAULT '{}',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (workflow_id, id)
+    );
+
+    CREATE TABLE IF NOT EXISTS workflow_edges (
+      id TEXT NOT NULL,
+      workflow_id TEXT NOT NULL REFERENCES workflow_defs(workflow_id) ON DELETE CASCADE,
+      source_id TEXT NOT NULL,
+      target_id TEXT NOT NULL,
+      kind TEXT NOT NULL DEFAULT 'next',
+      label TEXT,
+      config_json TEXT NOT NULL DEFAULT '{}',
+      PRIMARY KEY (workflow_id, id)
+    );
+
+    CREATE INDEX IF NOT EXISTS workflow_nodes_workflow_idx ON workflow_nodes(workflow_id);
+    CREATE INDEX IF NOT EXISTS workflow_edges_workflow_idx ON workflow_edges(workflow_id);
+
+    CREATE TABLE IF NOT EXISTS workflow_triggers (
+      id TEXT PRIMARY KEY,
+      workflow_id TEXT NOT NULL REFERENCES workflow_defs(workflow_id) ON DELETE CASCADE,
+      kind TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      config_json TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS workflow_triggers_workflow_idx ON workflow_triggers(workflow_id);
+
+    CREATE TABLE IF NOT EXISTS workflow_runs (
+      id TEXT PRIMARY KEY,
+      workflow_id TEXT NOT NULL REFERENCES workflow_defs(workflow_id) ON DELETE CASCADE,
+      trigger_id TEXT REFERENCES workflow_triggers(id) ON DELETE SET NULL,
+      version_id TEXT REFERENCES workflow_versions(id) ON DELETE SET NULL,
+      status TEXT NOT NULL DEFAULT 'running',
+      definition_snapshot_json TEXT NOT NULL,
+      bag_json TEXT NOT NULL DEFAULT '{}',
+      error TEXT,
+      started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      finished_at TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS workflow_runs_workflow_idx ON workflow_runs(workflow_id);
+
+    CREATE TABLE IF NOT EXISTS workflow_node_runs (
+      id TEXT PRIMARY KEY,
+      run_id TEXT NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE,
+      node_id TEXT NOT NULL,
+      attempt INTEGER NOT NULL DEFAULT 1,
+      status TEXT NOT NULL DEFAULT 'pending',
+      input_json TEXT NOT NULL DEFAULT '{}',
+      output_json TEXT NOT NULL DEFAULT '{}',
+      route_label TEXT,
+      error_json TEXT,
+      started_at TEXT,
+      finished_at TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS workflow_node_runs_run_idx ON workflow_node_runs(run_id);
+
+    CREATE TABLE IF NOT EXISTS workflow_run_tokens (
+      id TEXT PRIMARY KEY,
+      run_id TEXT NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE,
+      node_id TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active',
+      scope_json TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS workflow_run_tokens_run_idx ON workflow_run_tokens(run_id);
   `);
 }

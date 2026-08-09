@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { runMigrations } from "./migrate";
+import { ensureWorkflowPresets } from "./presets";
 
 let loadedEnv = false;
 
@@ -80,5 +81,24 @@ function defaultDatabasePath(): string {
 export function createDatabase(dbPath = defaultDatabasePath()) {
   const sqlite = new DatabaseSync(dbPath);
   runMigrations(sqlite);
+  return sqlite;
+}
+
+/**
+ * Open DB, run migrations, and seed workflow presets once (skip if present).
+ * Pass force via options or PROJECTPLANER_PRESETS_FORCE=1.
+ */
+export async function openDatabase(
+  dbPath = defaultDatabasePath(),
+  options?: { forcePresets?: boolean; onlyPresets?: string[] }
+): Promise<DatabaseSync> {
+  const sqlite = createDatabase(dbPath);
+  if (process.env.PROJECTPLANER_PRESETS_SKIP === "1") {
+    return sqlite;
+  }
+  await ensureWorkflowPresets(sqlite, {
+    force: options?.forcePresets,
+    only: options?.onlyPresets
+  });
   return sqlite;
 }

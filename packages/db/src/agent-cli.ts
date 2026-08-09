@@ -342,10 +342,28 @@ async function main(): Promise<void> {
     console.log("  pnpm plan packet-write --entity <entity-id> [--id <reference-id>] [--title <title>] [--workflow <name>] --metadata-file <json-file>");
     console.log("  pnpm plan export --out <file>");
     console.log("  pnpm plan import --from <file>");
+    console.log("  pnpm plan presets-ensure [--force] [--only ensure_aspect]");
     return;
   }
 
-  const db = createDatabase();
+  const forcePresets = "force" in args.options;
+  const onlyRaw = first(args.options, "only");
+  const onlyPresets = onlyRaw ? onlyRaw.split(",").map((part) => part.trim()).filter(Boolean) : undefined;
+
+  if (command === "presets-ensure") {
+    const { ensureWorkflowPresets } = await import("./presets");
+    const db = createDatabase();
+    try {
+      const result = await ensureWorkflowPresets(db, { force: forcePresets, only: onlyPresets });
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    } finally {
+      db.close();
+    }
+  }
+
+  const { openDatabase } = await import("./client");
+  const db = await openDatabase();
   try {
 
     if (command === "orient") {

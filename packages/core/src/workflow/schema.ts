@@ -1,152 +1,49 @@
-import type { EntityType, JsonRecord } from "../domain/types";
+import type { JsonRecord } from "../domain/types";
+import { parseBagShape } from "./shapes";
+import {
+  WORKFLOW_SCHEMA_VERSION,
+  workflowEdgeKinds,
+  workflowNodeTypes,
+  workflowRetryOnValues,
+  type WorkflowBagKeyContract,
+  type WorkflowContextBag,
+  type WorkflowEdge,
+  type WorkflowEdgeKind,
+  type WorkflowExecutionPolicy,
+  type WorkflowForeachConfig,
+  type WorkflowGraph,
+  type WorkflowJoinConfig,
+  type WorkflowMapConfig,
+  type WorkflowNode,
+  type WorkflowNodeData,
+  type WorkflowNodeType,
+  type WorkflowParseOutcome,
+  type WorkflowPosition,
+  type WorkflowRetryOn,
+  type WorkflowSubworkflowConfig,
+  type WorkflowWaitConfig
+} from "./types";
 
-export const workflowNodeTypes = [
-  "start",
-  "context",
-  "filter",
-  "tool",
-  "llm",
-  "write",
-  "gate",
-  "end"
-] as const;
+const WORKFLOW_RETRY_ON_SET = new Set<string>(workflowRetryOnValues);
 
-export type WorkflowNodeType = (typeof workflowNodeTypes)[number];
-
-export interface WorkflowPosition {
-  x: number;
-  y: number;
-}
-
-export interface WorkflowFilterWhere {
-  field: string;
-  op: "eq" | "in" | "neq";
-  value: unknown;
-}
-
-export interface WorkflowLoadContextAuto {
-  /** Default "query" uses rankedByQuery; "all" loads the full (optionally typed) graph snapshot. */
-  mode?: "query" | "all";
-  /** Bag key for the search string. Required when mode is "query". */
-  queryFrom?: string;
-  types?: EntityType[];
-  limit?: number;
-  /** When true and writes include a relations key, also write compact relations. */
-  includeRelations?: boolean;
-}
-
-export interface WorkflowFilterAuto {
-  from: string;
-  keys?: string[];
-  where?: WorkflowFilterWhere;
-  /** Rank/filter open unblocked tasks from the loaded graph using domain candidacy. */
-  rank?: "task_candidates";
-}
-
-export interface WorkflowAssignAuto {
-  set?: Record<string, unknown>;
-  /** Copy bag[from][0] into the first declared write key. */
-  pickFirst?: { from: string };
-  /** Build 1-hop neighborhood of bag[of] from in-bag entities/relations. */
-  neighborhoodOf?: {
-    of: string;
-    entitiesFrom?: string;
-    relationsFrom?: string;
-  };
-  /** Compose agentPrompt from selected task + neighborhood context. */
-  composeTaskPrompt?: {
-    taskFrom: string;
-    contextFrom: string;
-  };
-}
-
-export interface WorkflowAutoConfig {
-  loadContext?: WorkflowLoadContextAuto;
-  filter?: WorkflowFilterAuto;
-  assign?: WorkflowAssignAuto;
-}
-
-export interface WorkflowToolConfig {
-  name: string;
-  argsFromBag?: Record<string, string>;
-}
-
-export interface WorkflowLlmConfig {
-  instructions?: string;
-  instructionRef?: string;
-  tools?: string[];
-  inputKeys?: string[];
-  outputSchema?: string[];
-}
-
-export interface WorkflowWriteConfig {
-  action: "create_entity" | "update_entity";
-  argsFromBag?: Record<string, string>;
-  defaults?: JsonRecord;
-}
-
-export interface WorkflowGateConfig {
-  askUserIf?: string;
-  stopIf?: string;
-  routes?: Record<string, string>;
-}
-
-export interface WorkflowNodeData {
-  title: string;
-  reads?: string[];
-  writes?: string[];
-  outputs?: string[];
-  auto?: WorkflowAutoConfig;
-  tool?: WorkflowToolConfig;
-  llm?: WorkflowLlmConfig;
-  write?: WorkflowWriteConfig;
-  gate?: WorkflowGateConfig;
-  [key: string]: unknown;
-}
-
-export interface WorkflowNode {
-  id: string;
-  type: WorkflowNodeType;
-  position: WorkflowPosition;
-  data: WorkflowNodeData;
-}
-
-export interface WorkflowEdge {
-  id: string;
-  source: string;
-  target: string;
-  label?: string;
-}
-
-export interface WorkflowGraph {
-  version: number;
-  nodes: WorkflowNode[];
-  edges: WorkflowEdge[];
-}
-
-export interface WorkflowContextBag {
-  workflowId: string;
-  cursor: string | null;
-  goal: string;
-  keys: Record<string, unknown>;
-  runId?: string;
-  status?: "running" | "pending_llm" | "pending_user" | "completed" | "failed";
-  error?: string;
-}
-
-export interface WorkflowParseResult {
-  ok: true;
-  graph: WorkflowGraph;
-}
-
-export interface WorkflowParseError {
-  ok: false;
-  errors: string[];
-}
-
-export type WorkflowParseOutcome = WorkflowParseResult | WorkflowParseError;
+export * from "./types";
+export {
+  bagViewAtNode,
+  BAG_SHAPE_CATALOG,
+  deriveMapOutputShape,
+  inferNodeOutputShapes,
+  listShapePaths,
+  parseBagShape,
+  resolveBagShape,
+  serializeBagViewSlim,
+  serializeShapeSlim,
+  slimShapesForReads,
+  warnShapeMismatches
+} from "./shapes";
 
 const WORKFLOW_NODE_TYPE_SET = new Set<string>(workflowNodeTypes);
+const WORKFLOW_EDGE_KIND_SET = new Set<string>(workflowEdgeKinds);
+const LEGACY_NODE_TYPES = new Set(["filter"]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -164,6 +61,303 @@ function asStringArray(value: unknown): string[] | undefined {
     return undefined;
   }
   return value;
+}
+
+function asStringMap(value: unknown): Record<string, string> | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+  const out: Record<string, string> = {};
+  for (const [key, item] of Object.entries(value)) {
+    if (typeof item !== "string") {
+      return undefined;
+    }
+    out[key] = item;
+  }
+  return out;
+}
+
+function normalizeNodeType(raw: string): WorkflowNodeType | null {
+  if (raw === "filter") {
+    return "transform";
+  }
+  if (WORKFLOW_NODE_TYPE_SET.has(raw)) {
+    return raw as WorkflowNodeType;
+  }
+  return null;
+}
+
+function parseExecutionPolicy(raw: unknown, nodeId: string, errors: string[]): WorkflowExecutionPolicy | undefined {
+  if (raw === undefined) {
+    return undefined;
+  }
+  if (!isRecord(raw)) {
+    errors.push(`Node ${nodeId} executionPolicy must be an object.`);
+    return undefined;
+  }
+  const policy: WorkflowExecutionPolicy = {};
+  if (raw.timeoutMs !== undefined) {
+    if (typeof raw.timeoutMs !== "number" || !Number.isFinite(raw.timeoutMs) || raw.timeoutMs < 0) {
+      errors.push(`Node ${nodeId} executionPolicy.timeoutMs must be a non-negative number.`);
+    } else {
+      policy.timeoutMs = raw.timeoutMs;
+    }
+  }
+  if (raw.onExhausted !== undefined) {
+    if (raw.onExhausted !== "error_edge" && raw.onExhausted !== "fail_run") {
+      errors.push(`Node ${nodeId} executionPolicy.onExhausted must be error_edge|fail_run.`);
+    } else {
+      policy.onExhausted = raw.onExhausted;
+    }
+  }
+  if (typeof raw.idempotencyKeyFrom === "string") {
+    policy.idempotencyKeyFrom = raw.idempotencyKeyFrom;
+  }
+  if (raw.sideEffect !== undefined) {
+    if (raw.sideEffect !== "unknown" && raw.sideEffect !== "idempotent" && raw.sideEffect !== "non_idempotent") {
+      errors.push(`Node ${nodeId} executionPolicy.sideEffect is invalid.`);
+    } else {
+      policy.sideEffect = raw.sideEffect;
+    }
+  }
+  if (raw.retry !== undefined) {
+    if (!isRecord(raw.retry)) {
+      errors.push(`Node ${nodeId} executionPolicy.retry must be an object.`);
+    } else {
+      const maxAttempts = raw.retry.maxAttempts;
+      if (typeof maxAttempts !== "number" || !Number.isInteger(maxAttempts) || maxAttempts < 1) {
+        errors.push(`Node ${nodeId} executionPolicy.retry.maxAttempts must be a positive integer.`);
+      } else {
+        policy.retry = {
+          maxAttempts,
+          backoffMs: typeof raw.retry.backoffMs === "number" ? raw.retry.backoffMs : undefined,
+          backoff: raw.retry.backoff === "fixed" || raw.retry.backoff === "exponential" ? raw.retry.backoff : undefined,
+          retryOn: Array.isArray(raw.retry.retryOn)
+            ? (raw.retry.retryOn.filter(
+                (item): item is WorkflowRetryOn => typeof item === "string" && WORKFLOW_RETRY_ON_SET.has(item)
+              ) as WorkflowRetryOn[])
+            : undefined
+        };
+      }
+    }
+  }
+  return policy;
+}
+
+function parseJoinConfig(raw: unknown, nodeId: string, errors: string[]): WorkflowJoinConfig | undefined {
+  if (raw === undefined) {
+    return undefined;
+  }
+  if (!isRecord(raw)) {
+    errors.push(`Node ${nodeId} join config must be an object.`);
+    return undefined;
+  }
+  const join: WorkflowJoinConfig = {};
+  if (raw.mode === "all" || raw.mode === "any") {
+    join.mode = raw.mode;
+  } else if (isRecord(raw.mode) && typeof raw.mode.count === "number" && Number.isInteger(raw.mode.count)) {
+    join.mode = { count: raw.mode.count };
+  } else if (raw.mode !== undefined) {
+    errors.push(`Node ${nodeId} join.mode must be all|any|{count}.`);
+  }
+  if (raw.remaining === "cancel_remaining" || raw.remaining === "ignore_remaining") {
+    join.remaining = raw.remaining;
+  } else if (raw.remaining !== undefined) {
+    errors.push(`Node ${nodeId} join.remaining must be cancel_remaining|ignore_remaining.`);
+  }
+  if (raw.merge !== undefined) {
+    if (!isRecord(raw.merge)) {
+      errors.push(`Node ${nodeId} join.merge must be an object.`);
+    } else {
+      const strategy = raw.merge.strategy;
+      if (
+        strategy !== undefined &&
+        strategy !== "object_per_arm" &&
+        strategy !== "prefer_first" &&
+        strategy !== "prefer_last" &&
+        strategy !== "fail_on_conflict"
+      ) {
+        errors.push(`Node ${nodeId} join.merge.strategy is invalid.`);
+      } else {
+        join.merge = {
+          strategy,
+          as: typeof raw.merge.as === "string" ? raw.merge.as : undefined,
+          keys: asStringArray(raw.merge.keys)
+        };
+      }
+    }
+  }
+  return join;
+}
+
+function parseForeachConfig(raw: unknown, nodeId: string, errors: string[]): WorkflowForeachConfig | undefined {
+  if (raw === undefined) {
+    return undefined;
+  }
+  if (!isRecord(raw)) {
+    errors.push(`Node ${nodeId} foreach config must be an object.`);
+    return undefined;
+  }
+  if (typeof raw.itemsFrom !== "string" || !raw.itemsFrom.trim()) {
+    errors.push(`Node ${nodeId} foreach.itemsFrom is required.`);
+    return undefined;
+  }
+  if (!isRecord(raw.body)) {
+    errors.push(`Node ${nodeId} foreach.body is required.`);
+    return undefined;
+  }
+  let body: WorkflowForeachConfig["body"] | null = null;
+  if (raw.body.type === "subworkflow" && typeof raw.body.workflowId === "string") {
+    body = {
+      type: "subworkflow",
+      workflowId: raw.body.workflowId,
+      inputMap: asStringMap(raw.body.inputMap),
+      outputMap: asStringMap(raw.body.outputMap)
+    };
+  } else if (
+    raw.body.type === "subgraph" &&
+    typeof raw.body.entryNodeId === "string" &&
+    typeof raw.body.exitNodeId === "string"
+  ) {
+    body = {
+      type: "subgraph",
+      entryNodeId: raw.body.entryNodeId,
+      exitNodeId: raw.body.exitNodeId
+    };
+  } else {
+    errors.push(`Node ${nodeId} foreach.body must be subworkflow|{subgraph entry/exit}.`);
+    return undefined;
+  }
+
+  const collect =
+    isRecord(raw.collect) && typeof raw.collect.as === "string"
+      ? {
+          from:
+            typeof raw.collect.from === "string"
+              ? raw.collect.from
+              : Array.isArray(raw.collect.from)
+                ? (raw.collect.from.filter((item) => typeof item === "string") as string[])
+                : "",
+          as: raw.collect.as
+        }
+      : undefined;
+
+  return {
+    itemsFrom: raw.itemsFrom,
+    itemKey: typeof raw.itemKey === "string" ? raw.itemKey : undefined,
+    indexKey: typeof raw.indexKey === "string" ? raw.indexKey : undefined,
+    body,
+    concurrency: typeof raw.concurrency === "number" ? raw.concurrency : undefined,
+    failureMode: raw.failureMode === "fail" || raw.failureMode === "continue" ? raw.failureMode : undefined,
+    collect: collect && (typeof collect.from === "string" || collect.from.length > 0) ? collect : undefined
+  };
+}
+
+function parseWaitConfig(raw: unknown, nodeId: string, errors: string[]): WorkflowWaitConfig | undefined {
+  if (raw === undefined) {
+    return undefined;
+  }
+  if (!isRecord(raw)) {
+    errors.push(`Node ${nodeId} wait config must be an object.`);
+    return undefined;
+  }
+  const wait: WorkflowWaitConfig = {
+    delayMs: typeof raw.delayMs === "number" ? raw.delayMs : undefined,
+    until: typeof raw.until === "string" ? raw.until : undefined
+  };
+  if (wait.delayMs === undefined && !wait.until) {
+    errors.push(`Node ${nodeId} wait requires delayMs or until.`);
+  }
+  return wait;
+}
+
+function parseSubworkflowConfig(
+  raw: unknown,
+  nodeId: string,
+  errors: string[]
+): WorkflowSubworkflowConfig | undefined {
+  if (raw === undefined) {
+    return undefined;
+  }
+  if (!isRecord(raw) || typeof raw.workflowId !== "string" || !raw.workflowId.trim()) {
+    errors.push(`Node ${nodeId} subworkflow.workflowId is required.`);
+    return undefined;
+  }
+  return {
+    workflowId: raw.workflowId,
+    inputMap: asStringMap(raw.inputMap),
+    outputMap: asStringMap(raw.outputMap)
+  };
+}
+
+function parseBagKeyContracts(
+  raw: unknown,
+  nodeId: string,
+  field: string,
+  errors: string[]
+): Record<string, WorkflowBagKeyContract> | undefined {
+  if (raw === undefined) {
+    return undefined;
+  }
+  if (!isRecord(raw)) {
+    errors.push(`Node ${nodeId} data.${field} must be an object.`);
+    return undefined;
+  }
+  const out: Record<string, WorkflowBagKeyContract> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (!isRecord(value)) {
+      errors.push(`Node ${nodeId} data.${field}.${key} must be an object.`);
+      continue;
+    }
+    const shape = value.shape !== undefined ? parseBagShape(value.shape) : undefined;
+    if (value.shape !== undefined && !shape) {
+      errors.push(`Node ${nodeId} data.${field}.${key}.shape is invalid.`);
+    }
+    out[key] = {
+      required: typeof value.required === "boolean" ? value.required : undefined,
+      shape
+    };
+  }
+  return out;
+}
+
+function parseMapConfig(raw: unknown, nodeId: string, errors: string[]): WorkflowMapConfig | undefined {
+  if (raw === undefined) {
+    return undefined;
+  }
+  if (!isRecord(raw)) {
+    errors.push(`Node ${nodeId} map config must be an object.`);
+    return undefined;
+  }
+  if (typeof raw.from !== "string" || !raw.from.trim()) {
+    errors.push(`Node ${nodeId} map.from is required.`);
+    return undefined;
+  }
+  if (typeof raw.as !== "string" || !raw.as.trim()) {
+    errors.push(`Node ${nodeId} map.as is required.`);
+    return undefined;
+  }
+  if (!Array.isArray(raw.fields) || raw.fields.length === 0) {
+    errors.push(`Node ${nodeId} map.fields must be a non-empty array.`);
+    return undefined;
+  }
+  const fields: WorkflowMapConfig["fields"] = [];
+  for (const item of raw.fields) {
+    if (!isRecord(item) || typeof item.from !== "string" || typeof item.as !== "string") {
+      errors.push(`Node ${nodeId} map.fields entries require from and as strings.`);
+      continue;
+    }
+    fields.push({ from: item.from, as: item.as });
+  }
+  if (fields.length === 0) {
+    return undefined;
+  }
+  return {
+    from: raw.from,
+    as: raw.as,
+    mode: raw.mode === "array" || raw.mode === "object" ? raw.mode : undefined,
+    fields
+  };
 }
 
 function parseNodeData(raw: unknown, nodeId: string, errors: string[]): WorkflowNodeData | null {
@@ -189,17 +383,32 @@ function parseNodeData(raw: unknown, nodeId: string, errors: string[]): Workflow
     errors.push(`Node ${nodeId} data.outputs must be string[].`);
   }
 
+  const map = parseMapConfig(raw.map, nodeId, errors);
+  const writesList = writes ?? outputs ?? [];
+  if (map && !writesList.includes(map.as)) {
+    // Auto-include map.as in writes for convenience when omitted.
+  }
+
   return {
     ...raw,
     title: raw.title,
     reads,
-    writes,
+    writes: map && writes && !writes.includes(map.as) ? [...writes, map.as] : writes,
     outputs,
-    auto: isRecord(raw.auto) ? (raw.auto as unknown as WorkflowAutoConfig) : undefined,
-    tool: isRecord(raw.tool) ? (raw.tool as unknown as WorkflowToolConfig) : undefined,
-    llm: isRecord(raw.llm) ? (raw.llm as unknown as WorkflowLlmConfig) : undefined,
-    write: isRecord(raw.write) ? (raw.write as unknown as WorkflowWriteConfig) : undefined,
-    gate: isRecord(raw.gate) ? (raw.gate as unknown as WorkflowGateConfig) : undefined
+    inputs: parseBagKeyContracts(raw.inputs, nodeId, "inputs", errors),
+    outputContracts: parseBagKeyContracts(raw.outputContracts, nodeId, "outputContracts", errors),
+    auto: isRecord(raw.auto) ? (raw.auto as unknown as WorkflowNodeData["auto"]) : undefined,
+    tool: isRecord(raw.tool) ? (raw.tool as unknown as WorkflowNodeData["tool"]) : undefined,
+    llm: isRecord(raw.llm) ? (raw.llm as unknown as WorkflowNodeData["llm"]) : undefined,
+    write: isRecord(raw.write) ? (raw.write as unknown as WorkflowNodeData["write"]) : undefined,
+    gate: isRecord(raw.gate) ? (raw.gate as unknown as WorkflowNodeData["gate"]) : undefined,
+    switch: isRecord(raw.switch) ? (raw.switch as unknown as WorkflowNodeData["switch"]) : undefined,
+    join: parseJoinConfig(raw.join, nodeId, errors),
+    foreach: parseForeachConfig(raw.foreach, nodeId, errors),
+    map,
+    wait: parseWaitConfig(raw.wait, nodeId, errors),
+    subworkflow: parseSubworkflowConfig(raw.subworkflow, nodeId, errors),
+    executionPolicy: parseExecutionPolicy(raw.executionPolicy, nodeId, errors)
   };
 }
 
@@ -212,8 +421,15 @@ function parseNode(raw: unknown, errors: string[]): WorkflowNode | null {
     errors.push("Workflow node requires id.");
     return null;
   }
-  if (typeof raw.type !== "string" || !WORKFLOW_NODE_TYPE_SET.has(raw.type)) {
+  if (typeof raw.type !== "string") {
     errors.push(`Node ${raw.id} has invalid type.`);
+    return null;
+  }
+  const type = normalizeNodeType(raw.type);
+  if (!type) {
+    if (!LEGACY_NODE_TYPES.has(raw.type)) {
+      errors.push(`Node ${raw.id} has invalid type.`);
+    }
     return null;
   }
   if (!isPosition(raw.position)) {
@@ -228,13 +444,29 @@ function parseNode(raw: unknown, errors: string[]): WorkflowNode | null {
 
   return {
     id: raw.id,
-    type: raw.type as WorkflowNodeType,
+    type,
     position: { x: raw.position.x, y: raw.position.y },
     data
   };
 }
 
-function parseEdge(raw: unknown, errors: string[]): WorkflowEdge | null {
+function inferEdgeKind(raw: Record<string, unknown>, sourceType: WorkflowNodeType | undefined): WorkflowEdgeKind {
+  if (typeof raw.kind === "string" && WORKFLOW_EDGE_KIND_SET.has(raw.kind)) {
+    return raw.kind as WorkflowEdgeKind;
+  }
+  if (sourceType === "switch" || sourceType === "gate") {
+    if (typeof raw.label === "string" && raw.label && raw.label !== "default") {
+      return "route";
+    }
+  }
+  return "next";
+}
+
+function parseEdge(
+  raw: unknown,
+  errors: string[],
+  nodeTypeById: Map<string, WorkflowNodeType>
+): WorkflowEdge | null {
   if (!isRecord(raw)) {
     errors.push("Each workflow edge must be an object.");
     return null;
@@ -248,15 +480,140 @@ function parseEdge(raw: unknown, errors: string[]): WorkflowEdge | null {
     return null;
   }
 
+  const sourceType = nodeTypeById.get(raw.source);
+  const kind = inferEdgeKind(raw, sourceType);
+
   return {
     id: raw.id,
     source: raw.source,
     target: raw.target,
+    kind,
     label: typeof raw.label === "string" ? raw.label : undefined
   };
 }
 
-/** Parse and validate a Workflow Step Graph v1 payload. */
+function validateTopology(graph: WorkflowGraph, errors: string[]): void {
+  const nodeById = new Map(graph.nodes.map((node) => [node.id, node]));
+  const incoming = new Map<string, WorkflowEdge[]>();
+  const outgoing = new Map<string, WorkflowEdge[]>();
+
+  for (const edge of graph.edges) {
+    if (!nodeById.has(edge.source)) {
+      errors.push(`Edge ${edge.id} source ${edge.source} is missing.`);
+    }
+    if (!nodeById.has(edge.target)) {
+      errors.push(`Edge ${edge.id} target ${edge.target} is missing.`);
+    }
+    const outs = outgoing.get(edge.source) ?? [];
+    outs.push(edge);
+    outgoing.set(edge.source, outs);
+    const ins = incoming.get(edge.target) ?? [];
+    ins.push(edge);
+    incoming.set(edge.target, ins);
+  }
+
+  const starts = graph.nodes.filter((node) => node.type === "start");
+  if (starts.length !== 1) {
+    errors.push("Workflow graph requires exactly one start node.");
+  }
+  if (!graph.nodes.some((node) => node.type === "end" || node.type === "error_end")) {
+    errors.push("Workflow graph requires at least one end or error_end node.");
+  }
+
+  for (const node of graph.nodes) {
+    const outs = outgoing.get(node.id) ?? [];
+    const ins = incoming.get(node.id) ?? [];
+
+    if (node.type === "switch") {
+      const routes = outs.filter((edge) => edge.kind === "route");
+      if (routes.length < 2) {
+        errors.push(`Switch ${node.id} requires at least two route edges.`);
+      }
+      const labels = routes.map((edge) => edge.label ?? "");
+      if (new Set(labels).size !== labels.length) {
+        errors.push(`Switch ${node.id} route labels must be unique.`);
+      }
+    }
+
+    if (node.type === "fork") {
+      const nexts = outs.filter((edge) => edge.kind === "next");
+      if (nexts.length < 2) {
+        errors.push(`Fork ${node.id} requires at least two next edges.`);
+      }
+    }
+
+    if (node.type === "join") {
+      const deps = ins.filter((edge) => edge.kind === "depends_on");
+      if (deps.length < 2) {
+        errors.push(`Join ${node.id} requires at least two depends_on edges.`);
+      }
+      if (ins.some((edge) => edge.kind !== "depends_on")) {
+        errors.push(`Join ${node.id} accepts only depends_on in-edges.`);
+      }
+    }
+
+    if (node.type === "foreach") {
+      if (!node.data.foreach?.itemsFrom || !node.data.foreach.body) {
+        errors.push(`Foreach ${node.id} requires foreach.itemsFrom and foreach.body.`);
+      }
+    }
+
+    if (node.type === "map") {
+      if (!node.data.map?.from || !node.data.map.as || !node.data.map.fields?.length) {
+        errors.push(`Map ${node.id} requires map.from, map.as, and map.fields.`);
+      }
+    }
+
+    if (node.type === "subworkflow") {
+      if (!node.data.subworkflow?.workflowId) {
+        errors.push(`Subworkflow ${node.id} requires subworkflow.workflowId.`);
+      }
+    }
+
+    if (node.type === "wait") {
+      if (!node.data.wait?.delayMs && !node.data.wait?.until) {
+        errors.push(`Wait ${node.id} requires wait.delayMs or wait.until.`);
+      }
+    }
+
+    if (node.data.executionPolicy?.onExhausted === "error_edge") {
+      if (!outs.some((edge) => edge.kind === "error")) {
+        errors.push(`Node ${node.id} onExhausted=error_edge requires an error edge.`);
+      }
+    }
+  }
+
+  for (const edge of graph.edges) {
+    if (edge.kind === "depends_on") {
+      const target = nodeById.get(edge.target);
+      if (target && target.type !== "join") {
+        errors.push(`Edge ${edge.id} depends_on target must be a join.`);
+      }
+    }
+    if (edge.kind === "route") {
+      const source = nodeById.get(edge.source);
+      if (source && source.type !== "switch" && source.type !== "gate") {
+        errors.push(`Edge ${edge.id} route source must be switch or gate.`);
+      }
+    }
+  }
+
+  // Ambiguous multi-next merge into work/control (non-join) nodes is forbidden.
+  for (const [targetId, edges] of incoming) {
+    const target = nodeById.get(targetId);
+    if (!target || target.type === "join") {
+      continue;
+    }
+    const nextIns = edges.filter((edge) => edge.kind === "next");
+    if (nextIns.length > 1) {
+      errors.push(
+        `Node ${targetId} has multiple next in-edges; use a join with depends_on for fan-in.`
+      );
+    }
+  }
+}
+
+/** Parse and validate a Workflow Step Graph (v1 migrated or v2). Always returns version 2. */
 export function parseWorkflowGraph(raw: unknown): WorkflowParseOutcome {
   const errors: string[] = [];
 
@@ -264,7 +621,7 @@ export function parseWorkflowGraph(raw: unknown): WorkflowParseOutcome {
     return { ok: false, errors: ["Workflow graph must be an object."] };
   }
 
-  const version = raw.version === undefined ? 1 : raw.version;
+  const version = raw.version === undefined ? WORKFLOW_SCHEMA_VERSION : raw.version;
   if (typeof version !== "number" || !Number.isInteger(version) || version < 1) {
     errors.push("Workflow graph.version must be a positive integer.");
   }
@@ -280,43 +637,36 @@ export function parseWorkflowGraph(raw: unknown): WorkflowParseOutcome {
     return { ok: false, errors };
   }
 
-  const nodes = (raw.nodes as unknown[]).map((node) => parseNode(node, errors)).filter((node): node is WorkflowNode => node !== null);
-  const edges = (raw.edges as unknown[]).map((edge) => parseEdge(edge, errors)).filter((edge): edge is WorkflowEdge => edge !== null);
+  const nodes = (raw.nodes as unknown[])
+    .map((node) => parseNode(node, errors))
+    .filter((node): node is WorkflowNode => node !== null);
+  const nodeTypeById = new Map(nodes.map((node) => [node.id, node.type]));
+  const edges = (raw.edges as unknown[])
+    .map((edge) => parseEdge(edge, errors, nodeTypeById))
+    .filter((edge): edge is WorkflowEdge => edge !== null);
 
   const nodeIds = new Set(nodes.map((node) => node.id));
   if (nodeIds.size !== nodes.length) {
     errors.push("Workflow node ids must be unique.");
   }
-
-  for (const edge of edges) {
-    if (!nodeIds.has(edge.source)) {
-      errors.push(`Edge ${edge.id} source ${edge.source} is missing.`);
-    }
-    if (!nodeIds.has(edge.target)) {
-      errors.push(`Edge ${edge.id} target ${edge.target} is missing.`);
-    }
+  const edgeIds = new Set(edges.map((edge) => edge.id));
+  if (edgeIds.size !== edges.length) {
+    errors.push("Workflow edge ids must be unique.");
   }
 
-  const starts = nodes.filter((node) => node.type === "start");
-  if (starts.length !== 1) {
-    errors.push("Workflow graph requires exactly one start node.");
-  }
-  if (!nodes.some((node) => node.type === "end")) {
-    errors.push("Workflow graph requires at least one end node.");
-  }
+  const graph: WorkflowGraph = {
+    version: WORKFLOW_SCHEMA_VERSION,
+    nodes,
+    edges
+  };
+
+  validateTopology(graph, errors);
 
   if (errors.length > 0) {
     return { ok: false, errors };
   }
 
-  return {
-    ok: true,
-    graph: {
-      version: version as number,
-      nodes,
-      edges
-    }
-  };
+  return { ok: true, graph };
 }
 
 export function readWorkflowGraph(metadata: JsonRecord): WorkflowParseOutcome {
@@ -326,8 +676,9 @@ export function readWorkflowGraph(metadata: JsonRecord): WorkflowParseOutcome {
 export function writeWorkflowGraph(metadata: JsonRecord, graph: WorkflowGraph): JsonRecord {
   return {
     ...metadata,
+    schemaVersion: WORKFLOW_SCHEMA_VERSION,
     graph: {
-      version: graph.version,
+      version: WORKFLOW_SCHEMA_VERSION,
       nodes: graph.nodes,
       edges: graph.edges
     }
@@ -347,7 +698,8 @@ export function createContextBag(input: {
     goal: input.goal,
     keys: { ...(input.keys ?? {}), goal: input.goal },
     runId: input.runId,
-    status: "running"
+    status: "running",
+    frontier: [input.startNodeId]
   };
 }
 
@@ -376,10 +728,12 @@ export function parseContextBag(raw: unknown): WorkflowContextBag | null {
       raw.status === "pending_llm" ||
       raw.status === "pending_user" ||
       raw.status === "completed" ||
-      raw.status === "failed"
+      raw.status === "failed" ||
+      raw.status === "waiting"
         ? raw.status
         : undefined,
-    error: typeof raw.error === "string" ? raw.error : undefined
+    error: typeof raw.error === "string" ? raw.error : undefined,
+    frontier: asStringArray(raw.frontier)
   };
 }
 
@@ -397,7 +751,8 @@ export function writeContextBag(metadata: JsonRecord, bag: WorkflowContextBag): 
       keys: bag.keys,
       ...(bag.runId ? { runId: bag.runId } : {}),
       ...(bag.status ? { status: bag.status } : {}),
-      ...(bag.error ? { error: bag.error } : {})
+      ...(bag.error ? { error: bag.error } : {}),
+      ...(bag.frontier ? { frontier: bag.frontier } : {})
     }
   };
 }
@@ -460,6 +815,18 @@ export function outgoingEdges(graph: WorkflowGraph, nodeId: string): WorkflowEdg
   return graph.edges.filter((edge) => edge.source === nodeId);
 }
 
+export function incomingEdges(graph: WorkflowGraph, nodeId: string): WorkflowEdge[] {
+  return graph.edges.filter((edge) => edge.target === nodeId);
+}
+
+export function outgoingByKind(
+  graph: WorkflowGraph,
+  nodeId: string,
+  kind: WorkflowEdgeKind
+): WorkflowEdge[] {
+  return outgoingEdges(graph, nodeId).filter((edge) => edge.kind === kind);
+}
+
 export function resolveNextNodeId(
   graph: WorkflowGraph,
   nodeId: string,
@@ -469,23 +836,82 @@ export function resolveNextNodeId(
   if (edges.length === 0) {
     return null;
   }
-  const labeled = edges.find((edge) => (edge.label ?? "default") === routeLabel);
-  if (labeled) {
-    return labeled.target;
+
+  const routes = edges.filter((edge) => edge.kind === "route");
+  if (routes.length > 0) {
+    const labeled = routes.find((edge) => (edge.label ?? "default") === routeLabel);
+    if (labeled) {
+      return labeled.target;
+    }
   }
-  const unlabeled = edges.find((edge) => !edge.label || edge.label === "default");
-  return unlabeled?.target ?? edges[0]?.target ?? null;
+
+  const nexts = edges.filter((edge) => edge.kind === "next");
+  const labeledNext = nexts.find((edge) => (edge.label ?? "default") === routeLabel);
+  if (labeledNext) {
+    return labeledNext.target;
+  }
+  return nexts[0]?.target ?? edges.find((edge) => edge.kind !== "depends_on" && edge.kind !== "error")?.target ?? null;
 }
 
-/** Locked Workflow Step Graph v1 example from the schema reference. */
+/** Soft editor warning: required reads with no upstream declared write. */
+export function warnMissingUpstreamKeys(graph: WorkflowGraph): string[] {
+  const written = new Set<string>();
+  const warnings: string[] = [];
+  const start = findStartNode(graph);
+  if (!start) {
+    return warnings;
+  }
+
+  const queue = [start.id];
+  const visited = new Set<string>();
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    if (visited.has(id)) {
+      continue;
+    }
+    visited.add(id);
+    const node = findNode(graph, id);
+    if (!node) {
+      continue;
+    }
+    for (const key of node.data.reads ?? []) {
+      const required = node.data.inputs?.[key]?.required !== false;
+      if (required && key !== "goal" && !written.has(key)) {
+        warnings.push(`Node ${node.id} requires \`${key}\`, but no upstream node guarantees that key.`);
+      }
+    }
+    for (const key of getNodeWrites(node)) {
+      written.add(key);
+    }
+    for (const edge of outgoingEdges(graph, id)) {
+      if (edge.kind === "next" || edge.kind === "route" || edge.kind === "depends_on") {
+        queue.push(edge.target);
+      }
+    }
+  }
+  return warnings;
+}
+
+export function emptyWorkflowGraph(): WorkflowGraph {
+  return {
+    version: WORKFLOW_SCHEMA_VERSION,
+    nodes: [
+      { id: "start", type: "start", position: { x: 80, y: 120 }, data: { title: "Start", writes: ["goal"] } },
+      { id: "end", type: "end", position: { x: 420, y: 120 }, data: { title: "End" } }
+    ],
+    edges: [{ id: "e_start_end", source: "start", target: "end", kind: "next" }]
+  };
+}
+
+/** Locked Workflow Step Graph example (migrated to v2 edge kinds). */
 export const exampleWorkflowGraph: WorkflowGraph = {
-  version: 1,
+  version: WORKFLOW_SCHEMA_VERSION,
   edges: [
-    { id: "e1", source: "start", target: "load" },
-    { id: "e2", source: "load", target: "filter" },
-    { id: "e3", source: "filter", target: "choose" },
-    { id: "e4", source: "choose", target: "write_aspect" },
-    { id: "e5", source: "write_aspect", target: "end" }
+    { id: "e1", source: "start", target: "load", kind: "next" },
+    { id: "e2", source: "load", target: "filter", kind: "next" },
+    { id: "e3", source: "filter", target: "choose", kind: "next" },
+    { id: "e4", source: "choose", target: "write_aspect", kind: "next" },
+    { id: "e5", source: "write_aspect", target: "end", kind: "next" }
   ],
   nodes: [
     {
@@ -513,7 +939,7 @@ export const exampleWorkflowGraph: WorkflowGraph = {
     },
     {
       id: "filter",
-      type: "filter",
+      type: "transform",
       position: { x: 400, y: 0 },
       data: {
         title: "Filter keys",
@@ -538,7 +964,8 @@ export const exampleWorkflowGraph: WorkflowGraph = {
         writes: ["chosenAspectId", "createNewTitle", "confidence"],
         llm: {
           inputKeys: ["goal", "filteredEntities"],
-          instructions: "Pick the smallest truthful Aspect id from filteredEntities, or say createNew with a title.",
+          instructions:
+            "Pick the smallest truthful Aspect id from filteredEntities, or say createNew with a title.",
           outputSchema: ["chosenAspectId", "createNewTitle", "confidence"],
           tools: []
         }
@@ -567,18 +994,18 @@ export const exampleWorkflowGraph: WorkflowGraph = {
   ]
 };
 
-/** Pick next eligible task: load full graph → rank → neighborhood → agent prompt. */
+/** Pick next eligible task workflow (v2). */
 export const newTaskWorkflowGraph: WorkflowGraph = {
-  version: 1,
+  version: WORKFLOW_SCHEMA_VERSION,
   edges: [
-    { id: "e1", source: "start", target: "load" },
-    { id: "e2", source: "load", target: "rank" },
-    { id: "e3", source: "rank", target: "gate" },
-    { id: "e4", source: "gate", target: "pick" },
-    { id: "e5", source: "pick", target: "neighborhood" },
-    { id: "e6", source: "neighborhood", target: "prompt" },
-    { id: "e7", source: "prompt", target: "llm" },
-    { id: "e8", source: "llm", target: "end" }
+    { id: "e1", source: "start", target: "load", kind: "next" },
+    { id: "e2", source: "load", target: "rank", kind: "next" },
+    { id: "e3", source: "rank", target: "gate", kind: "next" },
+    { id: "e4", source: "gate", target: "pick", kind: "next", label: "approved" },
+    { id: "e5", source: "pick", target: "neighborhood", kind: "next" },
+    { id: "e6", source: "neighborhood", target: "prompt", kind: "next" },
+    { id: "e7", source: "prompt", target: "llm", kind: "next" },
+    { id: "e8", source: "llm", target: "end", kind: "next" }
   ],
   nodes: [
     {
@@ -604,7 +1031,7 @@ export const newTaskWorkflowGraph: WorkflowGraph = {
     },
     {
       id: "rank",
-      type: "filter",
+      type: "transform",
       position: { x: 360, y: 80 },
       data: {
         title: "Rank candidates",
@@ -632,7 +1059,7 @@ export const newTaskWorkflowGraph: WorkflowGraph = {
     },
     {
       id: "pick",
-      type: "filter",
+      type: "transform",
       position: { x: 720, y: 80 },
       data: {
         title: "Pick top task",
@@ -647,7 +1074,7 @@ export const newTaskWorkflowGraph: WorkflowGraph = {
     },
     {
       id: "neighborhood",
-      type: "filter",
+      type: "transform",
       position: { x: 900, y: 80 },
       data: {
         title: "Task neighborhood",
@@ -666,7 +1093,7 @@ export const newTaskWorkflowGraph: WorkflowGraph = {
     },
     {
       id: "prompt",
-      type: "filter",
+      type: "transform",
       position: { x: 1080, y: 80 },
       data: {
         title: "Compose prompt",
@@ -707,14 +1134,3 @@ export const newTaskWorkflowGraph: WorkflowGraph = {
     }
   ]
 };
-
-export function emptyWorkflowGraph(): WorkflowGraph {
-  return {
-    version: 1,
-    nodes: [
-      { id: "start", type: "start", position: { x: 80, y: 120 }, data: { title: "Start", writes: ["goal"] } },
-      { id: "end", type: "end", position: { x: 420, y: 120 }, data: { title: "End" } }
-    ],
-    edges: [{ id: "e_start_end", source: "start", target: "end" }]
-  };
-}

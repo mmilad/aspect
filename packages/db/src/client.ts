@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { runMigrations } from "./migrate";
+import { migrateEntityStatuses } from "./migrate-status";
 import { ensureWorkflowPresets } from "./presets";
 
 let loadedEnv = false;
@@ -81,6 +82,7 @@ function defaultDatabasePath(): string {
 export function createDatabase(dbPath = defaultDatabasePath()) {
   const sqlite = new DatabaseSync(dbPath);
   runMigrations(sqlite);
+  migrateEntityStatuses(sqlite);
   return sqlite;
 }
 

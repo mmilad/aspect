@@ -1,6 +1,6 @@
 import type { EntityFilter, FieldFilter } from "./types";
 
-const CANDIDATE_STATUSES = ["todo", "doing", "review"] as const;
+const CANDIDATE_STATUSES = ["in_planning", "planned", "in_progress"] as const;
 
 /** Matches `isBlockerResolved` for the related (blocker) entity. */
 export const BLOCKER_RESOLVED_FILTER: EntityFilter = {
@@ -9,19 +9,25 @@ export const BLOCKER_RESOLVED_FILTER: EntityFilter = {
     {
       and: [
         { field: "type", op: "eq", value: "task" },
-        { field: "status", op: "eq", value: "done" }
+        { field: "status", op: "in", value: ["done", "canceled", "archived"] }
       ]
     },
     {
       and: [
-        { field: "type", op: "in", value: ["decision", "question"] },
-        { field: "status", op: "in", value: ["accepted", "answered", "archived"] }
+        { field: "type", op: "eq", value: "decision" },
+        { field: "status", op: "in", value: ["accepted", "rejected", "archived"] }
+      ]
+    },
+    {
+      and: [
+        { field: "type", op: "eq", value: "question" },
+        { field: "status", op: "in", value: ["answered", "archived"] }
       ]
     },
     {
       and: [
         { not: { field: "type", op: "in", value: ["task", "decision", "question"] } },
-        { field: "status", op: "in", value: ["implemented", "archived"] }
+        { field: "status", op: "in", value: ["done", "canceled", "archived"] }
       ]
     }
   ]

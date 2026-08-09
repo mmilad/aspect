@@ -12,5 +12,5 @@ export function formatStatus(status: string): string {
 }
 
 export function isCompleteStatus(status: string): boolean {
-  return ["implemented", "done", "accepted", "answered"].includes(status);
+  return ["done", "accepted", "answered", "rejected", "canceled", "archived"].includes(status);
 }

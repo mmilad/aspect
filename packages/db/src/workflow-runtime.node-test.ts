@@ -31,7 +31,7 @@ describe("advanceWorkflowRun ensure_aspect", () => {
         type: "aspect",
         title: "Should author executable workflow step graphs",
         summary: "Executable workflow diagrams.",
-        status: "implemented",
+        status: "done",
         slug: "should-author-executable-workflow-step-graphs"
       });
 

@@ -7,7 +7,7 @@ export async function POST(request: Request) {
     projectKey?: string;
     title?: string;
     description?: string;
-    status?: "todo" | "doing" | "blocked" | "review" | "done";
+    status?: "in_planning" | "planned" | "in_progress" | "done" | "canceled" | "archived";
     priority?: "low" | "medium" | "high" | "critical";
     acceptanceCriteria?: string[];
     targetType?: "aspect" | "feature";

@@ -32,17 +32,23 @@ export const graphDotToneByType: Record<string, string> = {
 
 /** Aspect-graph dot ring tones keyed by status. */
 export const graphDotStatusByStatus: Record<string, string> = {
-  not_implemented: "border-slate-400",
+  in_planning: "border-slate-400",
   planned: "border-slate-400",
+  in_progress: "border-cyan-500 ring-2 ring-cyan-200",
+  done: "border-emerald-500 ring-2 ring-emerald-200",
+  canceled: "border-rose-600 ring-2 ring-rose-200 opacity-70",
+  archived: "border-stone-300 opacity-50",
+  open: "border-amber-500 ring-2 ring-amber-200",
+  accepted: "border-emerald-500 ring-2 ring-emerald-200",
+  rejected: "border-rose-600 ring-2 ring-rose-200",
+  answered: "border-emerald-500 ring-2 ring-emerald-200",
+  // legacy aliases until clients refresh
+  not_implemented: "border-slate-400",
   todo: "border-slate-400",
   in_work: "border-cyan-500 ring-2 ring-cyan-200",
   doing: "border-cyan-500 ring-2 ring-cyan-200",
-  review: "border-amber-500 ring-2 ring-amber-200",
-  blocked: "border-rose-600 ring-2 ring-rose-200",
+  review: "border-cyan-500 ring-2 ring-cyan-200",
+  blocked: "border-cyan-500 ring-2 ring-cyan-200",
   implemented: "border-emerald-500 ring-2 ring-emerald-200",
-  done: "border-emerald-500 ring-2 ring-emerald-200",
-  accepted: "border-amber-500 ring-2 ring-amber-200",
-  answered: "border-emerald-500 ring-2 ring-emerald-200",
-  active: "border-teal-500 ring-2 ring-teal-200",
-  archived: "border-stone-300 opacity-50"
+  active: "border-cyan-500 ring-2 ring-cyan-200"
 };

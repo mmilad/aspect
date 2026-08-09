@@ -70,5 +70,7 @@ export const BUILTIN_FUNCTION_DESCRIPTIONS: Record<string, string> = {
   composeTaskPrompt: "Compose an agent handoff prompt from a task and neighborhood context.",
   map: "Project fields from a bag array/object into a new structure.",
   create_entity: "Create a Projectplaner entity.",
-  update_entity: "Update fields on an existing entity."
+  update_entity: "Update fields on an existing entity.",
+  rollup_parent_status:
+    "Derive parent Aspect/Feature process status from first-level process children and recurse upward."
 };

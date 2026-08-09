@@ -1,31 +1,31 @@
 import {
+  deriveParentProcessStatus,
   getPrimaryTaskLink,
   type Feature,
+  type ProcessStatus,
   type ProjectNode,
   type ProjectPlanSnapshot,
   type Task
 } from "@projectplaner/core";
 
-/** Process columns — statuses stay distinct (planned ≠ todo). */
+/** Process columns — mirrors Aspect/Feature/Task status ladder. */
 export const kanbanColumns = [
-  "not_implemented",
+  "in_planning",
   "planned",
-  "todo",
   "in_progress",
-  "blocked",
-  "review",
-  "done"
+  "done",
+  "canceled",
+  "archived"
 ] as const;
 export type KanbanColumnId = (typeof kanbanColumns)[number];
 
 export const kanbanColumnLabel: Record<KanbanColumnId, string> = {
-  not_implemented: "Not implemented",
+  in_planning: "In planning",
   planned: "Planned",
-  todo: "Todo",
   in_progress: "In progress",
-  blocked: "Blocked",
-  review: "Review",
-  done: "Done"
+  done: "Done",
+  canceled: "Canceled",
+  archived: "Archived"
 };
 
 export type KanbanCardKind = "aspect" | "feature" | "task";
@@ -40,95 +40,41 @@ export type KanbanCard = {
   canEnter: boolean;
 };
 
-const COLUMN_RANK: Record<KanbanColumnId, number> = {
-  not_implemented: 0,
-  planned: 1,
-  todo: 2,
-  in_progress: 3,
-  blocked: 4,
-  review: 5,
-  done: 6
-};
-
-const IN_FLIGHT: ReadonlySet<KanbanColumnId> = new Set(["in_progress", "blocked", "review"]);
+const COLUMN_SET = new Set<string>(kanbanColumns);
 
 export function statusToColumn(status: string): KanbanColumnId {
+  if (COLUMN_SET.has(status)) {
+    return status as KanbanColumnId;
+  }
   switch (status) {
-    case "not_implemented":
-      return "not_implemented";
-    case "planned":
-      return "planned";
     case "todo":
-      return "todo";
+      return "planned";
     case "doing":
     case "in_work":
     case "active":
-      return "in_progress";
     case "blocked":
-      return "blocked";
     case "review":
-    case "accepted":
-      return "review";
-    case "done":
+      return "in_progress";
     case "implemented":
+    case "accepted":
     case "answered":
-    case "archived":
       return "done";
+    case "not_implemented":
+      return "in_planning";
+    case "cancelled":
+      return "canceled";
     default:
-      return "todo";
+      return "planned";
   }
 }
 
 /** Best matching stored status when dropping onto a column. */
-export function columnToStatus(column: KanbanColumnId, kind: KanbanCardKind): string {
-  if (kind === "task") {
-    switch (column) {
-      case "not_implemented":
-      case "planned":
-      case "todo":
-        return "todo";
-      case "in_progress":
-        return "doing";
-      case "blocked":
-        return "blocked";
-      case "review":
-        return "review";
-      case "done":
-        return "done";
-    }
-  }
-
-  switch (column) {
-    case "not_implemented":
-      return "not_implemented";
-    case "planned":
-    case "todo":
-      return "planned";
-    case "in_progress":
-      return "in_work";
-    case "blocked":
-      return "blocked";
-    case "review":
-      return "accepted";
-    case "done":
-      return "implemented";
-  }
+export function columnToStatus(column: KanbanColumnId, _kind: KanbanCardKind): ProcessStatus {
+  return column;
 }
 
 export function deriveParentColumn(childColumns: KanbanColumnId[]): KanbanColumnId | null {
-  if (childColumns.length === 0) {
-    return null;
-  }
-  if (childColumns.some((column) => IN_FLIGHT.has(column))) {
-    return "in_progress";
-  }
-  let least: KanbanColumnId = childColumns[0]!;
-  for (const column of childColumns) {
-    if (COLUMN_RANK[column] < COLUMN_RANK[least]) {
-      least = column;
-    }
-  }
-  return least;
+  return deriveParentProcessStatus(childColumns);
 }
 
 function aspectCard(node: ProjectNode): KanbanCard {

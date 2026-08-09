@@ -1,3 +1,5 @@
+import type { EntityStatus } from "./status";
+
 export const nodeTypes = [
   "project",
   "aspect",
@@ -29,23 +31,25 @@ export const relationTypes = [
 export type RelationType = (typeof relationTypes)[number];
 
 export type NodeStatus =
-  | "not_implemented"
-  | "in_work"
-  | "implemented"
+  | "in_planning"
   | "planned"
-  | "active"
-  | "blocked"
+  | "in_progress"
+  | "done"
+  | "canceled"
+  | "archived"
+  | "open"
   | "accepted"
-  | "answered"
-  | "archived";
+  | "rejected"
+  | "answered";
 
 export type DraftStatus = "draft" | "reviewed" | "accepted" | "rejected" | "archived";
 export type DraftChangeType = "create" | "update" | "delete";
 export type DraftTargetType = "node" | "relation";
-export type TaskStatus = "todo" | "doing" | "blocked" | "review" | "done";
+/** Tasks share the process ladder with Aspect/Feature. */
+export type TaskStatus = "in_planning" | "planned" | "in_progress" | "done" | "canceled" | "archived";
 export type TaskPriority = "low" | "medium" | "high" | "critical";
 export type EntityType = NodeType | "task";
-export type EntityStatus = NodeStatus | TaskStatus;
+export type { EntityStatus } from "./status";
 export type TaskLinkType = "affects" | "implements" | "validates" | "investigates";
 export type EntityRelationType = RelationType | TaskLinkType | "blocked_by" | "related_to" | "supports" | "motivates";
 export type TagKind = "priority" | "domain" | "workflow" | "risk" | "custom";

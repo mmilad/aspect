@@ -14,7 +14,7 @@ function entity(id: string, type: Entity["type"]): Entity {
     title: id,
     summary: "",
     body: "",
-    status: type === "task" ? "todo" : "planned",
+    status: "planned",
     sortOrder: 0,
     metadata: {}
   };

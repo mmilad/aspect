@@ -501,7 +501,7 @@ async function resolveToolResult(
 
 async function resolveWriteResult(
   adapters: WorkflowAdapters,
-  action: "create_entity" | "update_entity",
+  action: "create_entity" | "update_entity" | "rollup_parent_status",
   args: Record<string, unknown>
 ): Promise<WorkflowToolResult | { error: string }> {
   try {

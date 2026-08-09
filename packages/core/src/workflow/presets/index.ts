@@ -2,6 +2,7 @@ import { ensureAspectPreset } from "./ensure-aspect";
 import { listCrudPresets, parseMutationPresetKey, presetKeyFor } from "./crud";
 import { nextWorkPreset } from "./next-work";
 import { onboardingPreset } from "./onboarding";
+import { rollupParentStatusPreset } from "./rollup-parent-status";
 import type { WorkflowPreset } from "./types";
 
 export type {
@@ -19,10 +20,17 @@ export {
 } from "./crud";
 export { nextWorkPreset } from "./next-work";
 export { onboardingPreset } from "./onboarding";
+export { rollupParentStatusGraph, rollupParentStatusPreset } from "./rollup-parent-status";
 
 /** All shipped workflow packs (seed-once into SQLite). */
 export function listWorkflowPresets(): WorkflowPreset[] {
-  return [ensureAspectPreset, ...listCrudPresets(), nextWorkPreset, onboardingPreset];
+  return [
+    ensureAspectPreset,
+    ...listCrudPresets(),
+    nextWorkPreset,
+    onboardingPreset,
+    rollupParentStatusPreset
+  ];
 }
 
 export function getWorkflowPreset(presetKey: string): WorkflowPreset | undefined {

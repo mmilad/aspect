@@ -83,7 +83,7 @@ const snapshot: ProjectPlanSnapshot = {
       title: "Full Entity Graph",
       summary: "Graph navigation",
       body: "",
-      status: "in_work",
+      status: "in_progress",
       acceptanceShape: "",
       sortOrder: 10,
       metadata: {}
@@ -99,7 +99,7 @@ const snapshot: ProjectPlanSnapshot = {
       key: "PLAN-41",
       title: "Add UI tests",
       description: "Cover graph navigation open behavior",
-      status: "todo",
+      status: "planned",
       priority: "medium",
       acceptanceCriteria: [],
       sortOrder: 20,

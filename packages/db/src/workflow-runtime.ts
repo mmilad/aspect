@@ -14,6 +14,7 @@ import {
 } from "@projectplaner/core";
 import type { DatabaseSync } from "node:sqlite";
 import { createEntity, getEntity, listEntities, listRelations, updateEntity } from "./repository";
+import { rollupParentStatus } from "./rollup";
 import {
   createWorkflowRun,
   getOrMigrateWorkflowGraph,
@@ -122,6 +123,25 @@ export function createSqliteWorkflowAdapters(
         };
         const updated = await updateEntity(db, { id, patch });
         return { values: { [resultKey]: updated.id } };
+      }
+
+      if (action === "rollup_parent_status") {
+        const entityId =
+          typeof args.entityId === "string"
+            ? args.entityId
+            : typeof args.id === "string"
+              ? args.id
+              : "";
+        if (!entityId) {
+          throw new Error("rollup_parent_status requires entityId.");
+        }
+        const result = await rollupParentStatus(db, entityId, { projectKey });
+        return {
+          values: {
+            updatedIds: result.updatedIds,
+            derived: result.derived
+          }
+        };
       }
 
       throw new Error(`Unsupported write action: ${action}`);

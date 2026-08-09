@@ -115,9 +115,9 @@ describe("workflow runtime", () => {
     }
 
     const entities = [
-      entity({ id: "aspect_workspace", type: "aspect", title: "Should have Project Workspace", status: "in_work" }),
+      entity({ id: "aspect_workspace", type: "aspect", title: "Should have Project Workspace", status: "in_progress" }),
       entity({ id: "feature_sidebar", type: "feature", title: "Project Sidebar", status: "planned" }),
-      entity({ id: "task_noise", type: "task", title: "Unrelated task", status: "todo" })
+      entity({ id: "task_noise", type: "task", title: "Unrelated task", status: "planned" })
     ];
 
     const bag = createContextBag({
@@ -249,7 +249,7 @@ describe("workflow runtime", () => {
       type: "task",
       title: "High priority open",
       key: "PLAN-100",
-      status: "todo",
+      status: "planned",
       metadata: { priority: "critical" },
       summary: "Do this first"
     });
@@ -257,21 +257,21 @@ describe("workflow runtime", () => {
       id: "task_blocked",
       type: "task",
       title: "Waiting",
-      status: "todo",
+      status: "planned",
       metadata: { priority: "critical" }
     });
     const canceled = entity({
       id: "task_canceled",
       type: "task",
       title: "Fallen branch",
-      status: "todo",
+      status: "planned",
       metadata: { priority: "critical", disabled: true }
     });
     const low = entity({
       id: "task_low",
       type: "task",
       title: "Later",
-      status: "todo",
+      status: "planned",
       metadata: { priority: "low" }
     });
     const entities = [aspect, top, blocked, canceled, low];

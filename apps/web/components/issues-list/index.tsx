@@ -29,7 +29,7 @@ type IssueGroup = {
   tasks: Task[];
 };
 
-const TASK_STATUSES = ["todo", "doing", "blocked", "review", "done"] as const;
+const TASK_STATUSES = ["in_planning", "planned", "in_progress", "done", "canceled", "archived"] as const;
 
 function resolveTarget(link: TaskLink, snapshot: ProjectPlanSnapshot): TargetRef | null {
   if (link.targetType === "feature") {

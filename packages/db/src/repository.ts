@@ -665,12 +665,13 @@ export interface CreateTaskInput {
   projectKey: string;
   title: string;
   description: string;
-  status?: "todo" | "doing" | "blocked" | "review" | "done";
+  status?: "in_planning" | "planned" | "in_progress" | "done" | "canceled" | "archived";
   priority: "low" | "medium" | "high" | "critical";
   acceptanceCriteria: string[];
   targetType: "aspect" | "feature";
   targetId: string;
   linkType: "affects" | "implements" | "validates" | "investigates";
+  skipRollup?: boolean;
 }
 
 export async function createTask(db: DatabaseSync, input: CreateTaskInput) {
@@ -704,7 +705,7 @@ export async function createTask(db: DatabaseSync, input: CreateTaskInput) {
     }, 0) + 1;
   const id = `task_${randomUUID()}`;
   const key = `${project.key}-${nextNumber}`;
-  const status = input.status ?? "todo";
+  const status = input.status ?? "planned";
 
   run(
     db,
@@ -760,6 +761,11 @@ export async function createTask(db: DatabaseSync, input: CreateTaskInput) {
     metadata: { createdBy: "createTask", targetType: input.targetType }
   });
 
+  if (!input.skipRollup) {
+    const { rollupParentStatus } = await import("./rollup");
+    await rollupParentStatus(db, id, { projectKey: input.projectKey });
+  }
+
   return { id, key };
 }
 
@@ -781,11 +787,15 @@ export interface CreateEntityInput {
     isPrimary?: boolean;
     metadata?: JsonRecord;
   }>;
+  /** Skip parent status rollup after create. */
+  skipRollup?: boolean;
 }
 
 export interface UpdateEntityInput {
   id: string;
   patch: Partial<Pick<Entity, "key" | "slug" | "title" | "summary" | "body" | "status" | "sortOrder" | "metadata">>;
+  /** Skip parent status rollup (used by rollup itself). */
+  skipRollup?: boolean;
 }
 
 export interface EntityQuery {
@@ -897,7 +907,7 @@ export async function createEntity(db: DatabaseSync, input: CreateEntityInput): 
     title,
     summary: input.summary?.trim() ?? "",
     body: input.body?.trim() ?? "",
-    status: input.status ?? (input.type === "task" ? "todo" : "planned"),
+    status: input.status ?? (input.type === "task" ? "planned" : input.type === "decision" || input.type === "question" ? "open" : "planned"),
     sortOrder:
       input.sortOrder ??
       ((db.prepare("SELECT COALESCE(MAX(sort_order), -1) AS max_sort FROM entities WHERE project_id = ?").get(project.id) as {
@@ -927,6 +937,10 @@ export async function createEntity(db: DatabaseSync, input: CreateEntityInput): 
     }
     const warnings = assertValidProjectGraph(db, project.id);
     db.exec("COMMIT");
+    if (!input.skipRollup && (entity.type === "aspect" || entity.type === "feature" || entity.type === "task")) {
+      const { rollupParentStatus } = await import("./rollup");
+      await rollupParentStatus(db, entity.id, { projectKey: input.projectKey });
+    }
     return { entity, warnings };
   } catch (error) {
     db.exec("ROLLBACK");
@@ -939,6 +953,8 @@ export async function updateEntity(db: DatabaseSync, input: UpdateEntityInput): 
   if (!current) {
     throw new Error("Entity not found.");
   }
+
+  const statusChanged = input.patch.status !== undefined && input.patch.status !== current.status;
 
   const next: Entity = {
     ...current,
@@ -965,6 +981,16 @@ export async function updateEntity(db: DatabaseSync, input: UpdateEntityInput): 
     ]
   );
   assertValidProjectGraph(db, next.projectId);
+
+  if (
+    !input.skipRollup &&
+    statusChanged &&
+    (next.type === "aspect" || next.type === "feature" || next.type === "task")
+  ) {
+    const { rollupParentStatus } = await import("./rollup");
+    await rollupParentStatus(db, next.id);
+  }
+
   return next;
 }
 

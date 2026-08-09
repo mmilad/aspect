@@ -20,7 +20,7 @@ export interface WorkflowToolResult {
 }
 
 export interface WorkflowWriteCall {
-  action: "create_entity" | "update_entity";
+  action: "create_entity" | "update_entity" | "rollup_parent_status";
   args: Record<string, unknown>;
 }
 

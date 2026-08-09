@@ -84,7 +84,7 @@ export function KanbanBoard({ snapshot, scopeId = null, selectedId }: KanbanBoar
   const displayColumns = useMemo(() => {
     if (columnMode === "used") {
       const used = usedKanbanColumns(typedCards);
-      return used.length > 0 ? used : (["todo"] as KanbanColumnId[]);
+      return used.length > 0 ? used : (["planned"] as KanbanColumnId[]);
     }
     return kanbanColumns.filter((column) => visibleColumns.has(column));
   }, [columnMode, typedCards, visibleColumns]);

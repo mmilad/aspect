@@ -1,6 +1,6 @@
 import type { Entity, EntityRelation, TaskPriority } from "./types";
 
-const CANDIDATE_STATUSES = new Set(["todo", "doing", "review"]);
+const CANDIDATE_STATUSES = new Set(["in_planning", "planned", "in_progress"]);
 
 const PRIORITY_WEIGHT: Record<TaskPriority, number> = {
   critical: 40,
@@ -21,7 +21,7 @@ export interface RankedTaskCandidate {
 }
 
 export function isTaskDisabled(entity: Entity): boolean {
-  return entity.metadata.disabled === true;
+  return entity.metadata.disabled === true || entity.status === "canceled" || entity.status === "archived";
 }
 
 export function taskPriority(entity: Entity): TaskPriority {
@@ -42,12 +42,15 @@ export function isBlockerResolved(entity: Entity): boolean {
     return true;
   }
   if (entity.type === "task") {
-    return entity.status === "done";
+    return entity.status === "done" || entity.status === "canceled" || entity.status === "archived";
   }
-  if (entity.type === "decision" || entity.type === "question") {
-    return entity.status === "accepted" || entity.status === "answered" || entity.status === "archived";
+  if (entity.type === "decision") {
+    return entity.status === "accepted" || entity.status === "rejected" || entity.status === "archived";
   }
-  return entity.status === "implemented" || entity.status === "archived";
+  if (entity.type === "question") {
+    return entity.status === "answered" || entity.status === "archived";
+  }
+  return entity.status === "done" || entity.status === "archived" || entity.status === "canceled";
 }
 
 export function isTaskUnblocked(

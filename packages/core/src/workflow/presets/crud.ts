@@ -66,7 +66,7 @@ function skeletonCreateGraph(type: EntityType): WorkflowGraph {
               reason: "reason",
               parentAspectId: "targetEntityId"
             },
-            defaults: { type, status: type === "task" ? "todo" : "planned", resultAs: resultKey }
+            defaults: { type, status: "planned", resultAs: resultKey }
           }
         }
       },

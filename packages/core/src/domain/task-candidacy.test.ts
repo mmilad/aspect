@@ -22,7 +22,7 @@ function entity(
     slug: partial.id,
     summary: "",
     body: "",
-    status: partial.type === "task" ? "todo" : "planned",
+    status: "planned",
     sortOrder: 0,
     metadata: {},
     ...partial
@@ -57,12 +57,12 @@ describe("task candidacy", () => {
 
   it("resolves blockers by type-specific completion", () => {
     expect(isBlockerResolved(entity({ id: "t", type: "task", title: "T", status: "done" }))).toBe(true);
-    expect(isBlockerResolved(entity({ id: "t2", type: "task", title: "T2", status: "todo" }))).toBe(false);
+    expect(isBlockerResolved(entity({ id: "t2", type: "task", title: "T2", status: "planned" }))).toBe(false);
     expect(
       isBlockerResolved(entity({ id: "d", type: "decision", title: "D", status: "accepted" }))
     ).toBe(true);
     expect(
-      isBlockerResolved(entity({ id: "a", type: "aspect", title: "A", status: "implemented" }))
+      isBlockerResolved(entity({ id: "a", type: "aspect", title: "A", status: "done" }))
     ).toBe(true);
     expect(
       isBlockerResolved(entity({ id: "arch", type: "feature", title: "Arch", status: "archived" }))
@@ -75,7 +75,7 @@ describe("task candidacy", () => {
   it("treats missing blocked_by as unblocked and requires resolved blockers otherwise", () => {
     const open = entity({ id: "task_open", type: "task", title: "Open" });
     const blocked = entity({ id: "task_blocked", type: "task", title: "Blocked" });
-    const blockerOpen = entity({ id: "blocker", type: "task", title: "Blocker", status: "todo" });
+    const blockerOpen = entity({ id: "blocker", type: "task", title: "Blocker", status: "planned" });
     const blockerDone = entity({ id: "blocker_done", type: "task", title: "Done", status: "done" });
     const entities = new Map(
       [open, blocked, blockerOpen, blockerDone].map((item) => [item.id, item])
@@ -103,7 +103,7 @@ describe("task candidacy", () => {
       title: "Canceled",
       metadata: { disabled: true, priority: "critical" }
     });
-    const statusBlocked = entity({ id: "task_sb", type: "task", title: "SB", status: "blocked" });
+    const statusBlocked = entity({ id: "task_sb", type: "task", title: "SB", status: "canceled" });
     const done = entity({ id: "task_done", type: "task", title: "Done", status: "done" });
     const waiting = entity({ id: "task_wait", type: "task", title: "Wait", metadata: { priority: "critical" } });
     const entities = [aspect, todo, disabled, statusBlocked, done, waiting];
@@ -171,7 +171,7 @@ describe("task candidacy", () => {
         type: "task",
         key: "PLAN-9",
         title: "Do the thing",
-        status: "todo",
+        status: "planned",
         summary: "Ship it",
         priority: "high",
         workScore: 31

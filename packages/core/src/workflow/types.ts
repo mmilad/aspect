@@ -99,7 +99,7 @@ export interface WorkflowLlmConfig {
 }
 
 export interface WorkflowWriteConfig {
-  action: "create_entity" | "update_entity";
+  action: "create_entity" | "update_entity" | "rollup_parent_status";
   argsFromBag?: Record<string, string>;
   defaults?: JsonRecord;
 }

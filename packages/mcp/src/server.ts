@@ -54,19 +54,16 @@ const relationTypeSchema = z.enum([
 ]);
 
 const statusSchema = z.enum([
-  "not_implemented",
-  "in_work",
-  "implemented",
+  "in_planning",
   "planned",
-  "active",
-  "blocked",
-  "accepted",
-  "answered",
+  "in_progress",
+  "done",
+  "canceled",
   "archived",
-  "todo",
-  "doing",
-  "review",
-  "done"
+  "open",
+  "accepted",
+  "rejected",
+  "answered"
 ]);
 
 export function createProjectplanerServer(): McpServer {

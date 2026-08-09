@@ -56,7 +56,7 @@ describe("executePlan SQL", () => {
           title: "Open",
           summary: "",
           body: "",
-          status: "todo",
+          status: "planned",
           sortOrder: 2,
           metadata: { priority: "high" }
         },
@@ -69,7 +69,7 @@ describe("executePlan SQL", () => {
           title: "Blocked",
           summary: "",
           body: "",
-          status: "todo",
+          status: "planned",
           sortOrder: 3,
           metadata: {}
         },
@@ -82,7 +82,7 @@ describe("executePlan SQL", () => {
           title: "Was blocked",
           summary: "",
           body: "",
-          status: "todo",
+          status: "planned",
           sortOrder: 4,
           metadata: {}
         },
@@ -95,7 +95,7 @@ describe("executePlan SQL", () => {
           title: "Other",
           summary: "",
           body: "",
-          status: "todo",
+          status: "planned",
           sortOrder: 5,
           metadata: {}
         },
@@ -108,7 +108,7 @@ describe("executePlan SQL", () => {
           title: "Blocker",
           summary: "",
           body: "",
-          status: "todo",
+          status: "planned",
           sortOrder: 6,
           metadata: {}
         },

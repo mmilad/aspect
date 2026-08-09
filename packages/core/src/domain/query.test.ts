@@ -23,7 +23,7 @@ function entity(partial: Partial<Entity> & Pick<Entity, "id" | "type" | "title">
     slug: partial.id,
     summary: "",
     body: "",
-    status: partial.type === "task" ? "todo" : "planned",
+    status: "planned",
     sortOrder: 0,
     metadata: {},
     ...partial
@@ -55,7 +55,7 @@ describe("query expand + evaluate", () => {
   const blocked = entity({ id: "task_blocked", type: "task", title: "Blocked" });
   const resolved = entity({ id: "task_resolved_blockers", type: "task", title: "Was blocked" });
   const other = entity({ id: "task_other", type: "task", title: "Other aspect" });
-  const blockerOpen = entity({ id: "blocker", type: "task", title: "Blocker", status: "todo" });
+  const blockerOpen = entity({ id: "blocker", type: "task", title: "Blocker", status: "planned" });
   const blockerDone = entity({ id: "blocker_done", type: "task", title: "Done", status: "done" });
 
   const entities = [aspect, otherAspect, open, blocked, resolved, other, blockerOpen, blockerDone];
@@ -212,7 +212,7 @@ describe("narrative + retrieval modes", () => {
       title: "Blocked",
       metadata: { priority: "critical" }
     });
-    const blocker = entity({ id: "blocker", type: "task", title: "Blocker", status: "todo" });
+    const blocker = entity({ id: "blocker", type: "task", title: "Blocker", status: "planned" });
     const otherAspect = entity({ id: "aspect_b", type: "aspect", title: "B" });
     const elsewhere = entity({
       id: "task_elsewhere",
@@ -249,7 +249,7 @@ describe("narrative + retrieval modes", () => {
 });
 
 describe("archived entity exclusion", () => {
-  const live = entity({ id: "aspect_live", type: "aspect", title: "Live Shell", status: "in_work" });
+  const live = entity({ id: "aspect_live", type: "aspect", title: "Live Shell", status: "in_progress" });
   const archived = entity({
     id: "aspect_archived",
     type: "aspect",
@@ -257,7 +257,7 @@ describe("archived entity exclusion", () => {
     status: "archived",
     summary: "old shell aspect"
   });
-  const liveTask = entity({ id: "task_live", type: "task", title: "Live task", status: "todo" });
+  const liveTask = entity({ id: "task_live", type: "task", title: "Live task", status: "planned" });
   const archivedTask = entity({
     id: "task_archived",
     type: "task",
@@ -305,7 +305,7 @@ describe("archived entity exclusion", () => {
       title: "Old",
       status: "archived"
     });
-    const task = entity({ id: "task_ready", type: "task", title: "Ready", status: "todo" });
+    const task = entity({ id: "task_ready", type: "task", title: "Ready", status: "planned" });
     const api = createPlanApi(
       new MemoryEntityStore({
         entities: [aspect, archivedFeature, task],

@@ -5,6 +5,7 @@ import type { ProjectNode } from "@projectplaner/core";
 import { formatEntityType } from "../../lib/entity-label";
 import { cn } from "../../lib/utils";
 import { Breadcrumbs } from "./breadcrumbs";
+import { graphModeLabel, graphModes } from "./lib/graph-mode-filter";
 import type { GraphMatch, GraphMode, GraphSurface } from "./types";
 
 interface GraphToolbarProps {
@@ -52,20 +53,21 @@ export function GraphToolbar({
           <ArrowUpToLine className="h-4 w-4" />
         </button>
         <Breadcrumbs nodes={breadcrumbs} onOpen={onOpenScope} />
-        <div className="ml-auto inline-flex h-9 rounded-md border border-border bg-background p-1">
-          {(["full", "scope"] as const).map((mode) => (
-            <button
-              key={mode}
-              className={cn(
-                "rounded px-2 text-xs font-medium capitalize",
-                graphMode === mode ? "bg-teal-700 text-white" : "text-muted-foreground hover:bg-muted"
-              )}
-              onClick={() => onGraphMode(mode)}
-            >
-              {mode}
-            </button>
-          ))}
-        </div>
+        <label className="ml-auto inline-flex h-9 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs text-muted-foreground">
+          <span className="sr-only">Graph mode</span>
+          <select
+            className="max-w-[7.5rem] bg-transparent text-xs font-medium text-zinc-900 outline-none"
+            value={graphMode}
+            aria-label="Graph mode"
+            onChange={(event) => onGraphMode(event.target.value as GraphMode)}
+          >
+            {graphModes.map((mode) => (
+              <option key={mode} value={mode}>
+                {graphModeLabel[mode]}
+              </option>
+            ))}
+          </select>
+        </label>
         <div className="inline-flex h-9 rounded-md border border-border bg-background p-1">
           {(["map", "space"] as const).map((surface) => (
             <button
@@ -98,7 +100,7 @@ export function GraphToolbar({
               className="block w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted"
               onClick={() => {
                 onSelectEntity(entity.id);
-                if (graphMode === "scope" && entity.type === "aspect") {
+                if (graphMode === "tree" && entity.type === "aspect") {
                   onCenterFromSearch(entity.id);
                 }
               }}

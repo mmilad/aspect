@@ -24,6 +24,11 @@ import {
   resolveInitialSelection,
   resolveSelection
 } from "./lib/selection-context";
+import {
+  filterMatchesForGraphMode,
+  filterRelationsForGraphMode,
+  isTreeGraphMode
+} from "./lib/graph-mode-filter";
 import { getVisibleEntityRelations } from "./lib/visible-relations";
 import { GraphCanvas } from "./graph-canvas";
 import { GraphToolbar } from "./graph-toolbar";
@@ -50,6 +55,7 @@ export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: App
     [allGraphEntities]
   );
   const [graphMode, setGraphMode] = useState<GraphMode>("full");
+  const treeMode = isTreeGraphMode(graphMode);
   const [graphSurface, setGraphSurface] = useState<GraphSurface>("map");
   const [activeTypes, setActiveTypes] = useState<Set<EntityType>>(() => new Set(allGraphEntities.map((entity) => entity.type)));
   const [centerId, setCenterId] = useState(initialCenterNode.id);
@@ -101,20 +107,35 @@ export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: App
     [activeTypes, allGraphEntities, query]
   );
 
-  const fullGraphNodes = useMemo(
+  const focusId = selectedFeatureId ?? selectedId;
+  const visibleEntityRelations = getVisibleEntityRelations(snapshot);
+
+  const modeMatches = useMemo(
+    () =>
+      filterMatchesForGraphMode({
+        mode: graphMode,
+        matches: scoredEntities,
+        snapshot,
+        relations: visibleEntityRelations,
+        focusId
+      }),
+    [focusId, graphMode, scoredEntities, snapshot, visibleEntityRelations]
+  );
+
+  const filteredGraphNodes = useMemo(
     () =>
       buildFullFlowNodes({
-        scoredEntities,
+        scoredEntities: modeMatches,
         entityTypes: allEntityTypes,
         centerId: centerNode.id,
         selectedId,
         selectedFeatureId,
         query
       }),
-    [allEntityTypes, centerNode.id, query, scoredEntities, selectedFeatureId, selectedId]
+    [allEntityTypes, centerNode.id, modeMatches, query, selectedFeatureId, selectedId]
   );
 
-  const graphNodes = graphMode === "full" ? fullGraphNodes : scopedNodes;
+  const graphNodes = treeMode ? scopedNodes : filteredGraphNodes;
   const [flowNodes, setFlowNodes, onNodesChange] = useNodesState(graphNodes);
 
   useEffect(() => {
@@ -127,20 +148,19 @@ export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: App
     });
   }, [graphNodes, setFlowNodes]);
 
-  const focusId = selectedFeatureId ?? selectedId;
-  const visibleEntityRelations = getVisibleEntityRelations(snapshot);
-  const displayedMatches: GraphMatch[] =
-    graphMode === "full" ? scoredEntities : graphNodes.map((node) => ({ entity: node.data.entity, score: node.data.score ?? 0 }));
+  const displayedMatches: GraphMatch[] = treeMode
+    ? graphNodes.map((node) => ({ entity: node.data.entity, score: node.data.score ?? 0 }))
+    : modeMatches;
   const displayedIds = new Set(displayedMatches.map(({ entity }) => entity.id));
-  const flowEdges =
-    graphMode === "full"
-      ? buildFullFlowEdges({ relations: visibleEntityRelations, displayedIds, focusId })
-      : buildScopedFlowEdges({
-          nodes: graph.nodes,
-          relations: graph.relations,
-          centerNode,
-          focusId
-        });
+  const modeRelations = filterRelationsForGraphMode(graphMode, visibleEntityRelations, displayedIds);
+  const flowEdges = treeMode
+    ? buildScopedFlowEdges({
+        nodes: graph.nodes,
+        relations: graph.relations,
+        centerNode,
+        focusId
+      })
+    : buildFullFlowEdges({ relations: modeRelations, displayedIds, focusId });
 
   const inspector = buildInspectorSelectionData({
     snapshot,

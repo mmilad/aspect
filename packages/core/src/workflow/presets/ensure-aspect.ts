@@ -90,12 +90,12 @@ export const ensureAspectGraph: WorkflowGraph = {
     },
     {
       id: "route",
-      type: "switch",
+      type: "branch",
       position: { x: 920, y: 160 },
       data: {
         title: "Create new?",
         reads: ["createNew"],
-        switch: { on: "createNew" }
+        branch: { on: "createNew" }
       }
     },
     {
@@ -145,7 +145,7 @@ export const ensureAspectGraph: WorkflowGraph = {
 
 export const ensureAspectPreset: WorkflowPreset = {
   presetKey: "ensure_aspect",
-  presetVersion: 2,
+  presetVersion: 3,
   title: "Ensure Aspect",
   summary: "Search for a similar Aspect before creating one; reuse when possible.",
   body: [

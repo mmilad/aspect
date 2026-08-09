@@ -12,6 +12,7 @@ export function WorkflowStepNode({ data, selected }: NodeProps<FlowRfNode>) {
     node.type === "end" ||
     node.type === "error_end" ||
     node.type === "switch" ||
+    node.type === "branch" ||
     node.type === "fork" ||
     node.type === "join" ||
     node.type === "foreach" ||

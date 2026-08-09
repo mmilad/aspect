@@ -48,6 +48,19 @@ function findFlowByPresetKey(
   };
 }
 
+/** True when a preset pack has been seeded into the living DB. */
+export function findSeededWorkflowPreset(
+  db: DatabaseSync,
+  presetKey: string,
+  projectKey = "PLAN"
+): { id: string; title: string; presetKey: string } | null {
+  const found = findFlowByPresetKey(db, projectKey, presetKey);
+  if (!found) {
+    return null;
+  }
+  return { id: found.id, title: found.title, presetKey };
+}
+
 async function findSupportsTargetId(
   db: DatabaseSync,
   projectKey: string,

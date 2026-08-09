@@ -278,7 +278,17 @@ function compileNode(
       return [
         {
           kind: "branch",
-          condition: node.data.switch?.on ?? "route",
+          condition: `switch on ${node.data.switch?.on ?? "type"} (default=${node.data.switch?.defaultLabel ?? "default"})`,
+          routes: Object.fromEntries((node.data.switch?.cases ?? []).map((label) => [label, label])),
+          nodeId: node.id
+        }
+      ];
+    }
+    case "branch": {
+      return [
+        {
+          kind: "branch",
+          condition: node.data.branch?.on ?? "route",
           nodeId: node.id
         }
       ];

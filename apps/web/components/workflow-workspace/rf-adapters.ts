@@ -82,7 +82,7 @@ export function defaultEdgeKindForConnection(
   if (targetType === "join") {
     return "depends_on";
   }
-  if (sourceType === "switch" || sourceType === "gate") {
+  if (sourceType === "switch" || sourceType === "branch" || sourceType === "gate") {
     return "route";
   }
   return "next";

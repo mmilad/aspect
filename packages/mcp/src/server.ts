@@ -10,6 +10,7 @@ import {
   orientBriefing,
   packetRead,
   packetWrite,
+  runPlanWorkflow,
   searchPlanEntities,
   textResult,
   updatePlanEntity
@@ -256,6 +257,31 @@ export function createProjectplanerServer(): McpServer {
     async (input) => {
       try {
         return textResult(await createPlanRelation(input));
+      } catch (error) {
+        return errorResult(error);
+      }
+    }
+  );
+
+  server.registerTool(
+    "run_workflow",
+    {
+      description:
+        "Start or resume a workflow by preset key (e.g. ensure_aspect, create_task) or flow id. On pending_llm, resume with runId + llmWrites. Prefer this over create_entity/update_entity when a matching preset is seeded.",
+      inputSchema: {
+        key: z.string().optional().describe("Preset key, e.g. ensure_aspect / create_task / next_work"),
+        id: z.string().optional().describe("Flow entity id"),
+        goal: z.string().optional(),
+        bag: z.record(z.unknown()).optional().describe("Initial context bag keys"),
+        runId: z.string().optional().describe("Resume an existing run"),
+        llmWrites: z.record(z.unknown()).optional().describe("Complete a pending_llm node"),
+        userRoute: z.string().optional().describe("Complete a pending_user gate"),
+        projectKey: z.string().optional()
+      }
+    },
+    async (input) => {
+      try {
+        return textResult(await runPlanWorkflow(input));
       } catch (error) {
         return errorResult(error);
       }

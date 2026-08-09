@@ -18,9 +18,12 @@ Prefer a Feature when one fits; otherwise the smallest truthful Aspect; `Misc`
 only when unclear. Leave follow-ups as linked graph tasks, not chat-only notes.
 
 CLI fallback: `pnpm plan …`. SQLite is living state (no full-plan bootstrap seeder).
-Workflow presets seed once into the DB (`ensure_aspect`, …); use
-`pnpm plan presets-ensure --force` to replace preset graphs during development
-(`PROJECTPLANER_PRESETS_FORCE=1`). Set `PROJECTPLANER_PRESETS_SKIP=1` to disable.
+Workflow presets seed once into the DB (`ensure_aspect`, CRUD `create_*`/`update_*`/`delete_*`,
+`next_work`, `onboarding`, …); use `pnpm plan presets-ensure --force` to replace preset graphs
+during development (`PROJECTPLANER_PRESETS_FORCE=1`). Set `PROJECTPLANER_PRESETS_SKIP=1` to disable.
+`delete_*` presets archive (`status=archived`) — never hard-delete.
+When a mutation preset is seeded, prefer MCP/HTTP `run_workflow` over direct create/update.
+LLM steps pause as `pending_llm`; Cursor/Codex resume with `{ runId, llmWrites }`.
 
 ## Architecture
 

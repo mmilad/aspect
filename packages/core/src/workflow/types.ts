@@ -5,6 +5,7 @@ export const workflowControlNodeTypes = [
   "start",
   "end",
   "error_end",
+  "branch",
   "switch",
   "fork",
   "join",
@@ -106,13 +107,27 @@ export interface WorkflowWriteConfig {
 export interface WorkflowGateConfig {
   askUserIf?: string;
   stopIf?: string;
-  /** @deprecated Prefer switch + route edges. Kept for v1 migration. */
+  /** @deprecated Prefer branch/switch + route edges. Kept for v1 migration. */
   routes?: Record<string, string>;
 }
 
-export interface WorkflowSwitchConfig {
-  /** Bag expression / key evaluated to pick a route label. */
+/** If/else-style binary (or few-arm) route on a bag key — typically true/false. */
+export interface WorkflowBranchConfig {
+  /** Bag key evaluated to pick a route label (String(value)). */
   on?: string;
+}
+
+/**
+ * Multi-way switch on a bag discriminant with an explicit default arm.
+ * Route edges use `kind: "route"` and `label` matching the discriminant (or defaultLabel).
+ */
+export interface WorkflowSwitchConfig {
+  /** Bag key evaluated to pick a route label. */
+  on?: string;
+  /** Optional case labels for editor hints. */
+  cases?: string[];
+  /** Route label when no case matches (default: "default"). */
+  defaultLabel?: string;
 }
 
 export interface WorkflowJoinMergeConfig {
@@ -225,6 +240,7 @@ export interface WorkflowNodeData {
   llm?: WorkflowLlmConfig;
   write?: WorkflowWriteConfig;
   gate?: WorkflowGateConfig;
+  branch?: WorkflowBranchConfig;
   switch?: WorkflowSwitchConfig;
   join?: WorkflowJoinConfig;
   foreach?: WorkflowForeachConfig;

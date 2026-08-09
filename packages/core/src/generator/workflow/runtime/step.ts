@@ -15,6 +15,7 @@ import {
   getNodeWrites,
   pickBagKeys,
   resolveNextNodeId,
+  resolveRouteNextNodeId,
   slimShapesForReads,
   type WorkflowContextBag,
   type WorkflowGraph,
@@ -756,11 +757,38 @@ export async function stepWorkflow(input: {
       return runLlm(node, bag, adapters, input.graph);
     case "gate":
       return runGate(input.graph, node, bag);
-    case "switch": {
-      const on = node.data.switch?.on ?? "route";
+    case "branch": {
+      const on = node.data.branch?.on ?? "route";
       const value = bag.keys[on];
       const label = value === undefined || value === null ? "default" : String(value);
-      return advanceCursor(input.graph, bag, node.id, label);
+      const nextId = resolveRouteNextNodeId(input.graph, node.id, label);
+      if (!nextId) {
+        return fail(bag, node.id, `Branch ${node.id}: no route for '${label}'.`);
+      }
+      return {
+        kind: "advanced",
+        bag: { ...bag, cursor: nextId, status: "running", error: undefined },
+        nodeId: nextId
+      };
+    }
+    case "switch": {
+      const on = node.data.switch?.on ?? "type";
+      const defaultLabel = node.data.switch?.defaultLabel ?? "default";
+      const value = bag.keys[on];
+      const label = value === undefined || value === null ? defaultLabel : String(value);
+      const nextId = resolveRouteNextNodeId(input.graph, node.id, label, { defaultLabel });
+      if (!nextId) {
+        return fail(
+          bag,
+          node.id,
+          `Switch ${node.id}: no route for '${label}' and no default '${defaultLabel}'.`
+        );
+      }
+      return {
+        kind: "advanced",
+        bag: { ...bag, cursor: nextId, status: "running", error: undefined },
+        nodeId: nextId
+      };
     }
     case "fork":
     case "join":

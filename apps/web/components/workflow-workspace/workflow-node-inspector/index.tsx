@@ -161,13 +161,45 @@ export function WorkflowNodeInspector({
               }
             />
           ) : null}
-          {selected.type === "switch" ? (
+          {selected.type === "branch" ? (
             <PropPicker
-              label="Switch on (bag key)"
-              value={selected.data.switch?.on ?? ""}
+              label="Branch on (bag key)"
+              value={selected.data.branch?.on ?? ""}
               options={bagKeyOptions(bagView)}
-              onChange={(value) => onUpdateData({ switch: { on: value } })}
+              onChange={(value) => onUpdateData({ branch: { on: value } })}
             />
+          ) : null}
+          {selected.type === "switch" ? (
+            <>
+              <PropPicker
+                label="Switch on (bag key)"
+                value={selected.data.switch?.on ?? ""}
+                options={bagKeyOptions(bagView)}
+                onChange={(value) =>
+                  onUpdateData({
+                    switch: {
+                      on: value,
+                      cases: selected.data.switch?.cases,
+                      defaultLabel: selected.data.switch?.defaultLabel ?? "default"
+                    }
+                  })
+                }
+              />
+              <FormLabel label="Default route label">
+                <TextInput
+                  value={selected.data.switch?.defaultLabel ?? "default"}
+                  onChange={(event) =>
+                    onUpdateData({
+                      switch: {
+                        on: selected.data.switch?.on,
+                        cases: selected.data.switch?.cases,
+                        defaultLabel: event.target.value || "default"
+                      }
+                    })
+                  }
+                />
+              </FormLabel>
+            </>
           ) : null}
           {selected.type === "foreach" ? (
             <>

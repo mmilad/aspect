@@ -11,7 +11,7 @@ export function buildWorkflowAuthorSystemPrompt(): string {
   return [
     "You author Projectplaner Workflow Step Graph v2 JSON.",
     "Return ONLY valid JSON for { version: 2, nodes, edges } — no markdown fences, no prose.",
-    "Control node types: start, end, error_end, switch, fork, join, foreach, gate, wait, subworkflow.",
+    "Control node types: start, end, error_end, branch, switch, fork, join, foreach, gate, wait, subworkflow.",
     "Work node types: tool, llm, context, transform, map, write.",
     "Exactly one start node and at least one end or error_end node.",
     "Each node needs id, type, position {x,y}, data.title.",
@@ -22,7 +22,7 @@ export function buildWorkflowAuthorSystemPrompt(): string {
     "Prefer deterministic context/transform/map/tool/write/gate nodes; use llm only for judgment.",
     "LLM nodes must include data.llm.instructions and outputSchema matching writes.",
     "Tool nodes must include data.tool.name and argsFromBag when needed.",
-    "Use fork + depends_on into join for parallel arms; switch + route for conditionals.",
+    "Use fork + depends_on into join for parallel arms; branch + route for if/else; switch + route (with default) for multi-way.",
     "foreach bodies should prefer type:subworkflow with workflowId.",
     "Never invent Aspect Graph entities; workflows are executable step diagrams.",
     "Lay nodes left-to-right with ~200px x spacing."

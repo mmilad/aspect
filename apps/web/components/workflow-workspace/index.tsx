@@ -104,7 +104,9 @@ function defaultDataForType(type: WorkflowNodeType): WorkflowNodeData {
     case "wait":
       return { title, wait: { delayMs: 1000 } };
     case "switch":
-      return { title, switch: { on: "route" } };
+      return { title, switch: { on: "type", cases: ["a", "b"], defaultLabel: "default" } };
+    case "branch":
+      return { title, branch: { on: "flag" } };
     case "start":
       return { title: "Start", writes: ["goal"] };
     default:

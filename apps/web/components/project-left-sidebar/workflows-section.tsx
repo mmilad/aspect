@@ -67,11 +67,11 @@ export function WorkflowsSection({ snapshot, activeView, centerNode }: Workflows
   return (
     <section className={styles.section}>
       <div className={styles.heading}>Workflows</div>
-      <div className="mb-2 grid gap-1">
+      <div className="mb-2 grid max-h-48 gap-1 overflow-y-auto pr-0.5">
         {flows.length === 0 ? (
           <p className="px-1 text-xs text-muted-foreground">No flow entities yet.</p>
         ) : (
-          flows.slice(0, 8).map((flow) => (
+          flows.map((flow) => (
             <Link
               key={flow.id}
               href={projectPaths.flow(snapshot.project.key, flow.id)}

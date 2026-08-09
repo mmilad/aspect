@@ -13,6 +13,9 @@ Local graph-first planning store. Aspects are meaning anchors; features and task
 - Every task must link to an Aspect or Feature (\`targetEntityId\`).
 - Prefer the smallest truthful Aspect/Feature; create only when nothing fits.
 - \`reason\` is required on create_entity, update_entity, and packet_write.
+- When create_*/update_*/delete_* presets are seeded, use \`run_workflow\` instead of direct writes.
+- Delete means archive (\`status=archived\`); never hard-delete.
+- \`run_workflow\` may pause on \`pending_llm\` — resume with \`runId\` + \`llmWrites\`.
 - Compact reads by default; only set includeBody / includeMetadata when needed.
 
 ## Tool map

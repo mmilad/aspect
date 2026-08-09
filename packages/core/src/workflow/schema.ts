@@ -253,6 +253,38 @@ function parseForeachConfig(raw: unknown, nodeId: string, errors: string[]): Wor
   };
 }
 
+function parseBranchConfig(raw: unknown, nodeId: string, errors: string[]): WorkflowNodeData["branch"] {
+  if (raw === undefined) {
+    return undefined;
+  }
+  if (!isRecord(raw)) {
+    errors.push(`Node ${nodeId} branch config must be an object.`);
+    return undefined;
+  }
+  return {
+    on: typeof raw.on === "string" ? raw.on : undefined
+  };
+}
+
+function parseSwitchConfig(raw: unknown, nodeId: string, errors: string[]): WorkflowNodeData["switch"] {
+  if (raw === undefined) {
+    return undefined;
+  }
+  if (!isRecord(raw)) {
+    errors.push(`Node ${nodeId} switch config must be an object.`);
+    return undefined;
+  }
+  const cases = asStringArray(raw.cases);
+  if (raw.cases !== undefined && !cases) {
+    errors.push(`Node ${nodeId} switch.cases must be a string array.`);
+  }
+  return {
+    on: typeof raw.on === "string" ? raw.on : undefined,
+    cases,
+    defaultLabel: typeof raw.defaultLabel === "string" ? raw.defaultLabel : undefined
+  };
+}
+
 function parseWaitConfig(raw: unknown, nodeId: string, errors: string[]): WorkflowWaitConfig | undefined {
   if (raw === undefined) {
     return undefined;
@@ -402,7 +434,8 @@ function parseNodeData(raw: unknown, nodeId: string, errors: string[]): Workflow
     llm: isRecord(raw.llm) ? (raw.llm as unknown as WorkflowNodeData["llm"]) : undefined,
     write: isRecord(raw.write) ? (raw.write as unknown as WorkflowNodeData["write"]) : undefined,
     gate: isRecord(raw.gate) ? (raw.gate as unknown as WorkflowNodeData["gate"]) : undefined,
-    switch: isRecord(raw.switch) ? (raw.switch as unknown as WorkflowNodeData["switch"]) : undefined,
+    branch: parseBranchConfig(raw.branch, nodeId, errors),
+    switch: parseSwitchConfig(raw.switch, nodeId, errors),
     join: parseJoinConfig(raw.join, nodeId, errors),
     foreach: parseForeachConfig(raw.foreach, nodeId, errors),
     map,
@@ -454,7 +487,7 @@ function inferEdgeKind(raw: Record<string, unknown>, sourceType: WorkflowNodeTyp
   if (typeof raw.kind === "string" && WORKFLOW_EDGE_KIND_SET.has(raw.kind)) {
     return raw.kind as WorkflowEdgeKind;
   }
-  if (sourceType === "switch" || sourceType === "gate") {
+  if (sourceType === "switch" || sourceType === "branch" || sourceType === "gate") {
     if (typeof raw.label === "string" && raw.label && raw.label !== "default") {
       return "route";
     }
@@ -524,6 +557,17 @@ function validateTopology(graph: WorkflowGraph, errors: string[]): void {
     const outs = outgoing.get(node.id) ?? [];
     const ins = incoming.get(node.id) ?? [];
 
+    if (node.type === "branch") {
+      const routes = outs.filter((edge) => edge.kind === "route");
+      if (routes.length < 2) {
+        errors.push(`Branch ${node.id} requires at least two route edges.`);
+      }
+      const labels = routes.map((edge) => edge.label ?? "");
+      if (new Set(labels).size !== labels.length) {
+        errors.push(`Branch ${node.id} route labels must be unique.`);
+      }
+    }
+
     if (node.type === "switch") {
       const routes = outs.filter((edge) => edge.kind === "route");
       if (routes.length < 2) {
@@ -532,6 +576,10 @@ function validateTopology(graph: WorkflowGraph, errors: string[]): void {
       const labels = routes.map((edge) => edge.label ?? "");
       if (new Set(labels).size !== labels.length) {
         errors.push(`Switch ${node.id} route labels must be unique.`);
+      }
+      const defaultLabel = node.data.switch?.defaultLabel ?? "default";
+      if (!routes.some((edge) => (edge.label ?? "default") === defaultLabel)) {
+        errors.push(`Switch ${node.id} requires a route edge labeled "${defaultLabel}".`);
       }
     }
 
@@ -592,8 +640,8 @@ function validateTopology(graph: WorkflowGraph, errors: string[]): void {
     }
     if (edge.kind === "route") {
       const source = nodeById.get(edge.source);
-      if (source && source.type !== "switch" && source.type !== "gate") {
-        errors.push(`Edge ${edge.id} route source must be switch or gate.`);
+      if (source && source.type !== "switch" && source.type !== "branch" && source.type !== "gate") {
+        errors.push(`Edge ${edge.id} route source must be switch, branch, or gate.`);
       }
     }
   }
@@ -660,6 +708,8 @@ export function parseWorkflowGraph(raw: unknown): WorkflowParseOutcome {
     edges
   };
 
+  rewriteLegacyBooleanSwitches(graph);
+
   validateTopology(graph, errors);
 
   if (errors.length > 0) {
@@ -667,6 +717,31 @@ export function parseWorkflowGraph(raw: unknown): WorkflowParseOutcome {
   }
 
   return { ok: true, graph };
+}
+
+/** Legacy if/else switches (true/false routes only) become branch nodes. */
+function rewriteLegacyBooleanSwitches(graph: WorkflowGraph): void {
+  for (const node of graph.nodes) {
+    if (node.type !== "switch") {
+      continue;
+    }
+    if (node.data.switch?.cases?.length) {
+      continue;
+    }
+    const routes = graph.edges.filter((edge) => edge.source === node.id && edge.kind === "route");
+    if (routes.length < 2) {
+      continue;
+    }
+    const labels = routes.map((edge) => edge.label ?? "default");
+    const onlyBool = labels.every((label) => label === "true" || label === "false" || label === "default");
+    const hasTrueFalse = labels.includes("true") && labels.includes("false");
+    if (!onlyBool || !hasTrueFalse) {
+      continue;
+    }
+    node.type = "branch";
+    node.data.branch = { on: node.data.switch?.on };
+    delete node.data.switch;
+  }
 }
 
 export function readWorkflowGraph(metadata: JsonRecord): WorkflowParseOutcome {
@@ -851,6 +926,26 @@ export function resolveNextNodeId(
     return labeledNext.target;
   }
   return nexts[0]?.target ?? edges.find((edge) => edge.kind !== "depends_on" && edge.kind !== "error")?.target ?? null;
+}
+
+/**
+ * Resolve a switch/branch route among `route` edges only.
+ * Falls back to defaultLabel when the discriminant has no matching label.
+ */
+export function resolveRouteNextNodeId(
+  graph: WorkflowGraph,
+  nodeId: string,
+  routeLabel: string,
+  options?: { defaultLabel?: string }
+): string | null {
+  const defaultLabel = options?.defaultLabel ?? "default";
+  const routes = outgoingByKind(graph, nodeId, "route");
+  const exact = routes.find((edge) => (edge.label ?? "default") === routeLabel);
+  if (exact) {
+    return exact.target;
+  }
+  const fallback = routes.find((edge) => (edge.label ?? "default") === defaultLabel);
+  return fallback?.target ?? null;
 }
 
 /** Soft editor warning: required reads with no upstream declared write. */

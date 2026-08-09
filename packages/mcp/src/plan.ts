@@ -3,6 +3,7 @@ import {
   createPlanApi,
   getNarrative,
   withNarrative,
+  resolveMutationPresetKey,
   type Entity,
   type EntityNarrative,
   type EntityRelationType,
@@ -15,8 +16,10 @@ import {
   createEntity,
   createRelation,
   createSqliteEntityStore,
+  findSeededWorkflowPreset,
   getEntity,
   listRelations,
+  runWorkflow,
   updateEntity
 } from "@projectplaner/db";
 
@@ -68,6 +71,24 @@ function requireReason(reason: string | undefined, action: string): string {
     throw new Error(`${action} requires reason (durable narrative for the next agent).`);
   }
   return trimmed;
+}
+
+function assertNoSeededMutationPreset(
+  db: Db,
+  op: "create" | "update" | "delete",
+  type: EntityType
+): void {
+  const presetKey = resolveMutationPresetKey({ op, type });
+  if (!presetKey) {
+    return;
+  }
+  const seeded = findSeededWorkflowPreset(db, presetKey);
+  if (!seeded) {
+    return;
+  }
+  throw new Error(
+    `Preset "${presetKey}" is seeded (flow ${seeded.id}). Call run_workflow with key="${presetKey}" and a bag instead of ${op === "create" ? "create_entity" : "update_entity"}.`
+  );
 }
 
 function mergeNarrativeMetadata(
@@ -162,7 +183,10 @@ export function orientBriefing() {
       "Prefer the smallest truthful Aspect or Feature before creating new anchors.",
       "Every task must link to an Aspect or Feature (targetEntityId).",
       "Writes must include reason (durable narrative for the next agent).",
-      "Use search for relevant context; use next_work to pick eligible tasks.",
+      "When a mutation preset is seeded (create_task, delete_aspect, …), use run_workflow instead of create_entity/update_entity.",
+      "Delete means archive (status=archived); never hard-delete.",
+      "run_workflow may return pending_llm — resume with the same runId and llmWrites.",
+      "Use search for relevant context; use next_work (or run_workflow key=next_work) to pick eligible tasks.",
       "Leave narrative.proposal / openQuestions when useful; use packet_write for execution handoffs."
     ],
     tools: {
@@ -170,9 +194,10 @@ export function orientBriefing() {
       next_work: "Eligible tasks ranked by work score (unblocked candidates).",
       get_entity: "Compact entity + narrative by default.",
       list_entities: "Filtered list only (type / optional text filter — not ranked search).",
-      create_entity: "Create node; requires reason.",
-      update_entity: "Update node; requires reason.",
+      create_entity: "Create node; requires reason. Blocked when matching create_* preset is seeded.",
+      update_entity: "Update node; requires reason. Blocked when matching update_*/delete_* preset is seeded.",
       create_relation: "Link two entities.",
+      run_workflow: "Start/resume a workflow by preset key or flow id (Cursor/Codex resume via llmWrites).",
       packet_read: "Read orientation packets on an entity.",
       packet_write: "Write handoff packet; requires state+next; also stamps target narrative."
     },
@@ -354,6 +379,7 @@ export async function createPlanEntity(input: {
 }) {
   const reason = requireReason(input.reason, "create_entity");
   return withDb(async (db) => {
+    assertNoSeededMutationPreset(db, "create", input.type);
     if (input.type === "task" && !input.targetEntityId) {
       throw new Error("create_entity for tasks requires targetEntityId (Aspect or Feature).");
     }
@@ -434,6 +460,9 @@ export async function updatePlanEntity(input: {
     if (!existing) {
       throw new Error(`Entity not found: ${input.id}`);
     }
+    const op =
+      input.status === "archived" && existing.status !== "archived" ? "delete" : "update";
+    assertNoSeededMutationPreset(db, op, existing.type);
     const metadata = mergeNarrativeMetadata(
       { ...existing.metadata, ...(input.metadata ?? {}) },
       { reason, proposal: input.proposal, intent: input.intent }
@@ -590,6 +619,51 @@ export async function packetWrite(input: {
     return {
       packet: compactPacket(packet),
       targetNarrative: getNarrative(withNarrative(target, { reason, proposal: input.proposal }))
+    };
+  });
+}
+
+/** Start or resume a seeded workflow (by preset key or flow id). */
+export async function runPlanWorkflow(input: {
+  id?: string;
+  key?: string;
+  goal?: string;
+  bag?: Record<string, unknown>;
+  runId?: string;
+  llmWrites?: Record<string, unknown>;
+  userRoute?: string;
+  projectKey?: string;
+}) {
+  return withDb(async (db) => {
+    const result = await runWorkflow(db, {
+      id: input.id,
+      key: input.key,
+      projectKey: input.projectKey ?? DEFAULT_PROJECT_KEY,
+      goal: input.goal,
+      bag: input.bag,
+      runId: input.runId,
+      llmWrites: input.llmWrites,
+      userRoute: input.userRoute
+    });
+    return {
+      flow: {
+        id: result.flow.id,
+        title: result.flow.title,
+        presetKey: result.flow.metadata.presetKey ?? null
+      },
+      run: {
+        id: result.run.id,
+        status: result.run.status,
+        workflowId: result.run.workflowId
+      },
+      step: {
+        kind: result.step.kind,
+        nodeId: result.step.nodeId,
+        message: result.step.message,
+        llm: result.step.llm,
+        bagKeys: result.step.bag.keys
+      },
+      note: result.note
     };
   });
 }

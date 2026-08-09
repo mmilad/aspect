@@ -8,6 +8,7 @@ export const EXPECTED_MCP_TOOLS = [
   "create_entity",
   "update_entity",
   "create_relation",
+  "run_workflow",
   "packet_read",
   "packet_write"
 ] as const;

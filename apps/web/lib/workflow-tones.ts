@@ -9,6 +9,7 @@ export const workflowStepToneByType: Record<WorkflowNodeType, string> = {
   end: "border-zinc-500 bg-zinc-700 text-white",
   error_end: "border-rose-800 bg-rose-900 text-white",
   switch: "border-violet-600 bg-violet-50 text-violet-950",
+  branch: "border-fuchsia-600 bg-fuchsia-50 text-fuchsia-950",
   fork: "border-sky-600 bg-sky-50 text-sky-950",
   join: "border-sky-700 bg-sky-100 text-sky-950",
   foreach: "border-fuchsia-600 bg-fuchsia-50 text-fuchsia-950",

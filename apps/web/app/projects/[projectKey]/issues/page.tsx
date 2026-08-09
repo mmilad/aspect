@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { OperationalPane } from "../../../../components/operational-pane";
+import { IssuesList } from "../../../../components/issues-list";
 import { ProjectViewShell } from "../../../../components/project-view-shell";
 import { loadProject } from "../../../../lib/data";
 
@@ -25,12 +25,7 @@ export default async function ProjectIssuesPage({
       scopeLabel="issues"
       selectedId={query.selected}
       scrollCenter
-      center={
-        <OperationalPane
-          title="Issues"
-          purpose="Operational issue list tab. Full Issue List depth is out of scope for this shell; use Graph for planning navigation."
-        />
-      }
+      center={<IssuesList snapshot={snapshot} />}
     />
   );
 }

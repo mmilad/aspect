@@ -49,7 +49,12 @@ export function OverviewTab({
             label="Primary link"
             value={
               primary?.other ? (
-                <EntityLink projectKey={projectKey} entity={primary.other} relationType={primary.relation.type} />
+                <span className="flex flex-wrap items-center gap-2">
+                  <EntityLink projectKey={projectKey} entity={primary.other} relationType={primary.relation.type} />
+                  <ToolbarLink href={projectPaths.graph(projectKey, primary.other.id)} size="xs">
+                    Open graph
+                  </ToolbarLink>
+                </span>
               ) : (
                 "—"
               )

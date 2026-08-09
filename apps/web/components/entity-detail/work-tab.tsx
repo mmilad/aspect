@@ -1,7 +1,8 @@
 import type { Entity } from "@projectplaner/core";
-import { EntityLink, Field } from "../ui";
+import { EntityLink, Field, ToolbarLink } from "../ui";
 import { AcceptanceList, EntityListPanel, RelationList, type RelationListItem } from "../entity-chrome";
 import { formatStatus } from "../../lib/entity-label";
+import { projectPaths } from "../../lib/project-paths";
 
 interface WorkTabProps {
   entity: Entity;
@@ -35,7 +36,12 @@ export function WorkTab({
         <section className="rounded-md border border-border bg-white p-4">
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Primary relation</h2>
           {primary?.other ? (
-            <EntityLink projectKey={projectKey} entity={primary.other} relationType={primary.relation.type} />
+            <div className="flex flex-wrap items-center gap-2">
+              <EntityLink projectKey={projectKey} entity={primary.other} relationType={primary.relation.type} />
+              <ToolbarLink href={projectPaths.graph(projectKey, primary.other.id)} size="xs">
+                Open graph
+              </ToolbarLink>
+            </div>
           ) : (
             <p className="text-sm text-muted-foreground">No primary relation.</p>
           )}

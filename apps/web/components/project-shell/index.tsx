@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { ProjectPlanSnapshot } from "@projectplaner/core";
 import type { ProjectView } from "../../lib/project-view";
 import { ProjectHeader, type HeaderChromeContext } from "../project-header";
+import { ShellBody } from "./shell-body";
 import styles from "./style.module.css";
 
 interface ProjectShellProps {
@@ -26,11 +27,7 @@ export function ProjectShell({
   return (
     <main className={styles.shell}>
       <ProjectHeader project={project} scopeLabel={scopeLabel} activeView={activeView} chrome={chrome} />
-      <div className={styles.body}>
-        <aside className={styles.left}>{leftSidebar}</aside>
-        <section className={styles.center}>{center}</section>
-        <aside className={styles.right}>{rightSidebar}</aside>
-      </div>
+      <ShellBody projectKey={project.key} leftSidebar={leftSidebar} center={center} rightSidebar={rightSidebar} />
     </main>
   );
 }

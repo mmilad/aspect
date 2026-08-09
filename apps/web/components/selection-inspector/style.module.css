@@ -1,7 +1,7 @@
 .inspector {
-  height: calc(100vh - 56px);
+  height: 100%;
   overflow: auto;
-  padding: 16px;
+  padding: 12px 14px 16px;
 }
 
 .top {

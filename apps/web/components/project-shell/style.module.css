@@ -8,7 +8,7 @@
 .body {
   display: grid;
   min-height: 0;
-  grid-template-columns: 248px minmax(560px, 1fr) 360px;
+  /* columns set inline for resizable inspector */
 }
 
 .left {
@@ -24,7 +24,79 @@
 }
 
 .right {
+  position: relative;
+  min-width: 0;
   min-height: 0;
   border-left: 1px solid hsl(var(--border));
   background: #fff;
+}
+
+.resizeHandle {
+  position: absolute;
+  top: 0;
+  left: -3px;
+  z-index: 2;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.resizeHandle:hover,
+.resizeHandle:active {
+  background: rgba(15, 118, 110, 0.25);
+}
+
+.rightFrame {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.rightChrome {
+  display: flex;
+  height: 32px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px solid hsl(var(--border));
+  background: #fbfbfa;
+  padding: 0 8px;
+}
+
+.rightChromeLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+}
+
+.rightContent {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+}
+
+.collapsedRail {
+  display: flex;
+  height: 100%;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 8px;
+  background: #fbfbfa;
+}
+
+.collapsedButton {
+  padding-left: 0.35rem;
+  padding-right: 0.35rem;
+}
+
+.hiddenInspector {
+  display: none;
 }

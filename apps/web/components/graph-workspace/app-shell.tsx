@@ -8,7 +8,6 @@ import { ProjectLeftSidebar } from "../project-left-sidebar";
 import { ProjectShell } from "../project-shell";
 import { SelectionInspector } from "../selection-inspector";
 import { WorkspaceCenter } from "../workspace-center";
-import { projectPaths } from "../../lib/project-paths";
 import { getAncestors } from "./lib/ancestors";
 import { buildGraphEntities } from "./lib/build-graph-entities";
 import {
@@ -18,7 +17,8 @@ import {
   buildScopedFlowNodes
 } from "./lib/build-flow-nodes";
 import { orderedEntityTypes } from "./lib/ordered-entity-types";
-import { scoreEntity } from "./lib/score-entity";
+import { filterScoredEntities } from "./lib/filter-scored-entities";
+import { graphNodeOpenHref } from "./lib/graph-open-target";
 import {
   buildInspectorSelectionData,
   resolveInitialSelection,
@@ -99,11 +99,7 @@ export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: App
   });
 
   const scoredEntities = useMemo(
-    () =>
-      allGraphEntities
-        .map((entity) => ({ entity, score: scoreEntity(entity, query) }))
-        .filter(({ entity, score }) => activeTypes.has(entity.type) && (!query.trim() || score > 0))
-        .sort((left, right) => right.score - left.score || left.entity.sortOrder - right.entity.sortOrder),
+    () => filterScoredEntities(allGraphEntities, { activeTypes, query }),
     [activeTypes, allGraphEntities, query]
   );
 
@@ -240,7 +236,7 @@ export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: App
                 onNodesChange={onNodesChange}
                 onSelect={selectEntity}
                 onOpen={(id) => {
-                  router.push(projectPaths.entity(snapshot.project.key, id));
+                  router.push(graphNodeOpenHref(snapshot.project.key, id));
                 }}
               />
             ) : (
@@ -251,7 +247,7 @@ export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: App
                 centerId={centerNode.id}
                 onSelect={selectEntity}
                 onOpen={(id) => {
-                  router.push(projectPaths.entity(snapshot.project.key, id));
+                  router.push(graphNodeOpenHref(snapshot.project.key, id));
                 }}
               />
             )}

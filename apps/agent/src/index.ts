@@ -2,6 +2,27 @@
 import { loadConfig } from "./config";
 import { parseArgs, printHelp } from "./cli";
 import { WorkflowClient, WorkflowClientError, isPendingLlm } from "./client";
+import {
+  createHookLlmAdapter,
+  defaultFixturesDir,
+  loadFixtureAdapter,
+  type LlmAdapter
+} from "./llm";
+import { runWorkflowLoop } from "./run-loop";
+
+async function resolveAdapter(args: ReturnType<typeof parseArgs>): Promise<LlmAdapter | undefined> {
+  if (args.llmHook) {
+    return createHookLlmAdapter(args.llmHook);
+  }
+  if (args.fixtures !== undefined) {
+    const dir = args.fixtures === true ? defaultFixturesDir() : args.fixtures;
+    return loadFixtureAdapter(dir);
+  }
+  if (process.env.PROJECTPLANER_LLM_HOOK?.trim()) {
+    return createHookLlmAdapter(process.env.PROJECTPLANER_LLM_HOOK.trim());
+  }
+  return undefined;
+}
 
 async function main(): Promise<number> {
   let args;
@@ -29,30 +50,47 @@ async function main(): Promise<number> {
   });
 
   try {
+    const adapter = await resolveAdapter(args);
     const bag = args.goal ? { goal: args.goal } : undefined;
-    const result = await client.start({
-      key: args.workflow,
-      id: args.flowId,
-      goal: args.goal,
-      bag
+    const { response, llmSteps, history } = await runWorkflowLoop({
+      client,
+      adapter,
+      workflowKey: args.workflow,
+      maxLlmSteps: args.maxLlmSteps,
+      start: {
+        key: args.workflow,
+        id: args.flowId,
+        goal: args.goal,
+        bag
+      }
     });
 
     console.log(
       JSON.stringify(
         {
-          flowId: result.flow.id,
-          flowTitle: result.flow.title,
-          runId: result.run.id,
-          status: result.run.status,
-          step: result.step.kind,
-          note: result.note,
-          pendingLlm: isPendingLlm(result) ? client.pendingLlm(result) : null
+          flowId: response.flow.id,
+          flowTitle: response.flow.title,
+          runId: response.run.id,
+          status: response.run.status,
+          step: response.step.kind,
+          note: response.note,
+          llmSteps,
+          history,
+          pendingLlm: isPendingLlm(response) ? client.pendingLlm(response) : null,
+          bagKeys: Object.keys(response.step.bag ?? {})
         },
         null,
         2
       )
     );
-    return result.step.kind === "failed" ? 1 : 0;
+
+    if (response.step.kind === "failed") {
+      return 1;
+    }
+    if (isPendingLlm(response) && !adapter) {
+      return 0;
+    }
+    return 0;
   } catch (error) {
     if (error instanceof WorkflowClientError) {
       console.error(`WorkflowClientError (${error.status}): ${error.message}`);

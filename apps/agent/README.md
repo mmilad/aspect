@@ -25,7 +25,8 @@ Thin **semi-agent** / workflow host for Projectplaner.
 
 ```bash
 pnpm --filter @projectplaner/agent start -- --help
-pnpm --filter @projectplaner/agent start -- --workflow ensure_aspect
+pnpm --filter @projectplaner/agent start -- -w ensure_aspect --fixtures
+pnpm --filter @projectplaner/agent start -- -w ensure_aspect --llm-hook "node ./path/to/hook.js"
 pnpm --filter @projectplaner/agent typecheck
 ```
 
@@ -42,12 +43,17 @@ Requires the Projectplaner web API (`pnpm dev`) for live runs.
 
 Env: `PROJECTPLANER_API_BASE_URL` or `PROJECTPLANER_API_URL` (default `http://127.0.0.1:3000`).
 
-Scaffold CLI prints run status / pending_llm surface. Automatic multi-step loop is PLAN-57.
-
 ## LLM adapter (PLAN-56)
 
 - `FixtureLlmAdapter` / `fixtures/*.json` — deterministic resumes for tests
 - `CallableLlmAdapter` — slim prompt glue + JSON → `llmWrites` (inject a real model later)
+- `createHookLlmAdapter(cmd)` — live/small-model via external command
 - `resumePendingWithAdapter(client, adapter, response)` — one pause/resume step
 
 Prompts for workflow nodes stay on flow `instructionRef` / bag templates; the app only wraps them for the model.
+
+## Run loop (PLAN-57)
+
+`runWorkflowLoop` starts a preset/flow and auto-resumes `pending_llm` until completed/failed/`pending_user` (or max steps).
+
+CLI: `--fixtures` for the deterministic path; `--llm-hook` (or `PROJECTPLANER_LLM_HOOK`) for an optional live model.

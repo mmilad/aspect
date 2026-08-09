@@ -31,3 +31,7 @@ pnpm plan presets-ensure --force
 ```
 
 Code: `packages/core/src/workflow/`, `packages/db/src/workflow-runtime.ts`, `packages/db/src/presets.ts`.
+
+## Diagram view (read-only)
+
+In the flow editor toolbar, **Diagram** replaces the React Flow canvas with a Mermaid flowchart of the current graph (branch → diamond, start/end → stadium). Palette and inspector hide while open. Use **Copy source** to paste into docs. Converter: `renderWorkflowMermaid` in `@projectplaner/core`.

@@ -9,11 +9,13 @@ interface WorkflowToolbarProps {
   version: number;
   authorOpen: boolean;
   storyOpen: boolean;
+  diagramOpen: boolean;
   saving: boolean;
   presetKey?: string | null;
   presetDirty?: boolean;
   onToggleAuthor: () => void;
   onToggleStory: () => void;
+  onToggleDiagram: () => void;
   onLoadExample: () => void;
   onLoadNewTask: () => void;
   onResetEmpty: () => void;
@@ -26,11 +28,13 @@ export function WorkflowToolbar({
   version,
   authorOpen,
   storyOpen,
+  diagramOpen,
   saving,
   presetKey,
   presetDirty,
   onToggleAuthor,
   onToggleStory,
+  onToggleDiagram,
   onLoadExample,
   onLoadNewTask,
   onResetEmpty,
@@ -53,6 +57,14 @@ export function WorkflowToolbar({
         </GhostButton>
         <GhostButton size="xs" tone={storyOpen ? "accent" : "default"} active={storyOpen} onClick={onToggleStory}>
           Story
+        </GhostButton>
+        <GhostButton
+          size="xs"
+          tone={diagramOpen ? "accent" : "default"}
+          active={diagramOpen}
+          onClick={onToggleDiagram}
+        >
+          Diagram
         </GhostButton>
         <GhostButton size="xs" onClick={onLoadExample}>
           Load example

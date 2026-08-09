@@ -3,5 +3,6 @@ export * from "./schema";
 export * from "./shapes";
 export * from "./template";
 export * from "./story";
+export * from "./mermaid";
 export * from "./author";
 export * from "./presets";

@@ -18,6 +18,7 @@ import {
   parseWorkflowGraph,
   bagViewAtNode,
   renderWorkflowStory,
+  renderWorkflowMermaid,
   warnMissingUpstreamKeys,
   warnShapeMismatches,
   WORKFLOW_SCHEMA_VERSION,
@@ -40,6 +41,7 @@ import { workflowRfNodeTypes } from "./workflow-step-node";
 import { WorkflowToolbar } from "./workflow-toolbar";
 import { WorkflowAuthorPanel } from "./workflow-author-panel";
 import { WorkflowStoryPanel } from "./workflow-story-panel";
+import { WorkflowDiagramPanel } from "./workflow-diagram-panel";
 import { WorkflowPalette } from "./workflow-palette";
 import { WorkflowNodeInspector } from "./workflow-node-inspector";
 
@@ -133,6 +135,7 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
     !initial.nodes.some((node) => node.type === "llm" || node.type === "tool")
   );
   const [storyOpen, setStoryOpen] = useState(false);
+  const [diagramOpen, setDiagramOpen] = useState(false);
   const presetKey = typeof flow.metadata.presetKey === "string" ? flow.metadata.presetKey : null;
   const [presetDirty, setPresetDirty] = useState(flow.metadata.presetDirty === true);
 
@@ -156,6 +159,13 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
       description: brief.trim() || flow.summary || undefined
     });
   }, [nodes, edges, version, flow.title, flow.summary, brief]);
+
+  const mermaidSource = useMemo(() => {
+    const graph = fromRf(nodes as FlowRfNode[], edges, version);
+    const parsed = parseWorkflowGraph(graph);
+    const g = parsed.ok ? parsed.graph : graph;
+    return renderWorkflowMermaid(g, { title: flow.title });
+  }, [nodes, edges, version, flow.title]);
 
   function findStartId(graph: WorkflowGraph): string | undefined {
     return graph.nodes.find((node) => node.type === "start")?.id;
@@ -462,11 +472,13 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
         version={version}
         authorOpen={authorOpen}
         storyOpen={storyOpen}
+        diagramOpen={diagramOpen}
         saving={saving}
         presetKey={presetKey}
         presetDirty={presetDirty}
         onToggleAuthor={() => setAuthorOpen((open) => !open)}
         onToggleStory={() => setStoryOpen((open) => !open)}
+        onToggleDiagram={() => setDiagramOpen((open) => !open)}
         onLoadExample={() => replaceGraph(exampleWorkflowGraph)}
         onLoadNewTask={() => replaceGraph(newTaskWorkflowGraph)}
         onResetEmpty={() => replaceGraph(emptyWorkflowGraph())}
@@ -485,43 +497,49 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
 
       {storyOpen ? <WorkflowStoryPanel story={storyText} /> : null}
 
-      <div className="flex min-h-0 flex-1">
-        <WorkflowPalette
-          status={status}
-          errors={errors}
-          warnings={warnings}
-          connectKind={connectKind}
-          onConnectKindChange={setConnectKind}
-          onAddNode={addNode}
-        />
-
-        <div className="min-w-0 flex-1">
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            nodeTypes={workflowRfNodeTypes}
-            fitView
-            onNodeClick={(_, node) => syncSelection(node.id)}
-            onPaneClick={() => syncSelection(null)}
-            deleteKeyCode={["Backspace", "Delete"]}
-          >
-            <Background gap={18} size={1} />
-            <Controls />
-            <MiniMap pannable zoomable />
-          </ReactFlow>
+      {diagramOpen ? (
+        <div className="min-h-0 flex-1">
+          <WorkflowDiagramPanel source={mermaidSource} />
         </div>
+      ) : (
+        <div className="flex min-h-0 flex-1">
+          <WorkflowPalette
+            status={status}
+            errors={errors}
+            warnings={warnings}
+            connectKind={connectKind}
+            onConnectKindChange={setConnectKind}
+            onAddNode={addNode}
+          />
 
-        <WorkflowNodeInspector
-          selected={selected}
-          bagView={bagView}
-          onUpdateData={updateSelectedData}
-          onUpdateType={updateSelectedType}
-          onDelete={deleteSelected}
-        />
-      </div>
+          <div className="min-w-0 flex-1">
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              nodeTypes={workflowRfNodeTypes}
+              fitView
+              onNodeClick={(_, node) => syncSelection(node.id)}
+              onPaneClick={() => syncSelection(null)}
+              deleteKeyCode={["Backspace", "Delete"]}
+            >
+              <Background gap={18} size={1} />
+              <Controls />
+              <MiniMap pannable zoomable />
+            </ReactFlow>
+          </div>
+
+          <WorkflowNodeInspector
+            selected={selected}
+            bagView={bagView}
+            onUpdateData={updateSelectedData}
+            onUpdateType={updateSelectedType}
+            onDelete={deleteSelected}
+          />
+        </div>
+      )}
     </div>
   );
 }

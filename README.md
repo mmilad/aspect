@@ -45,7 +45,7 @@ Current project docs (start here for “what exists today”):
 |-----|--------|
 | [`docs/architecture.md`](docs/architecture.md) | Packages, data ownership, verification |
 | [`docs/graph.md`](docs/graph.md) | Entity model, relations, status ladder, rollup |
-| [`docs/workflow.md`](docs/workflow.md) | Presets, `run_workflow`, `pending_llm` |
+| [`docs/workflow.md`](docs/workflow.md) | Presets, `run_workflow`, `pending_llm`, Diagram (Mermaid) view |
 | [`docs/mcp.md`](docs/mcp.md) | MCP tools and agent write rules |
 | [`docs/agent.md`](docs/agent.md) | `apps/agent` CLI / HTTP client |
 | [`docs/ui.md`](docs/ui.md) | Web surfaces and UX intent |

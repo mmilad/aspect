@@ -64,6 +64,8 @@ export type EntityListQuery = {
   select?: EntitySelectMode;
   /** When select is compact, still attach metadata.narrative */
   includeNarrative?: boolean;
+  /** Include soft-deleted (`status=archived`) entities (default false). */
+  includeArchived?: boolean;
 };
 
 export type EntitySearchQuery = {
@@ -75,6 +77,8 @@ export type EntitySearchQuery = {
   includeNarrative?: boolean;
   /** Exclude orientation packet references from the search pool (default true). */
   excludeOrientationPackets?: boolean;
+  /** Include soft-deleted (`status=archived`) entities (default false). */
+  includeArchived?: boolean;
 };
 
 export type RelatedToSugar = {
@@ -95,6 +99,8 @@ export type TaskNextWorkQuery = {
   limit?: number;
   select?: EntitySelectMode;
   includeNarrative?: boolean;
+  /** Include soft-deleted (`status=archived`) entities (default false). */
+  includeArchived?: boolean;
 };
 
 export type CompiledPredicate =

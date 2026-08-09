@@ -15,16 +15,17 @@ Local graph-first planning store. Aspects are meaning anchors; features and task
 - \`reason\` is required on create_entity, update_entity, and packet_write.
 - When create_*/update_*/delete_* presets are seeded, use \`run_workflow\` instead of direct writes.
 - Delete means archive (\`status=archived\`); never hard-delete.
+- Archived entities are excluded from default \`search\` / \`list_entities\` / graph snapshots; use \`get_entity\` or \`includeArchived\`.
 - \`run_workflow\` may pause on \`pending_llm\` — resume with \`runId\` + \`llmWrites\`.
 - LLM instructions may include bag templates (\`{{key}}\`, \`{{@reads}}\`); filled before pause.
 - Compact reads by default; only set includeBody / includeMetadata when needed.
 
 ## Tool map
 - orient: session briefing / rules (no graph query)
-- search: relevance ranking (titles, summaries; narrative fields when present)
+- search: relevance ranking (titles, summaries; narrative fields when present); archived excluded by default
 - next_work: unblocked task candidates by work score
-- get_entity: inspect one entity (compact + narrative)
-- list_entities: filter/list only (not ranked search)
+- get_entity: inspect one entity (compact + narrative), including archived by id
+- list_entities: filter/list only (not ranked search); archived excluded by default
 - create_entity / update_entity: writes with enforced narrative
 - create_relation: link entities
 - packet_read / packet_write: execution handoffs (+ narrative stamp on target)

@@ -247,3 +247,77 @@ describe("narrative + retrieval modes", () => {
     expect(result.items[0]!.score).toBeGreaterThan(result.items[1]!.score);
   });
 });
+
+describe("archived entity exclusion", () => {
+  const live = entity({ id: "aspect_live", type: "aspect", title: "Live Shell", status: "in_work" });
+  const archived = entity({
+    id: "aspect_archived",
+    type: "aspect",
+    title: "Archived Shell",
+    status: "archived",
+    summary: "old shell aspect"
+  });
+  const liveTask = entity({ id: "task_live", type: "task", title: "Live task", status: "todo" });
+  const archivedTask = entity({
+    id: "task_archived",
+    type: "task",
+    title: "Archived task",
+    status: "archived"
+  });
+
+  const store = () =>
+    new MemoryEntityStore({
+      entities: [live, archived, liveTask, archivedTask],
+      relations: [
+        relation("r1", "task_live", "aspect_live", "affects"),
+        relation("r2", "task_archived", "aspect_archived", "affects")
+      ],
+      projectIdByKey: new Map([[projectKey, projectId]])
+    });
+
+  it("excludes archived from default list and search", async () => {
+    const api = createPlanApi(store());
+
+    const listed = await api.entities.list({ projectKey });
+    expect(listed.items.map((item) => item.id).sort()).toEqual(["aspect_live", "task_live"].sort());
+
+    const searched = await api.entities.search({ projectKey, q: "Shell" });
+    expect(searched.items.map((item) => item.id)).toEqual(["aspect_live"]);
+
+    const included = await api.entities.list({ projectKey, includeArchived: true });
+    expect(included.items.map((item) => item.id).sort()).toEqual(
+      ["aspect_archived", "aspect_live", "task_archived", "task_live"].sort()
+    );
+  });
+
+  it("still returns archived entities by id", async () => {
+    const api = createPlanApi(store());
+    const entityView = await api.entities.get("aspect_archived");
+    expect(entityView?.id).toBe("aspect_archived");
+    expect(entityView?.status).toBe("archived");
+  });
+
+  it("keeps archived blockers resolved for candidacy", async () => {
+    const aspect = entity({ id: "aspect_a", type: "aspect", title: "A", status: "planned" });
+    const archivedFeature = entity({
+      id: "feature_old",
+      type: "feature",
+      title: "Old",
+      status: "archived"
+    });
+    const task = entity({ id: "task_ready", type: "task", title: "Ready", status: "todo" });
+    const api = createPlanApi(
+      new MemoryEntityStore({
+        entities: [aspect, archivedFeature, task],
+        relations: [
+          relation("r1", "task_ready", "aspect_a", "affects"),
+          relation("r2", "task_ready", "feature_old", "blocked_by")
+        ],
+        projectIdByKey: new Map([[projectKey, projectId]])
+      })
+    );
+
+    const result = await api.tasks.nextWork({ projectKey });
+    expect(result.items.map((item) => item.id)).toEqual(["task_ready"]);
+  });
+});

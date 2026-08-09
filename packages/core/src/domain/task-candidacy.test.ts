@@ -65,6 +65,9 @@ describe("task candidacy", () => {
       isBlockerResolved(entity({ id: "a", type: "aspect", title: "A", status: "implemented" }))
     ).toBe(true);
     expect(
+      isBlockerResolved(entity({ id: "arch", type: "feature", title: "Arch", status: "archived" }))
+    ).toBe(true);
+    expect(
       isBlockerResolved(entity({ id: "x", type: "task", title: "X", metadata: { disabled: true } }))
     ).toBe(true);
   });

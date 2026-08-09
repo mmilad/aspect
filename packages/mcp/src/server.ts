@@ -104,12 +104,16 @@ export function createProjectplanerServer(): McpServer {
     "search",
     {
       description:
-        "Relevance search over the graph (titles, summaries; narrative fields when present). Use for finding context — not a raw filter. Excludes orientation packets by default.",
+        "Relevance search over the graph (titles, summaries; narrative fields when present). Use for finding context — not a raw filter. Excludes orientation packets and archived entities by default.",
       inputSchema: {
         q: z.string().describe("Short relevance query"),
         type: entityTypeSchema.optional(),
         relatedTo: z.string().optional().describe("Only entities linked out to this id"),
-        limit: z.number().int().min(1).max(50).optional()
+        limit: z.number().int().min(1).max(50).optional(),
+        includeArchived: z
+          .boolean()
+          .optional()
+          .describe("Include soft-deleted (status=archived) entities; default false")
       }
     },
     async (input) => {
@@ -163,13 +167,18 @@ export function createProjectplanerServer(): McpServer {
   server.registerTool(
     "list_entities",
     {
-      description: "Filter/list entities (not ranked). For tasks supports unblocked + relatedTo sugar.",
+      description:
+        "Filter/list entities (not ranked). For tasks supports unblocked + relatedTo sugar. Excludes archived entities by default.",
       inputSchema: {
         type: entityTypeSchema.optional(),
         query: z.string().optional().describe("Optional text match filter"),
         relatedTo: z.string().optional(),
         unblocked: z.boolean().optional().describe("Tasks only: no unresolved blocked_by"),
-        limit: z.number().int().min(1).max(100).optional()
+        limit: z.number().int().min(1).max(100).optional(),
+        includeArchived: z
+          .boolean()
+          .optional()
+          .describe("Include soft-deleted (status=archived) entities; default false")
       }
     },
     async (input) => {

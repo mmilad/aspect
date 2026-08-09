@@ -249,3 +249,89 @@ describe("executePlan SQL", () => {
     fs.rmSync(dir, { recursive: true, force: true });
   });
 });
+
+describe("archived snapshot exclusion", () => {
+  it("hides archived entities and dangling relations from project snapshot", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "projectplaner-archive-"));
+    const dbPath = path.join(dir, "test.db");
+    const db = createDatabase(dbPath);
+    const projectId = "proj_archive_test";
+
+    await importGenericPlan(db, {
+      project: {
+        id: projectId,
+        key: "PLAN",
+        title: "Archive Test",
+        description: ""
+      },
+      entities: [
+        {
+          id: "aspect_live",
+          projectId,
+          type: "aspect",
+          key: null,
+          slug: "live",
+          title: "Live",
+          summary: "",
+          body: "",
+          status: "planned",
+          sortOrder: 0,
+          metadata: {}
+        },
+        {
+          id: "aspect_archived",
+          projectId,
+          type: "aspect",
+          key: null,
+          slug: "archived",
+          title: "Archived",
+          summary: "",
+          body: "",
+          status: "archived",
+          sortOrder: 1,
+          metadata: {}
+        }
+      ],
+      relations: [
+        {
+          id: "rel_live_archived",
+          projectId,
+          sourceEntityId: "aspect_live",
+          targetEntityId: "aspect_archived",
+          type: "related_to",
+          label: null,
+          isPrimary: false,
+          metadata: {}
+        }
+      ],
+      tags: [],
+      tagAssignments: []
+    });
+
+    const { getEntity, getProjectSnapshot, listEntities } = await import("./repository");
+
+    const listed = await listEntities(db, { projectKey: "PLAN" });
+    assert.deepEqual(
+      listed.map((item) => item.id),
+      ["aspect_live"]
+    );
+
+    const withArchived = await listEntities(db, { projectKey: "PLAN", includeArchived: true });
+    assert.equal(withArchived.length, 2);
+
+    const snapshot = await getProjectSnapshot(db, "PLAN");
+    assert.ok(snapshot);
+    assert.deepEqual(
+      snapshot.nodes.map((node) => node.id),
+      ["aspect_live"]
+    );
+    assert.equal(snapshot.relations.length, 0);
+    assert.equal(snapshot.entityRelations.length, 0);
+
+    const archived = await getEntity(db, "aspect_archived");
+    assert.equal(archived?.status, "archived");
+
+    db.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+});

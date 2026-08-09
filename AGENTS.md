@@ -22,6 +22,8 @@ Workflow presets seed once into the DB (`ensure_aspect`, CRUD `create_*`/`update
 `next_work`, `onboarding`, …); use `pnpm plan presets-ensure --force` to replace preset graphs
 during development (`PROJECTPLANER_PRESETS_FORCE=1`). Set `PROJECTPLANER_PRESETS_SKIP=1` to disable.
 `delete_*` presets archive (`status=archived`) — never hard-delete.
+Archived entities are soft-deleted: excluded from default `search` / `list` / project graph
+snapshots. Recover with `get_entity` by id, or pass `includeArchived` on list/search APIs.
 When a mutation preset is seeded, prefer MCP/HTTP `run_workflow` over direct create/update.
 LLM steps pause as `pending_llm`; Cursor/Codex (or a new spawn) resume with `{ runId, llmWrites }`.
 LLM `instructions` may use bag templates (`{{title}}`, `{{@reads}}`, `{{@shapes}}`); the runner

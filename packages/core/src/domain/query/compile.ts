@@ -116,7 +116,9 @@ function combineWhere(parts: EntityFilter[]): EntityFilter | undefined {
 
 const DEFAULT_ORDER: EntityOrderBy[] = [{ field: "sortOrder", dir: "asc" }];
 
-/** Expanded filter that will be compiled (type constraint + where). */
+const NOT_ARCHIVED: EntityFilter = { field: "status", op: "neq", value: "archived" };
+
+/** Expanded filter that will be compiled (type constraint + where + archive default). */
 export function resolveAppliedFilter(
   query: EntityListQuery = {},
   options?: { type?: EntityType }
@@ -124,6 +126,9 @@ export function resolveAppliedFilter(
   const whereParts: EntityFilter[] = [];
   if (options?.type) {
     whereParts.push({ field: "type", op: "eq", value: options.type });
+  }
+  if (query.includeArchived !== true) {
+    whereParts.push(NOT_ARCHIVED);
   }
   if (query.where) {
     whereParts.push(expandNamedPredicates(query.where));

@@ -253,7 +253,11 @@ export interface GenericProjectSnapshot {
   tagAssignments: Array<{ id: string; tagId: string; entityId: string }>;
 }
 
-export async function getGenericProjectSnapshot(db: DatabaseSync, key = "PLAN"): Promise<GenericProjectSnapshot | null> {
+export async function getGenericProjectSnapshot(
+  db: DatabaseSync,
+  key = "PLAN",
+  options: { includeArchived?: boolean } = {}
+): Promise<GenericProjectSnapshot | null> {
   const project = db.prepare("SELECT id, key, title, description FROM projects WHERE key = ?").get(key) as
     | ProjectRow
     | undefined;
@@ -262,8 +266,25 @@ export async function getGenericProjectSnapshot(db: DatabaseSync, key = "PLAN"):
     return null;
   }
 
-  const entityRows = db.prepare("SELECT * FROM entities WHERE project_id = ? ORDER BY sort_order ASC").all(project.id) as EntityRow[];
+  const includeArchived = options.includeArchived === true;
+  const entityRows = (
+    includeArchived
+      ? (db.prepare("SELECT * FROM entities WHERE project_id = ? ORDER BY sort_order ASC").all(project.id) as EntityRow[])
+      : (db
+          .prepare("SELECT * FROM entities WHERE project_id = ? AND status != ? ORDER BY sort_order ASC")
+          .all(project.id, "archived") as EntityRow[])
+  );
+  const entities = entityRows.map(mapEntityRow);
+  const activeIds = new Set(entities.map((entity) => entity.id));
+
   const relationRows = db.prepare("SELECT * FROM entity_relations_v2 WHERE project_id = ?").all(project.id) as EntityRelationV2Row[];
+  const relations = relationRows
+    .map(mapEntityRelationRow)
+    .filter(
+      (relation) =>
+        includeArchived || (activeIds.has(relation.sourceEntityId) && activeIds.has(relation.targetEntityId))
+    );
+
   const tags = db.prepare("SELECT * FROM tags WHERE project_id = ?").all(project.id) as TagRow[];
   const tagAssignments = db
     .prepare(
@@ -280,8 +301,8 @@ export async function getGenericProjectSnapshot(db: DatabaseSync, key = "PLAN"):
       title: project.title,
       description: project.description
     },
-    entities: entityRows.map(mapEntityRow),
-    relations: relationRows.map(mapEntityRelationRow),
+    entities,
+    relations,
     tags: tags.map((tag) => ({
       id: tag.id,
       projectId: tag.project_id,
@@ -289,11 +310,13 @@ export async function getGenericProjectSnapshot(db: DatabaseSync, key = "PLAN"):
       label: tag.label,
       kind: tag.kind as ProjectPlanSnapshot["tags"][number]["kind"]
     })),
-    tagAssignments: tagAssignments.map((assignment) => ({
-      id: assignment.id,
-      tagId: assignment.tag_id,
-      entityId: assignment.entity_id
-    }))
+    tagAssignments: tagAssignments
+      .filter((assignment) => includeArchived || activeIds.has(assignment.entity_id))
+      .map((assignment) => ({
+        id: assignment.id,
+        tagId: assignment.tag_id,
+        entityId: assignment.entity_id
+      }))
   };
 }
 
@@ -623,8 +646,12 @@ async function getProjectSnapshotFromLegacyTables(db: DatabaseSync, key = "PLAN"
   };
 }
 
-export async function getProjectSnapshot(db: DatabaseSync, key = "PLAN"): Promise<ProjectPlanSnapshot | null> {
-  const generic = await getGenericProjectSnapshot(db, key);
+export async function getProjectSnapshot(
+  db: DatabaseSync,
+  key = "PLAN",
+  options: { includeArchived?: boolean } = {}
+): Promise<ProjectPlanSnapshot | null> {
+  const generic = await getGenericProjectSnapshot(db, key, options);
   const legacy = await getProjectSnapshotFromLegacyTables(db, key);
 
   if (!generic || generic.entities.length === 0) {
@@ -765,6 +792,8 @@ export interface EntityQuery {
   projectKey?: string;
   type?: EntityType;
   query?: string;
+  /** Include soft-deleted (`status=archived`) entities (default false). */
+  includeArchived?: boolean;
 }
 
 export interface CreateRelationInput {
@@ -971,6 +1000,10 @@ export async function listEntities(db: DatabaseSync, query: EntityQuery = {}): P
   if (query.type) {
     sql += " AND entities.type = ?";
     values.push(query.type);
+  }
+  if (query.includeArchived !== true) {
+    sql += " AND entities.status != ?";
+    values.push("archived");
   }
   if (query.query) {
     sql += " AND (entities.title LIKE ? OR entities.slug LIKE ? OR entities.summary LIKE ? OR entities.body LIKE ?)";

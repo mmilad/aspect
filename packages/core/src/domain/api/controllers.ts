@@ -153,7 +153,8 @@ export class EntityController<T extends EntityType = EntityType> {
       {
         projectKey,
         where: query.where,
-        select: "full"
+        select: "full",
+        includeArchived: query.includeArchived
       },
       this.type !== undefined ? { type: this.type } : undefined
     );
@@ -203,7 +204,8 @@ export class TaskController extends EntityController<"task"> {
       projectKey,
       relatedTo: query.relatedTo,
       where: { pred: "task_candidate" },
-      select: "full"
+      select: "full",
+      includeArchived: query.includeArchived
     });
     const plan = compileListQuery(listQuery, { type: "task" });
     const poolPlan = { ...plan, limit: undefined, offset: undefined };

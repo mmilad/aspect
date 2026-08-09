@@ -185,6 +185,7 @@ export function orientBriefing() {
       "Writes must include reason (durable narrative for the next agent).",
       "When a mutation preset is seeded (create_task, delete_aspect, …), use run_workflow instead of create_entity/update_entity.",
       "Delete means archive (status=archived); never hard-delete.",
+      "Archived entities are excluded from default search/list/graph; use get_entity or includeArchived to recover.",
       "run_workflow may return pending_llm — resume with the same runId and llmWrites.",
       "Use search for relevant context; use next_work (or run_workflow key=next_work) to pick eligible tasks.",
       "Leave narrative.proposal / openQuestions when useful; use packet_write for execution handoffs."
@@ -210,6 +211,7 @@ export async function searchPlanEntities(input: {
   type?: EntityType;
   limit?: number;
   relatedTo?: string;
+  includeArchived?: boolean;
 }) {
   return withDb(async (db) => {
     const api = planApi(db);
@@ -241,7 +243,8 @@ export async function searchPlanEntities(input: {
       where,
       limit: input.limit ?? 10,
       select: "compact",
-      includeNarrative: true
+      includeNarrative: true,
+      includeArchived: input.includeArchived
     });
     return { items: result.items, meta: result.meta };
   });
@@ -308,6 +311,7 @@ export async function listPlanEntities(input: {
   limit?: number;
   unblocked?: boolean;
   relatedTo?: string;
+  includeArchived?: boolean;
 }) {
   return withDb(async (db) => {
     const api = planApi(db);
@@ -321,7 +325,8 @@ export async function listPlanEntities(input: {
           : undefined,
         limit: input.limit ?? DEFAULT_LIST_LIMIT,
         select: "compact",
-        includeNarrative: true
+        includeNarrative: true,
+        includeArchived: input.includeArchived
       });
       return { items: result.items, meta: result.meta };
     }
@@ -354,7 +359,8 @@ export async function listPlanEntities(input: {
       })(),
       limit: input.limit ?? DEFAULT_LIST_LIMIT,
       select: "compact",
-      includeNarrative: true
+      includeNarrative: true,
+      includeArchived: input.includeArchived
     });
     return { items: result.items, meta: result.meta };
   });

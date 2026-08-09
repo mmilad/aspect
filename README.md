@@ -54,6 +54,22 @@ Index: [`docs/README.md`](docs/README.md).
 
 ## Usage sketch
 
+```mermaid
+flowchart TD
+  human[Human in web UI] --> graph[(SQLite graph)]
+  mcp[Cursor agent via MCP] --> orient[orient once]
+  orient --> pick{search or next_work}
+  pick --> read[get_entity / packet_read]
+  read --> write[run_workflow or write + reason]
+  write --> graph
+  write --> handoff[packet_write handoff]
+  host[apps/agent CLI] --> api[Web API run_workflow]
+  api --> graph
+  api --> llm{pending_llm?}
+  llm -->|yes| resume[resume with llmWrites]
+  resume --> api
+```
+
 1. **Humans** — open the web app, navigate the graph, edit entities / workflows.
 2. **Agents in Cursor** — call Projectplaner MCP: `orient` once, then `search` or `next_work`; prefer `run_workflow` for mutations when presets are seeded; always pass `reason` on writes.
 3. **Semi-agent host** — `pnpm --filter @projectplaner/agent start -- -w <preset> --fixtures` (needs `pnpm dev` for the API).

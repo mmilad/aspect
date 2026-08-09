@@ -218,7 +218,9 @@ export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: App
                 edges={flowEdges}
                 onNodesChange={onNodesChange}
                 onSelect={selectEntity}
-                onOpen={openScope}
+                onOpen={(id) => {
+                  router.push(projectPaths.entity(snapshot.project.key, id));
+                }}
               />
             ) : (
               <SpatialGraphCanvas

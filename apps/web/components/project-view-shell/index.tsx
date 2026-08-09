@@ -16,6 +16,8 @@ export type ProjectViewShellProps = {
   center: ReactNode;
   /** When true, center pane scrolls (entity detail). Default fill/overflow hidden. */
   scrollCenter?: boolean;
+  /** Carry-over for sidebar Project Tabs (`?selected=` → Graph). */
+  selectedId?: string;
   selectedNode?: ProjectNode | null;
   selectedFeature?: Feature | null;
   entity?: EntityPreview;
@@ -38,6 +40,7 @@ export function ProjectViewShell({
   chrome,
   center,
   scrollCenter = false,
+  selectedId,
   selectedNode = null,
   selectedFeature = null,
   entity,
@@ -62,7 +65,10 @@ export function ProjectViewShell({
   };
 
   const resolvedChrome: HeaderChromeContext = {
-    entityId: chrome?.entityId ?? (activeView === "entity" ? entity?.id ?? node?.id : undefined),
+    entityId:
+      chrome?.entityId ??
+      selectedId ??
+      (activeView === "entity" ? entity?.id ?? node?.id : undefined),
     flowId: chrome?.flowId ?? (activeView === "workflow" ? entity?.id ?? node?.id : undefined)
   };
 
@@ -77,6 +83,7 @@ export function ProjectViewShell({
           <ProjectLeftSidebar
             snapshot={snapshot}
             activeView={activeView}
+            selectedId={selectedId ?? node?.id}
             centerNode={node}
             recentScopes={node ? [node] : []}
           />

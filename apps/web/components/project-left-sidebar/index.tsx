@@ -2,14 +2,16 @@
 
 import type { EntityType, ProjectNode, ProjectPlanSnapshot } from "@projectplaner/core";
 import type { ProjectView } from "../../lib/project-view";
+import { isGraphNavActive } from "../../lib/project-view";
 import styles from "./style.module.css";
-import { ViewsNav } from "./views-nav";
+import { ProjectTabsNav } from "./project-tabs-nav";
 import { GraphFilters } from "./graph-filters";
 import { ScopeSection } from "./scope-section";
 
 interface ProjectLeftSidebarProps {
   snapshot: ProjectPlanSnapshot;
   activeView: ProjectView;
+  selectedId?: string;
   activeTypes?: Set<EntityType>;
   entityTypes?: EntityType[];
   centerNode?: ProjectNode;
@@ -22,6 +24,7 @@ interface ProjectLeftSidebarProps {
 export function ProjectLeftSidebar({
   snapshot,
   activeView,
+  selectedId,
   activeTypes,
   entityTypes = [],
   centerNode,
@@ -30,10 +33,13 @@ export function ProjectLeftSidebar({
   onToggleType,
   onOpenScope
 }: ProjectLeftSidebarProps) {
+  const graphActive = isGraphNavActive(activeView);
+  const resolvedSelectedId = selectedId ?? centerNode?.id;
+
   return (
     <div className={styles.sidebar}>
-      <ViewsNav snapshot={snapshot} activeView={activeView} />
-      {activeTypes && onSelectTypes && onToggleType ? (
+      <ProjectTabsNav snapshot={snapshot} activeView={activeView} selectedId={resolvedSelectedId} />
+      {graphActive && activeTypes && onSelectTypes && onToggleType ? (
         <GraphFilters
           activeTypes={activeTypes}
           entityTypes={entityTypes}

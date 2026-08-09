@@ -169,6 +169,7 @@ export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: App
         <ProjectLeftSidebar
           snapshot={snapshot}
           activeView={graphOnly ? "graph" : "workspace"}
+          selectedId={selectedId}
           activeTypes={activeTypes}
           entityTypes={allEntityTypes}
           centerNode={centerNode}

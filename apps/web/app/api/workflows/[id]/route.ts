@@ -2,19 +2,15 @@ import path from "node:path";
 import { NextResponse } from "next/server";
 import {
   openDatabase,
-  createWorkflowRun,
   getEntity,
   getOrMigrateWorkflowGraph,
-  getWorkflowRun,
-  listWorkflowNodeRuns,
   listWorkflowTriggers,
   markWorkflowPresetDirty,
+  runWorkflow,
   saveWorkflowGraph,
   updateEntity
 } from "@projectplaner/db";
 import {
-  createContextBag,
-  findStartNode,
   parseWorkflowGraph,
   writeWorkflowGraph,
   type JsonRecord,
@@ -88,6 +84,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
   }
 }
 
+/** @deprecated Prefer POST /api/workflows/run with { id }. Kept as a thin alias. */
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
   const body = (await request.json()) as { action?: string; goal?: string; bag?: JsonRecord };
@@ -96,40 +93,16 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   }
   const db = await openDb();
   try {
-    const entity = await getEntity(db, id);
-    if (!entity || entity.type !== "flow") {
-      return NextResponse.json({ error: "Workflow flow not found." }, { status: 404 });
-    }
-    const graph =
-      getOrMigrateWorkflowGraph(db, {
-        workflowId: entity.id,
-        projectId: entity.projectId,
-        metadata: entity.metadata as JsonRecord
-      }) ?? null;
-    if (!graph) {
-      return NextResponse.json({ error: "Workflow graph missing." }, { status: 400 });
-    }
-    const start = findStartNode(graph);
-    if (!start) {
-      return NextResponse.json({ error: "Workflow requires a start node." }, { status: 400 });
-    }
-    const goal = body.goal?.trim() || entity.title;
-    const bag = createContextBag({
-      workflowId: entity.id,
-      goal,
-      startNodeId: start.id,
-      keys: body.bag
-    });
-    const run = createWorkflowRun(db, {
-      workflowId: entity.id,
-      projectId: entity.projectId,
-      graph,
-      bag: bag as unknown as JsonRecord
+    const result = await runWorkflow(db, {
+      id,
+      goal: body.goal,
+      bag: body.bag as Record<string, unknown> | undefined
     });
     return NextResponse.json({
-      run,
-      nodeRuns: listWorkflowNodeRuns(db, run.id),
-      note: "Run snapshot frozen. Minimal runner advances via step APIs; resume is not required yet."
+      run: result.run,
+      step: result.step,
+      nodeRuns: result.nodeRuns,
+      note: result.note
     });
   } catch (error) {
     return NextResponse.json(
@@ -141,25 +114,34 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   }
 }
 
+/** @deprecated Prefer POST /api/workflows/run with { runId, llmWrites }. Kept as a thin alias. */
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
-  const body = (await request.json()) as { runId?: string };
+  const body = (await request.json()) as {
+    runId?: string;
+    llmWrites?: Record<string, unknown>;
+    userRoute?: string;
+  };
   if (!body.runId) {
     return NextResponse.json({ error: "runId required." }, { status: 400 });
   }
   const db = await openDb();
   try {
-    const run = getWorkflowRun(db, body.runId);
-    if (!run || run.workflowId !== id) {
-      return NextResponse.json({ error: "Run not found." }, { status: 404 });
-    }
+    const result = await runWorkflow(db, {
+      id,
+      runId: body.runId,
+      llmWrites: body.llmWrites,
+      userRoute: body.userRoute
+    });
     return NextResponse.json({
-      run,
-      nodeRuns: listWorkflowNodeRuns(db, run.id)
+      run: result.run,
+      step: result.step,
+      nodeRuns: result.nodeRuns,
+      note: result.note
     });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Could not load run." },
+      { error: error instanceof Error ? error.message : "Could not advance workflow run." },
       { status: 400 }
     );
   } finally {

@@ -293,9 +293,11 @@ async function runStart(
     values.goal = bag.goal;
   }
   for (const key of writes) {
-    if (!(key in values) && key in bag.keys) {
-      values[key] = bag.keys[key];
+    if (key in values) {
+      continue;
     }
+    // Optional start inputs may be absent; still declare them so contracts stay honest.
+    values[key] = key in bag.keys ? bag.keys[key] : undefined;
   }
   if (writes.length > 0) {
     const applied = applyBagWrites(bag, writes, values);
@@ -497,14 +499,18 @@ async function resolveWriteResult(
   action: "create_entity" | "update_entity",
   args: Record<string, unknown>
 ): Promise<WorkflowToolResult | { error: string }> {
-  if (adapters.runWrite) {
-    return adapters.runWrite({ action, args });
+  try {
+    if (adapters.runWrite) {
+      return await adapters.runWrite({ action, args });
+    }
+    const handler = adapters.functions?.[action];
+    if (!handler) {
+      return { error: `No runWrite adapter or registry function for action '${action}'.` };
+    }
+    return await handler(args);
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) };
   }
-  const handler = adapters.functions?.[action];
-  if (!handler) {
-    return { error: `No runWrite adapter or registry function for action '${action}'.` };
-  }
-  return handler(args);
 }
 
 async function runTool(

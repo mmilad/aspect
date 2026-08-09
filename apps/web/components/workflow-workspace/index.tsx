@@ -353,16 +353,39 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
     }
     try {
       await save();
-      const response = await fetch(`/api/workflows/${flow.id}`, {
+      const response = await fetch("/api/workflows/run", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "run", goal: brief || flow.title })
+        body: JSON.stringify({
+          id: flow.id,
+          goal: brief || flow.title,
+          bag: {
+            title: brief || flow.title,
+            reason: `Workflow run of ${flow.title}`
+          }
+        })
       });
-      const payload = (await response.json()) as { run?: { id: string }; error?: string; note?: string };
+      const payload = (await response.json()) as {
+        run?: { id: string; status?: string };
+        step?: { kind?: string; message?: string; llm?: { instructions?: string; outputSchema?: string[] } };
+        error?: string;
+        note?: string;
+      };
       if (!response.ok || !payload.run) {
         throw new Error(payload.error ?? "Run failed.");
       }
-      setStatus(`Run ${payload.run.id} snapshot frozen. ${payload.note ?? ""}`);
+      const kind = payload.step?.kind ?? payload.run.status ?? "running";
+      setStatus(
+        [
+          `Run ${payload.run.id}: ${kind}.`,
+          payload.note,
+          payload.step?.llm?.outputSchema
+            ? `LLM writes: ${payload.step.llm.outputSchema.join(", ")}`
+            : null
+        ]
+          .filter(Boolean)
+          .join(" ")
+      );
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Run failed.");
     }

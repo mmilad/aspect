@@ -112,9 +112,10 @@ export const ensureAspectGraph: WorkflowGraph = {
             title: "title",
             summary: "summary",
             key: "key",
-            reason: "reason"
+            reason: "reason",
+            parentAspectId: "parentAspectId"
           },
-          defaults: { type: "aspect", status: "planned" }
+          defaults: { type: "aspect", status: "planned", resultAs: "aspectId" }
         }
       }
     },
@@ -144,7 +145,7 @@ export const ensureAspectGraph: WorkflowGraph = {
 
 export const ensureAspectPreset: WorkflowPreset = {
   presetKey: "ensure_aspect",
-  presetVersion: 1,
+  presetVersion: 2,
   title: "Ensure Aspect",
   summary: "Search for a similar Aspect before creating one; reuse when possible.",
   body: [

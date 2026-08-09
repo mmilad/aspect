@@ -3,6 +3,8 @@
 Local graph-first planning tool. Aspects are meaning anchors; Features and Tasks
 attach to them. Not a Jira/Kanban clone.
 
+Human-oriented overview and doc index: [`README.md`](README.md), [`docs/`](docs/).
+
 ## Agent orientation
 
 Use the Projectplaner MCP for graph navigation and planning writes. Serialize

@@ -7,6 +7,7 @@ import { ProjectViewShell } from "../project-view-shell";
 import {
   EntityInspector,
   InspectorHost,
+  WorkflowAuthorInspector,
   WorkflowStepInspector
 } from "../inspector";
 import { WorkflowWorkspace } from "./index";
@@ -35,8 +36,21 @@ function WorkflowRightSidebar({
 }: Omit<WorkflowEditorShellProps, "flow"> & { flow: EntityPreview }) {
   const session = useWorkflowInspectorSession();
   const node = selectedNode ?? snapshot.nodes[0];
-  const showStep = Boolean(session && !session.diagramOpen && session.selected);
 
+  if (session?.authorOpen) {
+    return (
+      <InspectorHost eyebrow="Author">
+        <WorkflowAuthorInspector
+          brief={session.brief}
+          generating={session.generating}
+          onBriefChange={session.onBriefChange}
+          onGenerate={session.onGenerate}
+        />
+      </InspectorHost>
+    );
+  }
+
+  const showStep = Boolean(session && !session.diagramOpen && session.selected);
   if (showStep && session) {
     return (
       <InspectorHost eyebrow="Step">

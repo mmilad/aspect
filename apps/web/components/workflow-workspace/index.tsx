@@ -36,7 +36,6 @@ import {
 } from "./rf-adapters";
 import { workflowRfNodeTypes } from "./workflow-step-node";
 import { WorkflowToolbar } from "./workflow-toolbar";
-import { WorkflowAuthorPanel } from "./workflow-author-panel";
 import { WorkflowStoryPanel } from "./workflow-story-panel";
 import { WorkflowDiagramPanel } from "./workflow-diagram-panel";
 import { WorkflowCanvasContextMenu, WorkflowToolbarAdd } from "./workflow-add-menu";
@@ -115,6 +114,11 @@ function defaultDataForType(type: WorkflowNodeType): WorkflowNodeData {
   }
 }
 
+function isScaffoldGraph(nodes: Array<{ type: string }>): boolean {
+  const work = new Set(["tool", "llm", "context", "transform", "map", "write"]);
+  return !nodes.some((node) => work.has(node.type));
+}
+
 export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) {
   const initial = useMemo(() => loadInitialGraph(flow.metadata), [flow.metadata]);
   const [version, setVersion] = useState(initial.version || WORKFLOW_SCHEMA_VERSION);
@@ -128,9 +132,7 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
   const [warnings, setWarnings] = useState<string[]>([]);
   const [connectKind, setConnectKind] = useState<WorkflowEdgeKind>("next");
   const [brief, setBrief] = useState(flow.body || flow.summary || "");
-  const [authorOpen, setAuthorOpen] = useState(
-    !initial.nodes.some((node) => node.type === "llm" || node.type === "tool")
-  );
+  const [authorOpen, setAuthorOpen] = useState(() => isScaffoldGraph(initial.nodes));
   const [storyOpen, setStoryOpen] = useState(false);
   const [diagramOpen, setDiagramOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
@@ -197,6 +199,9 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
     (id: string | null) => {
       setSelectedId(id);
       setNodes((current) => current.map((node) => ({ ...node, selected: node.id === id })));
+      if (id) {
+        setAuthorOpen(false);
+      }
     },
     [setNodes]
   );
@@ -331,29 +336,6 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
     syncSelection(null);
   }, [selectedId, setNodes, setEdges, syncSelection]);
 
-  useEffect(() => {
-    inspector.publish({
-      diagramOpen,
-      selected,
-      bagView,
-      onUpdateData: updateSelectedData,
-      onUpdateType: updateSelectedType,
-      onDelete: deleteSelected
-    });
-  }, [
-    inspector,
-    diagramOpen,
-    selected,
-    bagView,
-    updateSelectedData,
-    updateSelectedType,
-    deleteSelected
-  ]);
-
-  useEffect(() => {
-    return () => inspector.clear();
-  }, [inspector]);
-
   const save = useCallback(async () => {
     const graph = currentGraph();
     const parsed = parseWorkflowGraph(graph);
@@ -485,6 +467,39 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
     [brief, flow.title, replaceGraph]
   );
 
+  useEffect(() => {
+    inspector.publish({
+      diagramOpen,
+      selected,
+      bagView,
+      onUpdateData: updateSelectedData,
+      onUpdateType: updateSelectedType,
+      onDelete: deleteSelected,
+      authorOpen,
+      brief,
+      generating,
+      onBriefChange: setBrief,
+      onGenerate: (scaffoldOnly) => void generateFromBrief(scaffoldOnly),
+      setAuthorOpen
+    });
+  }, [
+    inspector,
+    diagramOpen,
+    selected,
+    bagView,
+    updateSelectedData,
+    updateSelectedType,
+    deleteSelected,
+    authorOpen,
+    brief,
+    generating,
+    generateFromBrief
+  ]);
+
+  useEffect(() => {
+    return () => inspector.clear();
+  }, [inspector]);
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <WorkflowToolbar
@@ -524,15 +539,6 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
             <span className="ml-2 text-amber-700">{warnings.join(" · ")}</span>
           ) : null}
         </div>
-      ) : null}
-
-      {authorOpen ? (
-        <WorkflowAuthorPanel
-          brief={brief}
-          generating={generating}
-          onBriefChange={setBrief}
-          onGenerate={(scaffoldOnly) => void generateFromBrief(scaffoldOnly)}
-        />
       ) : null}
 
       {storyOpen ? <WorkflowStoryPanel story={storyText} /> : null}

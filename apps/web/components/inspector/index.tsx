@@ -29,3 +29,7 @@ export {
   WorkflowStepInspector,
   type WorkflowStepInspectorProps
 } from "./workflow-step-inspector";
+export {
+  WorkflowAuthorInspector,
+  type WorkflowAuthorInspectorProps
+} from "./workflow-author-inspector";

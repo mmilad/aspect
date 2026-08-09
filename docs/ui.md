@@ -12,7 +12,7 @@ Shared 3-pane chrome via `ProjectShell` / `ProjectViewShell`:
 | Center | Active workspace (graph canvas, Issues, Kanban, flow editor, …) |
 | Right | Inspector (`components/inspector/`) — entity preview by default |
 
-Flow editor (`WorkflowEditorShell`) uses the same shell: center is toolbar + React Flow (or Diagram Mermaid view); the **shell right pane** shows step details when a node is selected, otherwise the flow entity. No nested palette or second inspector column.
+Flow editor (`WorkflowEditorShell`) uses the same shell: center is toolbar + React Flow (or Diagram Mermaid view); the **shell right pane** shows Author when **Describe** is on, step details when a node is selected, otherwise the flow entity. No nested palette or second inspector column.
 
 Add workflow steps via toolbar **Add** or canvas **right-click** context menu (connect-kind lives there too).
 
@@ -35,6 +35,7 @@ components/inspector/
   index.tsx                 # InspectorHost
   entity-inspector/         # Entity / selection preview
   workflow-step-inspector/  # Selected workflow step editor
+  workflow-author-inspector/# Describe / brief generate (flow editor)
 ```
 
 Grow new right-pane kinds under this folder; avoid a second inspector inside center workspaces.

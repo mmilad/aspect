@@ -17,6 +17,12 @@ export type WorkflowInspectorSession = {
   onUpdateData: (patch: Partial<WorkflowNodeData>) => void;
   onUpdateType: (type: WorkflowNodeType) => void;
   onDelete: () => void;
+  authorOpen: boolean;
+  brief: string;
+  generating: boolean;
+  onBriefChange: (value: string) => void;
+  onGenerate: (scaffoldOnly?: boolean) => void;
+  setAuthorOpen: (open: boolean) => void;
 };
 
 type WorkflowInspectorContextValue = {

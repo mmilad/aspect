@@ -118,7 +118,13 @@ export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: App
   const [flowNodes, setFlowNodes, onNodesChange] = useNodesState(graphNodes);
 
   useEffect(() => {
-    setFlowNodes(graphNodes);
+    setFlowNodes((current) => {
+      const positionsById = new Map(current.map((node) => [node.id, node.position]));
+      return graphNodes.map((node) => {
+        const position = positionsById.get(node.id);
+        return position ? { ...node, position } : node;
+      });
+    });
   }, [graphNodes, setFlowNodes]);
 
   const focusId = selectedFeatureId ?? selectedId;
@@ -212,9 +218,7 @@ export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: App
                 edges={flowEdges}
                 onNodesChange={onNodesChange}
                 onSelect={selectEntity}
-                onOpen={(id) => {
-                  router.push(projectPaths.entity(snapshot.project.key, id));
-                }}
+                onOpen={openScope}
               />
             ) : (
               <SpatialGraphCanvas

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from "react";
 import { cn } from "../../lib/utils";
 
 const sizeClass = {
@@ -62,12 +62,14 @@ export function ToolbarLink({
   className,
   size = "sm",
   active,
-  tone = "default"
-}: CommonProps & { href: string }) {
+  tone = "default",
+  ...props
+}: CommonProps & { href: string } & Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href" | "children" | "className">) {
   return (
     <Link
       href={href}
       className={cn("inline-flex items-center justify-center rounded-md border font-medium", sizeClass[size], toneClass(tone, active), className)}
+      {...props}
     >
       {children}
     </Link>

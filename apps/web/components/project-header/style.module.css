@@ -1,11 +1,16 @@
 .header {
   display: flex;
-  height: 56px;
+  flex-direction: column;
+  border-bottom: 1px solid hsl(var(--border));
+  background: #fff;
+}
+
+.topRow {
+  display: flex;
+  height: 44px;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  border-bottom: 1px solid hsl(var(--border));
-  background: #fff;
   padding: 0 16px;
 }
 
@@ -17,8 +22,8 @@
 }
 
 .mark {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   display: grid;
   place-items: center;
   border: 1px solid hsl(var(--border));
@@ -35,7 +40,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 650;
 }
 
@@ -43,14 +48,54 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: 11px;
   color: hsl(var(--muted-foreground));
 }
 
-.actions {
+.topActions {
   display: flex;
   flex-shrink: 0;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+}
+
+.surfaceSwitch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  background: #f8faf9;
+  padding: 2px;
+}
+
+.subnav {
+  display: flex;
+  min-height: 36px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  border-top: 1px solid hsl(var(--border));
+  background: #fbfbfa;
+  padding: 4px 16px;
+}
+
+.subnavLabel {
+  margin-right: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #0f766e;
+}
+
+.subnavLabelWorkflow {
+  color: #4338ca;
+}
+
+.subnavDivider {
+  width: 1px;
+  height: 16px;
+  margin: 0 2px;
+  background: hsl(var(--border));
 }

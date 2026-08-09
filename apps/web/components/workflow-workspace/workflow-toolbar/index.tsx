@@ -1,7 +1,6 @@
 "use client";
 
-import { Badge, GhostButton, ToolbarLink } from "../../ui";
-import { projectPaths } from "../../../lib/project-paths";
+import { Badge, GhostButton } from "../../ui";
 
 interface WorkflowToolbarProps {
   projectKey: string;
@@ -23,8 +22,6 @@ interface WorkflowToolbarProps {
 }
 
 export function WorkflowToolbar({
-  projectKey,
-  flowId,
   flowTitle,
   version,
   authorOpen,
@@ -51,12 +48,6 @@ export function WorkflowToolbar({
         <div className="font-mono text-[10px] text-muted-foreground">{presetKey}</div>
       ) : null}
       <div className="ml-auto flex flex-wrap items-center gap-2">
-        <ToolbarLink href={projectPaths.entity(projectKey, flowId)} size="xs">
-          Entity
-        </ToolbarLink>
-        <ToolbarLink href={projectPaths.graph(projectKey, flowId)} size="xs">
-          Aspect Graph
-        </ToolbarLink>
         <GhostButton size="xs" tone={authorOpen ? "accent" : "default"} active={authorOpen} onClick={onToggleAuthor}>
           Describe
         </GhostButton>

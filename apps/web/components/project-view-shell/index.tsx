@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { Feature, ProjectNode, ProjectPlanSnapshot } from "@projectplaner/core";
 import type { EntityPreview } from "../../lib/entity-preview";
 import type { ProjectView } from "../../lib/project-view";
+import type { HeaderChromeContext } from "../project-header";
 import { ProjectLeftSidebar } from "../project-left-sidebar";
 import { ProjectShell } from "../project-shell";
 import { SelectionInspector } from "../selection-inspector";
@@ -11,6 +12,7 @@ export type ProjectViewShellProps = {
   snapshot: ProjectPlanSnapshot;
   activeView: ProjectView;
   scopeLabel?: string;
+  chrome?: HeaderChromeContext;
   center: ReactNode;
   /** When true, center pane scrolls (entity detail). Default fill/overflow hidden. */
   scrollCenter?: boolean;
@@ -33,6 +35,7 @@ export function ProjectViewShell({
   snapshot,
   activeView,
   scopeLabel,
+  chrome,
   center,
   scrollCenter = false,
   selectedNode = null,
@@ -58,11 +61,17 @@ export function ProjectViewShell({
     path: node.path
   };
 
+  const resolvedChrome: HeaderChromeContext = {
+    entityId: chrome?.entityId ?? (activeView === "entity" ? entity?.id ?? node?.id : undefined),
+    flowId: chrome?.flowId ?? (activeView === "workflow" ? entity?.id ?? node?.id : undefined)
+  };
+
   return (
     <ProjectShell
       project={snapshot.project}
       scopeLabel={scopeLabel}
       activeView={activeView}
+      chrome={resolvedChrome}
       leftSidebar={
         leftSidebar ?? (
           <ProjectLeftSidebar

@@ -267,6 +267,7 @@ export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: App
       project={snapshot.project}
       scopeLabel={centerNode.path}
       activeView={graphOnly ? "graph" : "workspace"}
+      chrome={{ entityId: selectedId ?? centerNode.id }}
       leftSidebar={
         <ProjectLeftSidebar
           snapshot={snapshot}

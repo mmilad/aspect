@@ -3,7 +3,7 @@ import type { ProjectPlanSnapshot } from "@projectplaner/core";
 import { Badge } from "../ui/badge";
 import { ToolbarLink } from "../ui/ghost-button";
 import { projectPaths } from "../../lib/project-paths";
-import { projectViewLabel, type ProjectView } from "../../lib/project-view";
+import { isWorkflowsNavActive, projectViewLabel, type ProjectView } from "../../lib/project-view";
 import styles from "./style.module.css";
 
 interface ProjectHeaderProps {
@@ -34,6 +34,9 @@ export function ProjectHeader({ project, scopeLabel, activeView }: ProjectHeader
         </ToolbarLink>
         <ToolbarLink href={projectPaths.graph(project.key)} active={activeView === "graph"}>
           Graph
+        </ToolbarLink>
+        <ToolbarLink href={projectPaths.workflows(project.key)} active={isWorkflowsNavActive(activeView)}>
+          Workflows
         </ToolbarLink>
       </nav>
     </header>

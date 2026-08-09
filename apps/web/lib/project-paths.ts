@@ -4,6 +4,7 @@ export const projectPaths = {
     selectedId
       ? `/projects/${projectKey}/graph?selected=${encodeURIComponent(selectedId)}`
       : `/projects/${projectKey}/graph`,
+  workflows: (projectKey: string) => `/projects/${projectKey}/workflows`,
   entity: (projectKey: string, entityId: string, tab?: string) =>
     tab
       ? `/projects/${projectKey}/entities/${entityId}?tab=${encodeURIComponent(tab)}`

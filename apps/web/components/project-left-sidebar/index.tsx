@@ -4,7 +4,6 @@ import type { EntityType, ProjectNode, ProjectPlanSnapshot } from "@projectplane
 import type { ProjectView } from "../../lib/project-view";
 import styles from "./style.module.css";
 import { ViewsNav } from "./views-nav";
-import { WorkflowsSection } from "./workflows-section";
 import { GraphFilters } from "./graph-filters";
 import { ScopeSection } from "./scope-section";
 
@@ -34,7 +33,6 @@ export function ProjectLeftSidebar({
   return (
     <div className={styles.sidebar}>
       <ViewsNav snapshot={snapshot} activeView={activeView} />
-      <WorkflowsSection snapshot={snapshot} activeView={activeView} centerNode={centerNode} />
       {activeTypes && onSelectTypes && onToggleType ? (
         <GraphFilters
           activeTypes={activeTypes}

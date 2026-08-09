@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { FileText, GitFork, ListTodo, Network } from "lucide-react";
+import { GitFork, Network, Workflow } from "lucide-react";
 import type { ProjectPlanSnapshot } from "@projectplaner/core";
-import { Badge } from "../ui/badge";
 import { projectPaths } from "../../lib/project-paths";
-import type { ProjectView } from "../../lib/project-view";
+import { isWorkflowsNavActive, type ProjectView } from "../../lib/project-view";
 import { cn } from "../../lib/utils";
 import styles from "./style.module.css";
 
@@ -37,20 +36,15 @@ export function ViewsNav({ snapshot, activeView }: ViewsNavProps) {
             Graph
           </span>
         </Link>
-        <div className={styles.link}>
-          <span className="inline-flex items-center gap-2 text-muted-foreground">
-            <ListTodo className="h-4 w-4" />
-            Tasks
+        <Link
+          className={cn(styles.link, isWorkflowsNavActive(activeView) && styles.activeLink)}
+          href={projectPaths.workflows(snapshot.project.key)}
+        >
+          <span className="inline-flex items-center gap-2">
+            <Workflow className="h-4 w-4" />
+            Workflows
           </span>
-          <Badge>{snapshot.tasks.length}</Badge>
-        </div>
-        <div className={styles.link}>
-          <span className="inline-flex items-center gap-2 text-muted-foreground">
-            <FileText className="h-4 w-4" />
-            Features
-          </span>
-          <Badge>{snapshot.features.length}</Badge>
-        </div>
+        </Link>
       </nav>
     </section>
   );

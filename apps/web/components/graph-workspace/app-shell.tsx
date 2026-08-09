@@ -213,6 +213,7 @@ export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: App
             })
           }
           onOpenScope={openScope}
+          onCreated={selectEntity}
         />
       }
       center={

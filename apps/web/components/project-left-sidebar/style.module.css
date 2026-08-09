@@ -61,3 +61,42 @@
   text-align: left;
   font-size: 12px;
 }
+
+.contextHint {
+  margin-bottom: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+}
+
+.createGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.createForm {
+  margin-top: 8px;
+  display: grid;
+  gap: 8px;
+}
+
+.createActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.createError {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #be123c;
+}
+
+.createStatus {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #0f766e;
+}

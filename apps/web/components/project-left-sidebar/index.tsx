@@ -7,6 +7,7 @@ import styles from "./style.module.css";
 import { ProjectTabsNav } from "./project-tabs-nav";
 import { GraphFilters } from "./graph-filters";
 import { ScopeSection } from "./scope-section";
+import { CreationRail } from "./creation-rail";
 
 interface ProjectLeftSidebarProps {
   snapshot: ProjectPlanSnapshot;
@@ -19,6 +20,7 @@ interface ProjectLeftSidebarProps {
   onSelectTypes?: (types: Set<EntityType>) => void;
   onToggleType?: (type: EntityType) => void;
   onOpenScope?: (id: string) => void;
+  onCreated?: (id: string) => void;
 }
 
 export function ProjectLeftSidebar({
@@ -31,7 +33,8 @@ export function ProjectLeftSidebar({
   recentScopes = [],
   onSelectTypes,
   onToggleType,
-  onOpenScope
+  onOpenScope,
+  onCreated
 }: ProjectLeftSidebarProps) {
   const graphActive = isGraphNavActive(activeView);
   const resolvedSelectedId = selectedId ?? centerNode?.id;
@@ -39,6 +42,12 @@ export function ProjectLeftSidebar({
   return (
     <div className={styles.sidebar}>
       <ProjectTabsNav snapshot={snapshot} activeView={activeView} selectedId={resolvedSelectedId} />
+      <CreationRail
+        snapshot={snapshot}
+        selectedId={resolvedSelectedId}
+        centerNode={centerNode}
+        onCreated={onCreated}
+      />
       {graphActive && activeTypes && onSelectTypes && onToggleType ? (
         <GraphFilters
           activeTypes={activeTypes}

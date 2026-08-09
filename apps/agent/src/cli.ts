@@ -51,7 +51,7 @@ export function printHelp(): void {
     "  -h, --help             Show help",
     "",
     "This package hosts defined Projectplaner workflows only.",
-    "run_workflow client + pending_llm resume ship in PLAN-55–57."
+    "pending_llm auto-resume / fixtures ship in PLAN-56–57."
   ];
   console.log(lines.join("\n"));
 }

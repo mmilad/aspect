@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 import { loadConfig } from "./config";
 import { parseArgs, printHelp } from "./cli";
+import { WorkflowClient, WorkflowClientError, isPendingLlm } from "./client";
 
-function main(): number {
+async function main(): Promise<number> {
   let args;
   try {
     args = parseArgs(process.argv.slice(2));
@@ -12,9 +13,9 @@ function main(): number {
     return 1;
   }
 
-  if (args.help || (!args.workflow && !args.flowId && !args.goal)) {
+  if (args.help || (!args.workflow && !args.flowId)) {
     printHelp();
-    return args.help ? 0 : 0;
+    return 0;
   }
 
   const config = loadConfig();
@@ -22,21 +23,44 @@ function main(): number {
     config.apiBaseUrl = args.baseUrl.replace(/\/$/, "");
   }
 
-  console.log(
-    [
-      "@projectplaner/agent scaffold is installed.",
-      `apiBaseUrl=${config.apiBaseUrl}`,
-      `projectKey=${config.projectKey}`,
-      args.workflow ? `workflow=${args.workflow}` : null,
-      args.flowId ? `flowId=${args.flowId}` : null,
-      args.goal ? `goal=${JSON.stringify(args.goal)}` : null,
-      "",
-      "Workflow run / pending_llm resume is not implemented yet (PLAN-55–57)."
-    ]
-      .filter(Boolean)
-      .join("\n")
-  );
-  return 0;
+  const client = new WorkflowClient({
+    apiBaseUrl: config.apiBaseUrl,
+    projectKey: config.projectKey
+  });
+
+  try {
+    const bag = args.goal ? { goal: args.goal } : undefined;
+    const result = await client.start({
+      key: args.workflow,
+      id: args.flowId,
+      goal: args.goal,
+      bag
+    });
+
+    console.log(
+      JSON.stringify(
+        {
+          flowId: result.flow.id,
+          flowTitle: result.flow.title,
+          runId: result.run.id,
+          status: result.run.status,
+          step: result.step.kind,
+          note: result.note,
+          pendingLlm: isPendingLlm(result) ? client.pendingLlm(result) : null
+        },
+        null,
+        2
+      )
+    );
+    return result.step.kind === "failed" ? 1 : 0;
+  } catch (error) {
+    if (error instanceof WorkflowClientError) {
+      console.error(`WorkflowClientError (${error.status}): ${error.message}`);
+      return 1;
+    }
+    console.error(error instanceof Error ? error.message : error);
+    return 1;
+  }
 }
 
-process.exit(main());
+main().then((code) => process.exit(code));

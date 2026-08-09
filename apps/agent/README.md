@@ -25,7 +25,21 @@ Thin **semi-agent** / workflow host for Projectplaner.
 
 ```bash
 pnpm --filter @projectplaner/agent start -- --help
+pnpm --filter @projectplaner/agent start -- --workflow ensure_aspect
 pnpm --filter @projectplaner/agent typecheck
 ```
 
-Scaffold only (PLAN-54). Client, LLM adapter, and run loop land in PLAN-55–57.
+Requires the Projectplaner web API (`pnpm dev`) for live runs.
+
+## Client (PLAN-55)
+
+`WorkflowClient` posts to `/api/workflows/run`:
+
+- `start({ key | id, bag?, goal? })`
+- `resume({ runId, llmWrites?, userRoute? })`
+- `getRun(runId)`
+- `pendingLlm(response)` → compact instructions/reads/outputSchema (no full graph)
+
+Env: `PROJECTPLANER_API_BASE_URL` or `PROJECTPLANER_API_URL` (default `http://127.0.0.1:3000`).
+
+Scaffold CLI prints run status / pending_llm surface. Automatic LLM resume loop is PLAN-56–57.

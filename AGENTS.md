@@ -23,7 +23,9 @@ Workflow presets seed once into the DB (`ensure_aspect`, CRUD `create_*`/`update
 during development (`PROJECTPLANER_PRESETS_FORCE=1`). Set `PROJECTPLANER_PRESETS_SKIP=1` to disable.
 `delete_*` presets archive (`status=archived`) — never hard-delete.
 When a mutation preset is seeded, prefer MCP/HTTP `run_workflow` over direct create/update.
-LLM steps pause as `pending_llm`; Cursor/Codex resume with `{ runId, llmWrites }`.
+LLM steps pause as `pending_llm`; Cursor/Codex (or a new spawn) resume with `{ runId, llmWrites }`.
+LLM `instructions` may use bag templates (`{{title}}`, `{{@reads}}`, `{{@shapes}}`); the runner
+fills them from declared reads before returning `pending_llm`.
 
 ## Architecture
 

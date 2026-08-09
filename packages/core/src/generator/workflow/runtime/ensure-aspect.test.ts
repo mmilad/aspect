@@ -63,6 +63,10 @@ describe("ensure_aspect runtime mapping", () => {
     }
     expect(paused.nodeId).toBe("decide");
     expect(paused.llm?.outputSchema).toEqual(["aspectId", "createNew", "confidence"]);
+    expect(paused.llm?.instructions).toContain("Should discover and run workflow presets from MCP");
+    expect(paused.llm?.instructions).not.toContain("{{title}}");
+    expect(paused.llm?.instructions).toContain("Declared bag reads:");
+    expect(paused.llm?.instructions).toContain("- title:");
     expect(Array.isArray(paused.bag.keys.candidates)).toBe(true);
     const candidates = paused.bag.keys.candidates as Array<{ id: string; title: string }>;
     expect(candidates.some((item) => item.id === "aspect_existing")).toBe(true);

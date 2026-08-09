@@ -79,11 +79,14 @@ export const ensureAspectGraph: WorkflowGraph = {
           outputSchema: ["aspectId", "createNew", "confidence"],
           instructions: [
             "You decide whether an existing Aspect already covers the proposal.",
+            "Proposal title: {{title}}.",
             "Rules: prefer the smallest truthful existing Aspect; only create when none fit.",
             "If reusing: set createNew=false and aspectId to that candidate id.",
             "If creating: set createNew=true and aspectId to null (or empty string).",
-            "confidence is 0-1. Do not invent ids that are not in candidates."
-          ].join(" "),
+            "confidence is 0-1. Do not invent ids that are not in candidates.",
+            "Declared bag reads:",
+            "{{@reads}}"
+          ].join("\n"),
           tools: []
         }
       }
@@ -145,7 +148,7 @@ export const ensureAspectGraph: WorkflowGraph = {
 
 export const ensureAspectPreset: WorkflowPreset = {
   presetKey: "ensure_aspect",
-  presetVersion: 3,
+  presetVersion: 4,
   title: "Ensure Aspect",
   summary: "Search for a similar Aspect before creating one; reuse when possible.",
   body: [

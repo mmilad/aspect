@@ -17,6 +17,7 @@ import {
   newTaskWorkflowGraph,
   parseWorkflowGraph,
   bagViewAtNode,
+  renderWorkflowStory,
   warnMissingUpstreamKeys,
   warnShapeMismatches,
   WORKFLOW_SCHEMA_VERSION,
@@ -38,6 +39,7 @@ import {
 import { workflowRfNodeTypes } from "./workflow-step-node";
 import { WorkflowToolbar } from "./workflow-toolbar";
 import { WorkflowAuthorPanel } from "./workflow-author-panel";
+import { WorkflowStoryPanel } from "./workflow-story-panel";
 import { WorkflowPalette } from "./workflow-palette";
 import { WorkflowNodeInspector } from "./workflow-node-inspector";
 
@@ -130,6 +132,7 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
   const [authorOpen, setAuthorOpen] = useState(
     !initial.nodes.some((node) => node.type === "llm" || node.type === "tool")
   );
+  const [storyOpen, setStoryOpen] = useState(false);
   const presetKey = typeof flow.metadata.presetKey === "string" ? flow.metadata.presetKey : null;
   const [presetDirty, setPresetDirty] = useState(flow.metadata.presetDirty === true);
 
@@ -143,6 +146,16 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
     }
     return bagViewAtNode(g, selectedId);
   }, [nodes, edges, version, selectedId]);
+
+  const storyText = useMemo(() => {
+    const graph = fromRf(nodes as FlowRfNode[], edges, version);
+    const parsed = parseWorkflowGraph(graph);
+    const g = parsed.ok ? parsed.graph : graph;
+    return renderWorkflowStory(g, {
+      title: flow.title,
+      description: brief.trim() || flow.summary || undefined
+    });
+  }, [nodes, edges, version, flow.title, flow.summary, brief]);
 
   function findStartId(graph: WorkflowGraph): string | undefined {
     return graph.nodes.find((node) => node.type === "start")?.id;
@@ -448,10 +461,12 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
         flowTitle={flow.title}
         version={version}
         authorOpen={authorOpen}
+        storyOpen={storyOpen}
         saving={saving}
         presetKey={presetKey}
         presetDirty={presetDirty}
         onToggleAuthor={() => setAuthorOpen((open) => !open)}
+        onToggleStory={() => setStoryOpen((open) => !open)}
         onLoadExample={() => replaceGraph(exampleWorkflowGraph)}
         onLoadNewTask={() => replaceGraph(newTaskWorkflowGraph)}
         onResetEmpty={() => replaceGraph(emptyWorkflowGraph())}
@@ -467,6 +482,8 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
           onGenerate={(scaffoldOnly) => void generateFromBrief(scaffoldOnly)}
         />
       ) : null}
+
+      {storyOpen ? <WorkflowStoryPanel story={storyText} /> : null}
 
       <div className="flex min-h-0 flex-1">
         <WorkflowPalette

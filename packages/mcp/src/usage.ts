@@ -16,6 +16,7 @@ Local graph-first planning store. Aspects are meaning anchors; features and task
 - When create_*/update_*/delete_* presets are seeded, use \`run_workflow\` instead of direct writes.
 - Delete means archive (\`status=archived\`); never hard-delete.
 - \`run_workflow\` may pause on \`pending_llm\` — resume with \`runId\` + \`llmWrites\`.
+- LLM instructions may include bag templates (\`{{key}}\`, \`{{@reads}}\`); filled before pause.
 - Compact reads by default; only set includeBody / includeMetadata when needed.
 
 ## Tool map

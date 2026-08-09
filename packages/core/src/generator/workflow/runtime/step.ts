@@ -16,6 +16,7 @@ import {
   pickBagKeys,
   resolveNextNodeId,
   resolveRouteNextNodeId,
+  renderBagTemplate,
   slimShapesForReads,
   type WorkflowContextBag,
   type WorkflowGraph,
@@ -44,12 +45,15 @@ export type WorkflowStepKind =
 
 export interface WorkflowLlmPending {
   nodeId: string;
+  /** Instructions with bag templates already filled. */
   instructions: string;
   reads: Record<string, unknown>;
   /** Slim bag shapes for declared reads (AI-friendly). */
   shapes?: Record<string, string>;
   outputSchema: string[];
   tools: string[];
+  /** Template fill warnings (unknown/disallowed tokens). */
+  warnings?: string[];
 }
 
 export interface WorkflowStepResult {
@@ -582,6 +586,11 @@ async function runLlm(
   const outputSchema = llm.outputSchema ?? getNodeWrites(node);
   const reads = pickBagKeys(bag, inputKeys);
   const shapes = slimShapesForReads(graph, node.id, inputKeys).keys;
+  const rendered = renderBagTemplate(instructions, {
+    keys: bag.keys,
+    allowedKeys: inputKeys,
+    shapes
+  });
 
   return {
     kind: "pending_llm",
@@ -590,11 +599,12 @@ async function runLlm(
     message: "LLM step requires external completion.",
     llm: {
       nodeId: node.id,
-      instructions,
+      instructions: rendered.text,
       reads,
       shapes,
       outputSchema,
-      tools: llm.tools ?? []
+      tools: llm.tools ?? [],
+      ...(rendered.warnings.length > 0 ? { warnings: rendered.warnings } : {})
     }
   };
 }

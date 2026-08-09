@@ -21,6 +21,7 @@ export function buildWorkflowAuthorSystemPrompt(): string {
     "Use map nodes to project fields into new structures; foreach for per-item orchestration.",
     "Prefer deterministic context/transform/map/tool/write/gate nodes; use llm only for judgment.",
     "LLM nodes must include data.llm.instructions and outputSchema matching writes.",
+    "LLM instructions may use bag templates: {{key}}, {{key.path}}, {{@reads}}, {{@shapes}} (filled at pending_llm from declared reads).",
     "Tool nodes must include data.tool.name and argsFromBag when needed.",
     "Use fork + depends_on into join for parallel arms; branch + route for if/else; switch + route (with default) for multi-way.",
     "foreach bodies should prefer type:subworkflow with workflowId.",

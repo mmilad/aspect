@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  DEFAULT_WORKFLOW_LLM_SYSTEM_PROMPT,
   listShapePaths,
   workflowNodeTypes,
   type BagShape,
@@ -94,22 +95,41 @@ export function WorkflowStepInspector({
             />
           </FormLabel>
           {selected.type === "llm" ? (
-            <FormLabel label="LLM instructions">
-              <TextArea
-                className="min-h-28"
-                value={selected.data.llm?.instructions ?? ""}
-                onChange={(event) =>
-                  onUpdateData({
-                    llm: {
-                      ...(selected.data.llm ?? {}),
-                      instructions: event.target.value,
-                      inputKeys: selected.data.reads ?? selected.data.llm?.inputKeys,
-                      outputSchema: selected.data.writes ?? selected.data.llm?.outputSchema
-                    }
-                  })
-                }
-              />
-            </FormLabel>
+            <>
+              <FormLabel label="System prompt">
+                <TextArea
+                  className="min-h-20"
+                  placeholder={DEFAULT_WORKFLOW_LLM_SYSTEM_PROMPT}
+                  value={selected.data.llm?.systemPrompt ?? ""}
+                  onChange={(event) =>
+                    onUpdateData({
+                      llm: {
+                        ...(selected.data.llm ?? {}),
+                        systemPrompt: event.target.value,
+                        inputKeys: selected.data.reads ?? selected.data.llm?.inputKeys,
+                        outputSchema: selected.data.writes ?? selected.data.llm?.outputSchema
+                      }
+                    })
+                  }
+                />
+              </FormLabel>
+              <FormLabel label="Task instructions">
+                <TextArea
+                  className="min-h-28"
+                  value={selected.data.llm?.instructions ?? ""}
+                  onChange={(event) =>
+                    onUpdateData({
+                      llm: {
+                        ...(selected.data.llm ?? {}),
+                        instructions: event.target.value,
+                        inputKeys: selected.data.reads ?? selected.data.llm?.inputKeys,
+                        outputSchema: selected.data.writes ?? selected.data.llm?.outputSchema
+                      }
+                    })
+                  }
+                />
+              </FormLabel>
+            </>
           ) : null}
           {selected.type === "tool" ? (
             <>

@@ -29,6 +29,7 @@ Prefer `run_workflow` over raw `create_entity` / `update_entity` when a matching
 - **Write** actions include `create_entity`, `update_entity`, `rollup_parent_status`.
 - **LLM** nodes pause as `pending_llm`. Resume with `{ runId, llmWrites }` (Cursor, Codex, or `apps/agent`).
 - Instructions may use bag templates (`{{title}}`, `{{@reads}}`, `{{@shapes}}`); the runner fills them before returning `pending_llm`.
+- LLM nodes have optional `systemPrompt` (chat system) and `instructions` (chat user / task). Blank or missing `systemPrompt` uses `DEFAULT_WORKFLOW_LLM_SYSTEM_PROMPT` at run. Both fields are template-filled and returned on `pending_llm`.
 
 ## Dev reseeding
 

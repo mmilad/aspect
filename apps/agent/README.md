@@ -39,7 +39,7 @@ Requires the Projectplaner web API (`pnpm dev`) for live runs.
 - `start({ key | id, bag?, goal? })`
 - `resume({ runId, llmWrites?, userRoute? })`
 - `getRun(runId)`
-- `pendingLlm(response)` → compact instructions/reads/outputSchema (no full graph)
+- `pendingLlm(response)` → compact systemPrompt/instructions/reads/outputSchema (no full graph)
 
 Env: `PROJECTPLANER_API_BASE_URL` or `PROJECTPLANER_API_URL` (default `http://127.0.0.1:3000`).
 

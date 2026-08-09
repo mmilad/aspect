@@ -134,6 +134,7 @@ describe("workflow runtime", () => {
 
     expect(paused.kind).toBe("pending_llm");
     expect(paused.llm?.instructions).toContain("Pick the smallest truthful Aspect");
+    expect(paused.llm?.systemPrompt).toContain("careful assistant in Projectplaner");
     expect(paused.llm?.reads).toHaveProperty("goal", "workspace sidebar");
     expect(paused.llm?.reads).toHaveProperty("filteredEntities");
     expect(paused.llm?.reads).not.toHaveProperty("matches");
@@ -169,7 +170,7 @@ describe("workflow runtime", () => {
       llmWrites: {
         chosenAspectId: "aspect_workspace",
         createNewTitle: "",
-        confidence: 0.9
+        confidence: "0.9"
       }
     });
     expect(afterLlm.kind).toBe("advanced");
@@ -320,5 +321,65 @@ describe("workflow runtime", () => {
     expect(Array.isArray(paused.bag.keys.candidates)).toBe(true);
     const candidates = paused.bag.keys.candidates as Array<{ id: string }>;
     expect(candidates.map((item) => item.id)).toEqual(["task_top", "task_low"]);
+  });
+
+  it("applies custom systemPrompt with bag templates on pending_llm", async () => {
+    const graph = {
+      version: 2,
+      nodes: [
+        {
+          id: "start",
+          type: "start" as const,
+          position: { x: 0, y: 0 },
+          data: { title: "Start", writes: ["goal"] }
+        },
+        {
+          id: "decide",
+          type: "llm" as const,
+          position: { x: 200, y: 0 },
+          data: {
+            title: "Decide",
+            reads: ["goal"],
+            writes: ["answer"],
+            llm: {
+              systemPrompt: "Stay on topic for: {{goal}}",
+              instructions: "Write key answer for {{goal}}.",
+              inputKeys: ["goal"],
+              outputSchema: ["answer"],
+              tools: []
+            }
+          }
+        },
+        {
+          id: "end",
+          type: "end" as const,
+          position: { x: 400, y: 0 },
+          data: { title: "End" }
+        }
+      ],
+      edges: [
+        { id: "e1", source: "start", target: "decide", kind: "next" as const },
+        { id: "e2", source: "decide", target: "end", kind: "next" as const }
+      ]
+    };
+
+    const parsed = parseWorkflowGraph(graph);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) {
+      return;
+    }
+
+    const paused = await runWorkflowUntilPause({
+      graph: parsed.graph,
+      bag: createContextBag({
+        workflowId: "flow_sys",
+        goal: "rollups",
+        startNodeId: "start"
+      })
+    });
+
+    expect(paused.kind).toBe("pending_llm");
+    expect(paused.llm?.systemPrompt).toBe("Stay on topic for: rollups");
+    expect(paused.llm?.instructions).toContain("rollups");
   });
 });

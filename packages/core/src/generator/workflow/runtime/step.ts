@@ -21,6 +21,7 @@ import {
   resolveLlmOutputContracts,
   serializeShapeSlim,
   validateValueAgainstShape,
+  resolveWorkflowLlmSystemPrompt,
   type WorkflowContextBag,
   type WorkflowGraph,
   type WorkflowNode,
@@ -50,7 +51,9 @@ import type { BagShape } from "../../../workflow/types";
 
 export interface WorkflowLlmPending {
   nodeId: string;
-  /** Instructions with bag templates already filled. */
+  /** System prompt with bag templates already filled (or shared default). */
+  systemPrompt: string;
+  /** Task instructions with bag templates already filled. */
   instructions: string;
   reads: Record<string, unknown>;
   /** Slim bag shapes for declared reads (AI-friendly). */
@@ -593,11 +596,14 @@ async function runLlm(
   const { keys: outputSchema, outputs: contracts } = resolveLlmOutputContracts(node);
   const reads = pickBagKeys(bag, inputKeys);
   const shapes = slimShapesForReads(graph, node.id, inputKeys).keys;
-  const rendered = renderBagTemplate(instructions, {
+  const templateOpts = {
     keys: bag.keys,
     allowedKeys: inputKeys,
     shapes
-  });
+  };
+  const renderedSystem = renderBagTemplate(resolveWorkflowLlmSystemPrompt(llm.systemPrompt), templateOpts);
+  const rendered = renderBagTemplate(instructions, templateOpts);
+  const warnings = [...renderedSystem.warnings, ...rendered.warnings];
 
   const outputs: NonNullable<WorkflowLlmPending["outputs"]> = {};
   for (const [key, contract] of Object.entries(contracts)) {
@@ -615,13 +621,14 @@ async function runLlm(
     message: "LLM step requires external completion.",
     llm: {
       nodeId: node.id,
+      systemPrompt: renderedSystem.text,
       instructions: rendered.text,
       reads,
       shapes,
       outputSchema,
       outputs,
       tools: llm.tools ?? [],
-      ...(rendered.warnings.length > 0 ? { warnings: rendered.warnings } : {})
+      ...(warnings.length > 0 ? { warnings } : {})
     }
   };
 }

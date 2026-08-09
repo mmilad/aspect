@@ -91,6 +91,9 @@ export interface WorkflowToolConfig {
 }
 
 export interface WorkflowLlmConfig {
+  /** Chat system role; blank/missing → DEFAULT_WORKFLOW_LLM_SYSTEM_PROMPT at run. */
+  systemPrompt?: string;
+  /** Chat user / task instructions (bag templates allowed). */
   instructions?: string;
   instructionRef?: string;
   tools?: string[];

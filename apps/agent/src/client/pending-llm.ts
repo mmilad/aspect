@@ -1,3 +1,4 @@
+import { DEFAULT_WORKFLOW_LLM_SYSTEM_PROMPT } from "@projectplaner/core";
 import type { PendingLlmSurface, WorkflowRunResponse } from "./types";
 
 export function isPendingLlm(response: WorkflowRunResponse): boolean {
@@ -13,6 +14,7 @@ export function toPendingLlmSurface(response: WorkflowRunResponse): PendingLlmSu
   return {
     runId: response.run.id,
     nodeId: llm?.nodeId ?? response.step.nodeId,
+    systemPrompt: llm?.systemPrompt?.trim() || DEFAULT_WORKFLOW_LLM_SYSTEM_PROMPT,
     instructions: llm?.instructions ?? "",
     reads: llm?.reads ?? {},
     shapes: llm?.shapes,

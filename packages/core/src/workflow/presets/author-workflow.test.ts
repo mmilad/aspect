@@ -17,6 +17,13 @@ describe("author_workflow preset", () => {
     expect(authorWorkflowGraph.nodes.find((n) => n.id === "compile")?.data.writes).toEqual([
       "graphJson"
     ]);
+    const outline = authorWorkflowGraph.nodes.find((n) => n.id === "outline");
+    expect(outline?.data.llm?.systemPrompt).toContain("Do NOT output JSON");
+    expect(outline?.data.llm?.instructions).toContain("{{brief}}");
+    expect(outline?.data.llm?.instructions).not.toContain("Do NOT output JSON");
+    const compile = authorWorkflowGraph.nodes.find((n) => n.id === "compile");
+    expect(compile?.data.llm?.systemPrompt).toContain("Workflow Step Graph v2");
+    expect(compile?.data.llm?.instructions).toContain("{{outline}}");
   });
 
   it("runs two pending_llm steps writing text then JSON string", async () => {
@@ -42,7 +49,9 @@ describe("author_workflow preset", () => {
     expect(first.nodeId).toBe("outline");
     expect(first.llm?.outputSchema).toEqual(["outline"]);
     expect(first.llm?.outputs?.outline?.slim).toBe("string");
+    expect(first.llm?.systemPrompt).toContain("Do NOT output JSON");
     expect(first.llm?.instructions).toContain("Search aspects then choose");
+    expect(first.llm?.instructions).not.toContain("Do NOT output JSON");
 
     const outlineText = "1. Start\n2. Load aspects\n3. LLM choose\n4. End";
     const afterOutline = await stepWorkflow({

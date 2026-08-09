@@ -38,9 +38,8 @@ export const authorWorkflowGraph: WorkflowGraph = {
           outline: { required: true, shape: { kind: "primitive", type: "string" } }
         },
         llm: {
+          systemPrompt: buildWorkflowOutlineSystemPrompt(),
           instructions: [
-            buildWorkflowOutlineSystemPrompt(),
-            "",
             "Workflow title: {{title}}",
             "User brief:",
             "{{brief}}",
@@ -66,9 +65,8 @@ export const authorWorkflowGraph: WorkflowGraph = {
           graphJson: { required: true, shape: { kind: "primitive", type: "string" } }
         },
         llm: {
+          systemPrompt: buildWorkflowCompileSystemPrompt(),
           instructions: [
-            buildWorkflowCompileSystemPrompt(),
-            "",
             "Workflow title: {{title}}",
             "Original brief:",
             "{{brief}}",
@@ -101,7 +99,7 @@ export const authorWorkflowGraph: WorkflowGraph = {
 
 export const authorWorkflowPreset: WorkflowPreset = {
   presetKey: "author_workflow",
-  presetVersion: 1,
+  presetVersion: 2,
   title: "Author workflow (outline → JSON)",
   summary:
     "Two LLM steps: write a text outline, then compile it to Workflow Step Graph v2 JSON.",
@@ -109,6 +107,7 @@ export const authorWorkflowPreset: WorkflowPreset = {
     "Bag: brief (required), title, reason optional.",
     "Step 1 writes `outline` (plain text / numbered pseudo steps).",
     "Step 2 writes `graphJson` (JSON string of { version, nodes, edges }).",
+    "Each LLM step has systemPrompt (role rules) + task instructions (bag templates).",
     "Run via run_workflow key=author_workflow; on pending_llm resume with llmWrites.",
     "Prefer this over one-shot generate for local models."
   ].join("\n"),

@@ -1,8 +1,9 @@
 import type { PendingLlmSurface } from "../client/types";
 
 /**
- * Build a slim host prompt around workflow-provided instructions.
+ * Build a slim host prompt around workflow-provided system + task instructions.
  * Prefer flow instructionRef / bag templates; this is adapter glue only.
+ * Labeled sections map to chat system vs user when a provider supports roles.
  */
 export function buildAdapterPrompt(pending: PendingLlmSurface): string {
   const schema =
@@ -14,11 +15,14 @@ export function buildAdapterPrompt(pending: PendingLlmSurface): string {
     "You are filling a Projectplaner workflow LLM node.",
     "Reply with a single JSON object only (no markdown) whose keys match the output schema.",
     "",
+    "=== SYSTEM ===",
+    pending.systemPrompt.trim() || "(empty)",
+    "",
+    "=== TASK ===",
+    pending.instructions.trim() || "(empty)",
+    "",
     "Output schema:",
     schema,
-    "",
-    "Instructions:",
-    pending.instructions.trim() || "(empty)",
     "",
     "Declared reads (JSON):",
     JSON.stringify(pending.reads ?? {}, null, 2)

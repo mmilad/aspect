@@ -19,6 +19,7 @@ export type WorkflowStepKind =
 export type PendingLlmSurface = {
   runId: string;
   nodeId: string | null;
+  systemPrompt: string;
   instructions: string;
   reads: Record<string, unknown>;
   shapes?: Record<string, string>;
@@ -29,6 +30,7 @@ export type PendingLlmSurface = {
 
 export type WorkflowLlmPending = {
   nodeId: string;
+  systemPrompt?: string;
   instructions: string;
   reads: Record<string, unknown>;
   shapes?: Record<string, string>;

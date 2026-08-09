@@ -1,0 +1,11 @@
+[
+  {
+    "workflowKey": "ensure_aspect",
+    "nodeId": "decide",
+    "llmWrites": {
+      "aspectId": "aspect_fixture",
+      "createNew": false,
+      "confidence": 0.91
+    }
+  }
+]

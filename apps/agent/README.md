@@ -42,4 +42,12 @@ Requires the Projectplaner web API (`pnpm dev`) for live runs.
 
 Env: `PROJECTPLANER_API_BASE_URL` or `PROJECTPLANER_API_URL` (default `http://127.0.0.1:3000`).
 
-Scaffold CLI prints run status / pending_llm surface. Automatic LLM resume loop is PLAN-56–57.
+Scaffold CLI prints run status / pending_llm surface. Automatic multi-step loop is PLAN-57.
+
+## LLM adapter (PLAN-56)
+
+- `FixtureLlmAdapter` / `fixtures/*.json` — deterministic resumes for tests
+- `CallableLlmAdapter` — slim prompt glue + JSON → `llmWrites` (inject a real model later)
+- `resumePendingWithAdapter(client, adapter, response)` — one pause/resume step
+
+Prompts for workflow nodes stay on flow `instructionRef` / bag templates; the app only wraps them for the model.

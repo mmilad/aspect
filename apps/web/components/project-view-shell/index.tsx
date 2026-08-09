@@ -99,6 +99,7 @@ export function ProjectViewShell({
             entity={previewEntity}
             feature={selectedFeature}
             tags={tags}
+            snapshot={snapshot}
             relatedFeatures={relatedFeatures}
             incomingCount={incomingCount}
             outgoingCount={outgoingCount}

@@ -247,6 +247,7 @@ export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: App
           featureTasks={inspector.featureTasks}
           subaspectTasks={inspector.subaspectTasks}
           tags={inspector.tags}
+          snapshot={snapshot}
           incomingCount={inspector.incomingCount}
           outgoingCount={inspector.outgoingCount}
           onCenter={openScope}

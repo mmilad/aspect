@@ -1,13 +1,23 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { LocateFixed, PanelRight } from "lucide-react";
-import type { Feature, JsonRecord, ProjectNode, ProjectPlanSnapshot, Task } from "@projectplaner/core";
+import {
+  getTagsForEntity,
+  type Feature,
+  type JsonRecord,
+  type ProjectNode,
+  type ProjectPlanSnapshot,
+  type Tag,
+  type Task
+} from "@projectplaner/core";
 import { Badge, GhostButton, ToolbarLink, Metric } from "../ui";
 import { EntityHeader, TagList } from "../entity-chrome";
 import { toEntityPreview, type EntityPreview } from "../../lib/entity-preview";
 import { formatStatus } from "../../lib/entity-label";
 import { projectPaths } from "../../lib/project-paths";
+import { cn } from "../../lib/utils";
 import styles from "./style.module.css";
 
 export type PreviewEntity = EntityPreview & { metadata?: JsonRecord };
@@ -23,9 +33,18 @@ interface SelectionInspectorProps {
   featureTasks?: Task[];
   subaspectTasks?: Task[];
   tags?: ProjectPlanSnapshot["tags"];
+  /** When set, enables OR tag filtering on linked task lists. */
+  snapshot?: ProjectPlanSnapshot;
   incomingCount?: number;
   outgoingCount?: number;
   onCenter?: (id: string) => void;
+}
+
+function matchesTags(taskTags: Tag[], selectedTagIds: Set<string>): boolean {
+  if (selectedTagIds.size === 0) {
+    return true;
+  }
+  return taskTags.some((tag) => selectedTagIds.has(tag.id));
 }
 
 export function SelectionInspector({
@@ -39,6 +58,7 @@ export function SelectionInspector({
   featureTasks = [],
   subaspectTasks = [],
   tags = [],
+  snapshot,
   incomingCount = 0,
   outgoingCount = 0,
   onCenter
@@ -70,7 +90,55 @@ export function SelectionInspector({
           priority: entity.priority
         }
   );
-  const taskCount = directTasks.length + featureTasks.length + subaspectTasks.length;
+  const linkedTasks = useMemo(
+    () => [...directTasks, ...featureTasks, ...subaspectTasks],
+    [directTasks, featureTasks, subaspectTasks]
+  );
+  const taskCount = linkedTasks.length;
+  const [selectedTagIds, setSelectedTagIds] = useState<Set<string>>(() => new Set());
+  const selectionKey = feature?.id ?? entity.id;
+
+  useEffect(() => {
+    setSelectedTagIds(new Set());
+  }, [selectionKey]);
+
+  const tagsByTaskId = useMemo(() => {
+    const map = new Map<string, Tag[]>();
+    if (!snapshot) {
+      return map;
+    }
+    for (const task of linkedTasks) {
+      map.set(task.id, getTagsForEntity({ type: "task", id: task.id }, snapshot));
+    }
+    return map;
+  }, [linkedTasks, snapshot]);
+
+  const filterTags = useMemo(() => {
+    const seen = new Map<string, Tag>();
+    for (const task of linkedTasks) {
+      for (const tag of tagsByTaskId.get(task.id) ?? []) {
+        seen.set(tag.id, tag);
+      }
+    }
+    return [...seen.values()].sort((a, b) => a.label.localeCompare(b.label));
+  }, [linkedTasks, tagsByTaskId]);
+
+  const filteredTasks = useMemo(
+    () => linkedTasks.filter((task) => matchesTags(tagsByTaskId.get(task.id) ?? [], selectedTagIds)),
+    [linkedTasks, tagsByTaskId, selectedTagIds]
+  );
+
+  function toggleTag(tagId: string) {
+    setSelectedTagIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(tagId)) {
+        next.delete(tagId);
+      } else {
+        next.add(tagId);
+      }
+      return next;
+    });
+  }
 
   return (
     <div className={styles.inspector}>
@@ -135,8 +203,42 @@ export function SelectionInspector({
 
       {taskCount > 0 ? (
         <section className={styles.section}>
-          <div className={styles.sectionTitle}>Linked Tasks</div>
-          <TaskPreviewList projectKey={projectKey} tasks={[...directTasks, ...featureTasks, ...subaspectTasks].slice(0, 5)} />
+          <div className={styles.sectionTitle}>
+            Linked Tasks
+            {selectedTagIds.size > 0 ? (
+              <span className="ml-2 font-normal text-muted-foreground">
+                ({filteredTasks.length} of {taskCount})
+              </span>
+            ) : null}
+          </div>
+          {snapshot && filterTags.length > 0 ? (
+            <div className="mb-2 flex flex-wrap gap-1">
+              {filterTags.map((tag) => {
+                const active = selectedTagIds.has(tag.id);
+                return (
+                  <button
+                    key={tag.id}
+                    type="button"
+                    className={cn(
+                      "h-6 rounded-md border px-1.5 text-[10px]",
+                      active
+                        ? "border-teal-700 bg-teal-50 text-teal-900"
+                        : "border-border bg-white text-muted-foreground hover:bg-muted"
+                    )}
+                    onClick={() => toggleTag(tag.id)}
+                    aria-pressed={active}
+                  >
+                    {tag.label}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+          {filteredTasks.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No linked tasks match the selected tags.</p>
+          ) : (
+            <TaskPreviewList projectKey={projectKey} tasks={filteredTasks.slice(0, 5)} />
+          )}
         </section>
       ) : null}
 

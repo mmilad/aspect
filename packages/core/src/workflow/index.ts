@@ -8,3 +8,5 @@ export * from "./story";
 export * from "./mermaid";
 export * from "./author";
 export * from "./presets";
+/** Runtime engine (adapters/step types also remain available via generator/workflow). */
+export { WorkflowRun, type NodeExecuteContext } from "./runtime";

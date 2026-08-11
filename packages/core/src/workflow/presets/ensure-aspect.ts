@@ -74,6 +74,12 @@ export const ensureAspectGraph: WorkflowGraph = {
         title: "Reuse or create?",
         reads: ["title", "summary", "key", "candidates"],
         writes: ["aspectId", "createNew", "confidence"],
+        outputContracts: {
+          // aspectId may be a reuse id or null when createNew=true
+          aspectId: { required: false, shape: { kind: "any" } },
+          createNew: { required: true, shape: { kind: "primitive", type: "boolean" } },
+          confidence: { required: true, shape: { kind: "primitive", type: "number" } }
+        },
         llm: {
           inputKeys: ["title", "summary", "key", "candidates"],
           outputSchema: ["aspectId", "createNew", "confidence"],

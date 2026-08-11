@@ -1,3 +1,4 @@
+import { getNodeModel } from "./nodes/registry";
 import type {
   BagShape,
   BagShapeCatalogRef,
@@ -182,7 +183,7 @@ function mergeShapes(a: BagShape | undefined, b: BagShape | undefined): BagShape
   return { kind: "any" };
 }
 
-/** Infer shapes this node publishes (defaults + contracts + map/foreach/context). */
+/** Infer shapes this node publishes (defaults + contracts + per-node model.inferOutputs). */
 export function inferNodeOutputShapes(node: WorkflowNode): Record<string, BagShape> {
   const out: Record<string, BagShape> = {};
 
@@ -191,66 +192,8 @@ export function inferNodeOutputShapes(node: WorkflowNode): Record<string, BagSha
     out[key] = contractShape ? resolveBagShape(contractShape) : { kind: "unknown" };
   }
 
-  if (node.type === "start") {
-    for (const key of getNodeWrites(node)) {
-      if (key === "goal") {
-        out.goal = STRING;
-      }
-    }
-  }
-
-  if (node.type === "context" && node.data.auto?.loadContext) {
-    const load = node.data.auto.loadContext;
-    const writes = getNodeWrites(node);
-    const entityKey = writes[0] ?? "matches";
-    if (!node.data.outputContracts?.[entityKey]?.shape) {
-      out[entityKey] = arrayOfRef("Entity");
-    }
-    if (load.includeRelations) {
-      const relationKey = writes.find((key) => key === "relations") ?? (writes.length > 1 ? writes[1] : undefined);
-      if (relationKey && !node.data.outputContracts?.[relationKey]?.shape) {
-        out[relationKey] = arrayOfRef("EntityRelation");
-      }
-    }
-  }
-
-  if (node.type === "transform") {
-    const filter = node.data.auto?.filter;
-    if (filter?.rank === "task_candidates") {
-      const writes = getNodeWrites(node);
-      const candidatesKey = writes[0] ?? "candidates";
-      if (!node.data.outputContracts?.[candidatesKey]?.shape) {
-        out[candidatesKey] = arrayOfRef("RankedTaskCandidate");
-      }
-      if (writes.includes("hasCandidates")) {
-        out.hasCandidates = BOOLEAN;
-      }
-    }
-  }
-
-  if (node.type === "map" && node.data.map) {
-    const map = node.data.map;
-    // Source shape unknown here; bagViewAtNode fills when propagating. Locally use unknown item.
-    out[map.as] = deriveMapOutputShape(map, { kind: "unknown" });
-  }
-
-  if (node.type === "foreach" && node.data.foreach?.collect) {
-    const collect = node.data.foreach.collect;
-    out[collect.as] = { kind: "array", items: { kind: "unknown" } };
-  }
-
-  if (node.type === "join") {
-    const as = node.data.join?.merge?.as ?? "branchResults";
-    out[as] = { kind: "any" };
-  }
-
-  if (node.type === "subworkflow" && node.data.subworkflow?.outputMap) {
-    for (const parentKey of Object.keys(node.data.subworkflow.outputMap)) {
-      if (!out[parentKey]) {
-        out[parentKey] = { kind: "unknown" };
-      }
-    }
-  }
+  const inferred = getNodeModel(node.type).inferOutputs?.(node) ?? {};
+  Object.assign(out, inferred);
 
   // Explicit contracts always win.
   for (const [key, contract] of Object.entries(node.data.outputContracts ?? {})) {

@@ -1,4 +1,3 @@
-/** Public workflow types — re-exported from modular nodes/ + graph/. */
 export type {
   BagShape,
   BagShapeCatalogRef,
@@ -37,7 +36,7 @@ export type {
   WorkflowWaitConfig,
   WorkflowWorkNodeType,
   WorkflowWriteConfig
-} from "./nodes/_shared/types";
+} from "./_shared/types";
 
 export {
   bagShapeCatalogRefs,
@@ -47,18 +46,10 @@ export {
   workflowNodeTypes,
   workflowRetryOnValues,
   workflowWorkNodeTypes
-} from "./nodes/_shared/types";
+} from "./_shared/types";
 
-export type {
-  WorkflowContextBag,
-  WorkflowEdge,
-  WorkflowGraph,
-  WorkflowParseError,
-  WorkflowParseOutcome,
-  WorkflowParseResult
-} from "./graph/types";
+export type { NodeTopologyContext, WorkflowNodeModel } from "./_shared/model";
+export type { WorkflowInspectorField } from "./_shared/inspector";
+export { getDataPath, setDataPath } from "./_shared/inspector";
 
-export type { NodeTopologyContext, WorkflowNodeModel } from "./nodes/_shared/model";
-export { getNodeModel, workflowNodeModels } from "./nodes/registry";
-export type { WorkflowInspectorField } from "./nodes/_shared/inspector";
-export { getDataPath, setDataPath } from "./nodes/_shared/inspector";
+export { getNodeModel, workflowNodeModels } from "./registry";

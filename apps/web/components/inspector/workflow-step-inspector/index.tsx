@@ -1,10 +1,13 @@
 "use client";
 
 import {
-  DEFAULT_WORKFLOW_LLM_SYSTEM_PROMPT,
+  getDataPath,
+  getNodeModel,
   listShapePaths,
+  setDataPath,
   workflowNodeTypes,
   type BagShape,
+  type WorkflowInspectorField,
   type WorkflowMapField,
   type WorkflowNode,
   type WorkflowNodeData,
@@ -29,6 +32,276 @@ function pathOptionsForKey(view: Record<string, BagShape>, key: string): string[
   return listShapePaths(view[key]);
 }
 
+function applyFieldPatch(
+  selected: WorkflowNode,
+  path: string,
+  value: unknown,
+  onUpdateData: (patch: Partial<WorkflowNodeData>) => void
+): void {
+  if (path === "join.mode" && typeof value === "string" && value.startsWith("count:")) {
+    onUpdateData({
+      join: {
+        ...(selected.data.join ?? {}),
+        mode: { count: Number(value.slice(6)) || 1 }
+      }
+    });
+    return;
+  }
+  if (path === "foreach.body.workflowId") {
+    onUpdateData({
+      foreach: {
+        itemsFrom: selected.data.foreach?.itemsFrom ?? "",
+        body: { type: "subworkflow", workflowId: String(value ?? "") },
+        failureMode: selected.data.foreach?.failureMode ?? "fail",
+        collect: selected.data.foreach?.collect
+      }
+    });
+    return;
+  }
+  if (path === "map.from" || path === "map.as") {
+    const next = setDataPath(selected.data, path, value);
+    const as = String(path === "map.as" ? value : (next.map?.as ?? "projected"));
+    const writes =
+      path === "map.as"
+        ? [as]
+        : selected.data.writes?.includes(as)
+          ? selected.data.writes
+          : [...(selected.data.writes ?? []), as];
+    onUpdateData({ ...next, writes });
+    return;
+  }
+  if (path === "llm.systemPrompt" || path === "llm.instructions") {
+    const next = setDataPath(selected.data, path, value);
+    onUpdateData({
+      llm: {
+        ...(next.llm ?? {}),
+        inputKeys: selected.data.reads ?? selected.data.llm?.inputKeys,
+        outputSchema: selected.data.writes ?? selected.data.llm?.outputSchema
+      }
+    });
+    return;
+  }
+  onUpdateData(setDataPath(selected.data, path, value));
+}
+
+function readFieldValue(selected: WorkflowNode, field: WorkflowInspectorField): string {
+  if (field.kind === "executionPolicy" || field.kind === "mapFields" || field.kind === "toolArgs") {
+    return "";
+  }
+  if (field.path === "join.mode") {
+    const mode = selected.data.join?.mode;
+    if (typeof mode === "object" && mode && "count" in mode) {
+      return `count:${mode.count}`;
+    }
+    return String(mode ?? "all");
+  }
+  const raw = getDataPath(selected.data, field.path);
+  if (raw === undefined || raw === null) {
+    return "";
+  }
+  return String(raw);
+}
+
+function renderField(
+  field: WorkflowInspectorField,
+  selected: WorkflowNode,
+  bagView: Record<string, BagShape>,
+  onUpdateData: (patch: Partial<WorkflowNodeData>) => void
+) {
+  if (field.kind === "executionPolicy") {
+    return (
+      <div key="executionPolicy" className="space-y-3">
+        <FormLabel label="Timeout ms">
+          <TextInput
+            value={String(selected.data.executionPolicy?.timeoutMs ?? "")}
+            onChange={(event) =>
+              onUpdateData({
+                executionPolicy: {
+                  ...(selected.data.executionPolicy ?? {}),
+                  timeoutMs: Number(event.target.value) || undefined
+                }
+              })
+            }
+          />
+        </FormLabel>
+        <FormLabel label="Idempotency key from">
+          <TextInput
+            value={selected.data.executionPolicy?.idempotencyKeyFrom ?? ""}
+            onChange={(event) =>
+              onUpdateData({
+                executionPolicy: {
+                  ...(selected.data.executionPolicy ?? {}),
+                  idempotencyKeyFrom: event.target.value || undefined
+                }
+              })
+            }
+          />
+        </FormLabel>
+        <FormLabel label="On exhausted">
+          <Select
+            value={selected.data.executionPolicy?.onExhausted ?? "fail_run"}
+            onChange={(event) =>
+              onUpdateData({
+                executionPolicy: {
+                  ...(selected.data.executionPolicy ?? {}),
+                  onExhausted: event.target.value as "error_edge" | "fail_run"
+                }
+              })
+            }
+          >
+            <option value="fail_run">fail_run</option>
+            <option value="error_edge">error_edge</option>
+          </Select>
+        </FormLabel>
+      </div>
+    );
+  }
+
+  if (field.kind === "toolArgs") {
+    return (
+      <PropPicker
+        key="toolArgs"
+        label="Arg from bag (first mapping value)"
+        value={Object.values(selected.data.tool?.argsFromBag ?? {})[0] ?? ""}
+        options={bagKeyOptions(bagView)}
+        onChange={(value) => {
+          const keys = Object.keys(selected.data.tool?.argsFromBag ?? {});
+          const argName = keys[0] ?? "value";
+          onUpdateData({
+            tool: {
+              ...(selected.data.tool ?? { name: "" }),
+              argsFromBag: { ...(selected.data.tool?.argsFromBag ?? {}), [argName]: value }
+            }
+          });
+        }}
+      />
+    );
+  }
+
+  if (field.kind === "mapFields") {
+    return (
+      <div key="mapFields" className="space-y-2">
+        <div className="text-[11px] font-medium text-zinc-700">Fields</div>
+        {(selected.data.map?.fields ?? []).map((mapField, index) => (
+          <div key={`${mapField.as}-${index}`} className="grid grid-cols-2 gap-1">
+            <PropPicker
+              label="from"
+              value={mapField.from}
+              options={pathOptionsForKey(bagView, selected.data.map?.from ?? "")}
+              onChange={(value) => {
+                const fields = [...(selected.data.map?.fields ?? [])] as WorkflowMapField[];
+                fields[index] = { ...fields[index], from: value };
+                onUpdateData({
+                  map: {
+                    from: selected.data.map?.from ?? "",
+                    as: selected.data.map?.as ?? "projected",
+                    mode: selected.data.map?.mode,
+                    fields
+                  }
+                });
+              }}
+            />
+            <FormLabel label="as">
+              <TextInput
+                value={mapField.as}
+                onChange={(event) => {
+                  const fields = [...(selected.data.map?.fields ?? [])] as WorkflowMapField[];
+                  fields[index] = { ...fields[index], as: event.target.value };
+                  onUpdateData({
+                    map: {
+                      from: selected.data.map?.from ?? "",
+                      as: selected.data.map?.as ?? "projected",
+                      mode: selected.data.map?.mode,
+                      fields
+                    }
+                  });
+                }}
+              />
+            </FormLabel>
+          </div>
+        ))}
+        <GhostButton
+          size="xs"
+          onClick={() =>
+            onUpdateData({
+              map: {
+                from: selected.data.map?.from ?? "",
+                as: selected.data.map?.as ?? "projected",
+                mode: selected.data.map?.mode ?? "array",
+                fields: [
+                  ...(selected.data.map?.fields ?? []),
+                  {
+                    from: pathOptionsForKey(bagView, selected.data.map?.from ?? "")[0] ?? "id",
+                    as: "field"
+                  }
+                ]
+              }
+            })
+          }
+        >
+          Add field
+        </GhostButton>
+      </div>
+    );
+  }
+
+  if (field.kind === "bagKey") {
+    return (
+      <PropPicker
+        key={field.path}
+        label={field.label}
+        value={readFieldValue(selected, field)}
+        options={bagKeyOptions(bagView)}
+        onChange={(value) => applyFieldPatch(selected, field.path, value, onUpdateData)}
+      />
+    );
+  }
+
+  if (field.kind === "select") {
+    return (
+      <FormLabel key={field.path} label={field.label}>
+        <Select
+          value={readFieldValue(selected, field) || field.options[0]?.value || ""}
+          onChange={(event) => applyFieldPatch(selected, field.path, event.target.value, onUpdateData)}
+        >
+          {field.options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </Select>
+      </FormLabel>
+    );
+  }
+
+  if (field.kind === "textarea") {
+    return (
+      <FormLabel key={field.path} label={field.label}>
+        <TextArea
+          className={field.path.includes("instructions") ? "min-h-28" : "min-h-20"}
+          placeholder={field.placeholder}
+          value={readFieldValue(selected, field)}
+          onChange={(event) => applyFieldPatch(selected, field.path, event.target.value, onUpdateData)}
+        />
+      </FormLabel>
+    );
+  }
+
+  return (
+    <FormLabel key={field.path} label={field.label}>
+      <TextInput
+        placeholder={field.placeholder}
+        value={readFieldValue(selected, field)}
+        onChange={(event) => {
+          const value =
+            field.kind === "number" ? Number(event.target.value) || 0 : event.target.value;
+          applyFieldPatch(selected, field.path, value, onUpdateData);
+        }}
+      />
+    </FormLabel>
+  );
+}
+
 export function WorkflowStepInspector({
   selected,
   bagView,
@@ -40,6 +313,7 @@ export function WorkflowStepInspector({
     selected?.type === "foreach"
       ? [selected.data.foreach?.itemKey ?? "item", selected.data.foreach?.indexKey ?? "index"]
       : [];
+  const fields = selected ? (getNodeModel(selected.type).inspectorFields ?? []) : [];
 
   return (
     <div className="space-y-3 p-3">
@@ -94,432 +368,7 @@ export function WorkflowStepInspector({
               }
             />
           </FormLabel>
-          {selected.type === "llm" ? (
-            <>
-              <FormLabel label="System prompt">
-                <TextArea
-                  className="min-h-20"
-                  placeholder={DEFAULT_WORKFLOW_LLM_SYSTEM_PROMPT}
-                  value={selected.data.llm?.systemPrompt ?? ""}
-                  onChange={(event) =>
-                    onUpdateData({
-                      llm: {
-                        ...(selected.data.llm ?? {}),
-                        systemPrompt: event.target.value,
-                        inputKeys: selected.data.reads ?? selected.data.llm?.inputKeys,
-                        outputSchema: selected.data.writes ?? selected.data.llm?.outputSchema
-                      }
-                    })
-                  }
-                />
-              </FormLabel>
-              <FormLabel label="Task instructions">
-                <TextArea
-                  className="min-h-28"
-                  value={selected.data.llm?.instructions ?? ""}
-                  onChange={(event) =>
-                    onUpdateData({
-                      llm: {
-                        ...(selected.data.llm ?? {}),
-                        instructions: event.target.value,
-                        inputKeys: selected.data.reads ?? selected.data.llm?.inputKeys,
-                        outputSchema: selected.data.writes ?? selected.data.llm?.outputSchema
-                      }
-                    })
-                  }
-                />
-              </FormLabel>
-            </>
-          ) : null}
-          {selected.type === "tool" ? (
-            <>
-              <FormLabel label="Tool name">
-                <TextInput
-                  value={selected.data.tool?.name ?? ""}
-                  onChange={(event) =>
-                    onUpdateData({
-                      tool: {
-                        ...(selected.data.tool ?? { name: "" }),
-                        name: event.target.value
-                      }
-                    })
-                  }
-                />
-              </FormLabel>
-              <PropPicker
-                label="Arg from bag (first mapping value)"
-                value={Object.values(selected.data.tool?.argsFromBag ?? {})[0] ?? ""}
-                options={bagKeyOptions(bagView)}
-                onChange={(value) => {
-                  const keys = Object.keys(selected.data.tool?.argsFromBag ?? {});
-                  const argName = keys[0] ?? "value";
-                  onUpdateData({
-                    tool: {
-                      ...(selected.data.tool ?? { name: "" }),
-                      argsFromBag: { ...(selected.data.tool?.argsFromBag ?? {}), [argName]: value }
-                    }
-                  });
-                }}
-              />
-            </>
-          ) : null}
-          {selected.type === "transform" ? (
-            <PropPicker
-              label="Filter from"
-              value={selected.data.auto?.filter?.from ?? ""}
-              options={bagKeyOptions(bagView)}
-              onChange={(value) =>
-                onUpdateData({
-                  auto: {
-                    ...(selected.data.auto ?? {}),
-                    filter: {
-                      ...(selected.data.auto?.filter ?? { from: value }),
-                      from: value
-                    }
-                  }
-                })
-              }
-            />
-          ) : null}
-          {selected.type === "branch" ? (
-            <PropPicker
-              label="Branch on (bag key)"
-              value={selected.data.branch?.on ?? ""}
-              options={bagKeyOptions(bagView)}
-              onChange={(value) => onUpdateData({ branch: { on: value } })}
-            />
-          ) : null}
-          {selected.type === "switch" ? (
-            <>
-              <PropPicker
-                label="Switch on (bag key)"
-                value={selected.data.switch?.on ?? ""}
-                options={bagKeyOptions(bagView)}
-                onChange={(value) =>
-                  onUpdateData({
-                    switch: {
-                      on: value,
-                      cases: selected.data.switch?.cases,
-                      defaultLabel: selected.data.switch?.defaultLabel ?? "default"
-                    }
-                  })
-                }
-              />
-              <FormLabel label="Default route label">
-                <TextInput
-                  value={selected.data.switch?.defaultLabel ?? "default"}
-                  onChange={(event) =>
-                    onUpdateData({
-                      switch: {
-                        on: selected.data.switch?.on,
-                        cases: selected.data.switch?.cases,
-                        defaultLabel: event.target.value || "default"
-                      }
-                    })
-                  }
-                />
-              </FormLabel>
-            </>
-          ) : null}
-          {selected.type === "foreach" ? (
-            <>
-              <PropPicker
-                label="Items from"
-                value={selected.data.foreach?.itemsFrom ?? ""}
-                options={bagKeyOptions(bagView)}
-                onChange={(value) =>
-                  onUpdateData({
-                    foreach: {
-                      itemsFrom: value,
-                      body: selected.data.foreach?.body ?? {
-                        type: "subworkflow",
-                        workflowId: ""
-                      },
-                      failureMode: selected.data.foreach?.failureMode ?? "fail",
-                      collect: selected.data.foreach?.collect
-                    }
-                  })
-                }
-              />
-              <FormLabel label="Body subworkflow id">
-                <TextInput
-                  value={
-                    selected.data.foreach?.body?.type === "subworkflow"
-                      ? selected.data.foreach.body.workflowId
-                      : ""
-                  }
-                  onChange={(event) =>
-                    onUpdateData({
-                      foreach: {
-                        itemsFrom: selected.data.foreach?.itemsFrom ?? "",
-                        body: { type: "subworkflow", workflowId: event.target.value },
-                        failureMode: selected.data.foreach?.failureMode ?? "fail",
-                        collect: selected.data.foreach?.collect
-                      }
-                    })
-                  }
-                />
-              </FormLabel>
-              <FormLabel label="Failure mode">
-                <Select
-                  value={selected.data.foreach?.failureMode ?? "fail"}
-                  onChange={(event) =>
-                    onUpdateData({
-                      foreach: {
-                        itemsFrom: selected.data.foreach?.itemsFrom ?? "",
-                        body: selected.data.foreach?.body ?? { type: "subworkflow", workflowId: "" },
-                        failureMode: event.target.value as "fail" | "continue",
-                        collect: selected.data.foreach?.collect
-                      }
-                    })
-                  }
-                >
-                  <option value="fail">fail</option>
-                  <option value="continue">continue</option>
-                </Select>
-              </FormLabel>
-            </>
-          ) : null}
-          {selected.type === "map" ? (
-            <>
-              <PropPicker
-                label="Map from"
-                value={selected.data.map?.from ?? ""}
-                options={bagKeyOptions(bagView)}
-                onChange={(value) =>
-                  onUpdateData({
-                    map: {
-                      from: value,
-                      as: selected.data.map?.as ?? "projected",
-                      mode: selected.data.map?.mode ?? "array",
-                      fields: selected.data.map?.fields ?? []
-                    },
-                    writes: selected.data.writes?.includes(selected.data.map?.as ?? "projected")
-                      ? selected.data.writes
-                      : [...(selected.data.writes ?? []), selected.data.map?.as ?? "projected"]
-                  })
-                }
-              />
-              <FormLabel label="Write as">
-                <TextInput
-                  value={selected.data.map?.as ?? ""}
-                  onChange={(event) =>
-                    onUpdateData({
-                      map: {
-                        from: selected.data.map?.from ?? "",
-                        as: event.target.value,
-                        mode: selected.data.map?.mode,
-                        fields: selected.data.map?.fields ?? []
-                      },
-                      writes: [event.target.value]
-                    })
-                  }
-                />
-              </FormLabel>
-              <FormLabel label="Mode">
-                <Select
-                  value={selected.data.map?.mode ?? "array"}
-                  onChange={(event) =>
-                    onUpdateData({
-                      map: {
-                        from: selected.data.map?.from ?? "",
-                        as: selected.data.map?.as ?? "projected",
-                        mode: event.target.value as "array" | "object",
-                        fields: selected.data.map?.fields ?? []
-                      }
-                    })
-                  }
-                >
-                  <option value="array">array</option>
-                  <option value="object">object</option>
-                </Select>
-              </FormLabel>
-              <div className="space-y-2">
-                <div className="text-[11px] font-medium text-zinc-700">Fields</div>
-                {(selected.data.map?.fields ?? []).map((field, index) => (
-                  <div key={`${field.as}-${index}`} className="grid grid-cols-2 gap-1">
-                    <PropPicker
-                      label="from"
-                      value={field.from}
-                      options={pathOptionsForKey(bagView, selected.data.map?.from ?? "")}
-                      onChange={(value) => {
-                        const fields = [...(selected.data.map?.fields ?? [])] as WorkflowMapField[];
-                        fields[index] = { ...fields[index], from: value };
-                        onUpdateData({
-                          map: {
-                            from: selected.data.map?.from ?? "",
-                            as: selected.data.map?.as ?? "projected",
-                            mode: selected.data.map?.mode,
-                            fields
-                          }
-                        });
-                      }}
-                    />
-                    <FormLabel label="as">
-                      <TextInput
-                        value={field.as}
-                        onChange={(event) => {
-                          const fields = [...(selected.data.map?.fields ?? [])] as WorkflowMapField[];
-                          fields[index] = { ...fields[index], as: event.target.value };
-                          onUpdateData({
-                            map: {
-                              from: selected.data.map?.from ?? "",
-                              as: selected.data.map?.as ?? "projected",
-                              mode: selected.data.map?.mode,
-                              fields
-                            }
-                          });
-                        }}
-                      />
-                    </FormLabel>
-                  </div>
-                ))}
-                <GhostButton
-                  size="xs"
-                  onClick={() =>
-                    onUpdateData({
-                      map: {
-                        from: selected.data.map?.from ?? "",
-                        as: selected.data.map?.as ?? "projected",
-                        mode: selected.data.map?.mode ?? "array",
-                        fields: [
-                          ...(selected.data.map?.fields ?? []),
-                          { from: pathOptionsForKey(bagView, selected.data.map?.from ?? "")[0] ?? "id", as: "field" }
-                        ]
-                      }
-                    })
-                  }
-                >
-                  Add field
-                </GhostButton>
-              </div>
-            </>
-          ) : null}
-          {selected.type === "join" ? (
-            <>
-              <FormLabel label="Join mode">
-                <Select
-                  value={
-                    typeof selected.data.join?.mode === "object"
-                      ? `count:${selected.data.join.mode.count}`
-                      : (selected.data.join?.mode ?? "all")
-                  }
-                  onChange={(event) => {
-                    const value = event.target.value;
-                    if (value.startsWith("count:")) {
-                      onUpdateData({
-                        join: {
-                          ...(selected.data.join ?? {}),
-                          mode: { count: Number(value.slice(6)) || 1 }
-                        }
-                      });
-                      return;
-                    }
-                    onUpdateData({
-                      join: {
-                        ...(selected.data.join ?? {}),
-                        mode: value as "all" | "any"
-                      }
-                    });
-                  }}
-                >
-                  <option value="all">all</option>
-                  <option value="any">any</option>
-                  <option value="count:1">count:1</option>
-                  <option value="count:2">count:2</option>
-                </Select>
-              </FormLabel>
-              <FormLabel label="Remaining arms">
-                <Select
-                  value={selected.data.join?.remaining ?? "cancel_remaining"}
-                  onChange={(event) =>
-                    onUpdateData({
-                      join: {
-                        ...(selected.data.join ?? {}),
-                        remaining: event.target.value as "cancel_remaining" | "ignore_remaining"
-                      }
-                    })
-                  }
-                >
-                  <option value="cancel_remaining">cancel_remaining</option>
-                  <option value="ignore_remaining">ignore_remaining</option>
-                </Select>
-              </FormLabel>
-            </>
-          ) : null}
-          {selected.type === "subworkflow" ? (
-            <FormLabel label="Workflow id">
-              <TextInput
-                value={selected.data.subworkflow?.workflowId ?? ""}
-                onChange={(event) =>
-                  onUpdateData({
-                    subworkflow: {
-                      ...(selected.data.subworkflow ?? { workflowId: "" }),
-                      workflowId: event.target.value
-                    }
-                  })
-                }
-              />
-            </FormLabel>
-          ) : null}
-          {selected.type === "wait" ? (
-            <FormLabel label="Delay ms">
-              <TextInput
-                value={String(selected.data.wait?.delayMs ?? "")}
-                onChange={(event) =>
-                  onUpdateData({
-                    wait: { delayMs: Number(event.target.value) || 0 }
-                  })
-                }
-              />
-            </FormLabel>
-          ) : null}
-          {selected.type === "tool" || selected.type === "llm" || selected.type === "write" ? (
-            <>
-              <FormLabel label="Timeout ms">
-                <TextInput
-                  value={String(selected.data.executionPolicy?.timeoutMs ?? "")}
-                  onChange={(event) =>
-                    onUpdateData({
-                      executionPolicy: {
-                        ...(selected.data.executionPolicy ?? {}),
-                        timeoutMs: Number(event.target.value) || undefined
-                      }
-                    })
-                  }
-                />
-              </FormLabel>
-              <FormLabel label="Idempotency key from">
-                <TextInput
-                  value={selected.data.executionPolicy?.idempotencyKeyFrom ?? ""}
-                  onChange={(event) =>
-                    onUpdateData({
-                      executionPolicy: {
-                        ...(selected.data.executionPolicy ?? {}),
-                        idempotencyKeyFrom: event.target.value || undefined
-                      }
-                    })
-                  }
-                />
-              </FormLabel>
-              <FormLabel label="On exhausted">
-                <Select
-                  value={selected.data.executionPolicy?.onExhausted ?? "fail_run"}
-                  onChange={(event) =>
-                    onUpdateData({
-                      executionPolicy: {
-                        ...(selected.data.executionPolicy ?? {}),
-                        onExhausted: event.target.value as "error_edge" | "fail_run"
-                      }
-                    })
-                  }
-                >
-                  <option value="fail_run">fail_run</option>
-                  <option value="error_edge">error_edge</option>
-                </Select>
-              </FormLabel>
-            </>
-          ) : null}
+          {fields.map((field) => renderField(field, selected, bagView, onUpdateData))}
           {selected.type !== "start" ? (
             <GhostButton size="xs" tone="danger" onClick={onDelete}>
               Delete node

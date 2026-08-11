@@ -138,7 +138,7 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const presetKey = typeof flow.metadata.presetKey === "string" ? flow.metadata.presetKey : null;
   const [presetDirty, setPresetDirty] = useState(flow.metadata.presetDirty === true);
-  const inspector = useWorkflowInspectorPublisher();
+  const { publish, clear } = useWorkflowInspectorPublisher();
 
   const selected = nodes.find((node) => node.id === selectedId)?.data.workflow ?? null;
   const bagView = useMemo(() => {
@@ -475,12 +475,11 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
   );
 
   useEffect(() => {
-    inspector.publish({
+    publish({
       diagramOpen,
       selected,
       bagView,
       onUpdateData: updateSelectedData,
-      onUpdateType: updateSelectedType,
       onDelete: deleteSelected,
       authorOpen,
       brief,
@@ -490,12 +489,11 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
       setAuthorOpen
     });
   }, [
-    inspector,
+    publish,
     diagramOpen,
     selected,
     bagView,
     updateSelectedData,
-    updateSelectedType,
     deleteSelected,
     authorOpen,
     brief,
@@ -504,8 +502,8 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
   ]);
 
   useEffect(() => {
-    return () => inspector.clear();
-  }, [inspector]);
+    return () => clear();
+  }, [clear]);
 
   return (
     <div className="flex h-full min-h-0 flex-col">

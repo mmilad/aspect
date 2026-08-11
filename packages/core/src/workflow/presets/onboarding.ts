@@ -1,5 +1,8 @@
 import { WORKFLOW_SCHEMA_VERSION, type WorkflowGraph } from "../types";
+import { identityBindings } from "./bindings";
 import type { WorkflowPreset } from "./types";
+
+const STRING = { kind: "primitive" as const, type: "string" as const };
 
 const onboardingGraph: WorkflowGraph = {
   version: WORKFLOW_SCHEMA_VERSION,
@@ -11,8 +14,9 @@ const onboardingGraph: WorkflowGraph = {
       data: {
         title: "Start",
         writes: ["focus"],
+        writeBindings: identityBindings(["focus"]),
         outputContracts: {
-          focus: { required: false, shape: { kind: "primitive", type: "string" } }
+          focus: { required: false, shape: STRING }
         }
       }
     },
@@ -23,6 +27,10 @@ const onboardingGraph: WorkflowGraph = {
       data: {
         title: "Stamp orientation rules",
         writes: ["orientation"],
+        writeBindings: identityBindings(["orientation"]),
+        outputContracts: {
+          orientation: { required: true, shape: { kind: "any" } }
+        },
         auto: {
           assign: {
             set: {
@@ -58,7 +66,7 @@ const onboardingGraph: WorkflowGraph = {
 
 export const onboardingPreset: WorkflowPreset = {
   presetKey: "onboarding",
-  presetVersion: 1,
+  presetVersion: 2,
   title: "Onboarding",
   summary: "Session orientation rules for agents (workflow-shaped; MCP orient remains the fast path).",
   body: [

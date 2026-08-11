@@ -5,13 +5,11 @@ import {
   getNodeModel,
   listShapePaths,
   setDataPath,
-  workflowNodeTypes,
   type BagShape,
   type WorkflowInspectorField,
   type WorkflowMapField,
   type WorkflowNode,
-  type WorkflowNodeData,
-  type WorkflowNodeType
+  type WorkflowNodeData
 } from "@projectplaner/core";
 import { FormLabel, GhostButton, Select, TextArea, TextInput } from "../../ui";
 import { PropPicker, WorkflowBagPanel } from "../../workflow-workspace/workflow-bag-panel";
@@ -21,7 +19,6 @@ export interface WorkflowStepInspectorProps {
   selected: WorkflowNode | null;
   bagView: Record<string, BagShape>;
   onUpdateData: (patch: Partial<WorkflowNodeData>) => void;
-  onUpdateType: (type: WorkflowNodeType) => void;
   onDelete: () => void;
 }
 
@@ -62,22 +59,34 @@ function applyFieldPatch(
   if (path === "map.from" || path === "map.as") {
     const next = setDataPath(selected.data, path, value);
     const as = String(path === "map.as" ? value : (next.map?.as ?? "projected"));
+    const writeBindings = {
+      ...(selected.data.writeBindings ?? {}),
+      [as]: as
+    };
     const writes =
       path === "map.as"
         ? [as]
         : selected.data.writes?.includes(as)
           ? selected.data.writes
           : [...(selected.data.writes ?? []), as];
-    onUpdateData({ ...next, writes });
+    onUpdateData({ ...next, writes, writeBindings });
     return;
   }
   if (path === "llm.systemPrompt" || path === "llm.instructions") {
     const next = setDataPath(selected.data, path, value);
+    const inputPorts = Object.keys(selected.data.inputs ?? {});
+    const outputPorts = Object.keys(selected.data.outputContracts ?? {});
     onUpdateData({
       llm: {
         ...(next.llm ?? {}),
-        inputKeys: selected.data.reads ?? selected.data.llm?.inputKeys,
-        outputSchema: selected.data.writes ?? selected.data.llm?.outputSchema
+        inputKeys:
+          inputPorts.length > 0
+            ? inputPorts
+            : (selected.data.reads ?? selected.data.llm?.inputKeys),
+        outputSchema:
+          outputPorts.length > 0
+            ? outputPorts
+            : (selected.data.writes ?? selected.data.llm?.outputSchema)
       }
     });
     return;
@@ -115,7 +124,14 @@ function renderField(
   onUpdateData: (patch: Partial<WorkflowNodeData>) => void
 ) {
   if (field.kind === "bagPorts") {
-    return <BagPortsEditor key="bagPorts" selected={selected} onUpdateData={onUpdateData} />;
+    return (
+      <BagPortsEditor
+        key="bagPorts"
+        selected={selected}
+        bagView={bagView}
+        onUpdateData={onUpdateData}
+      />
+    );
   }
 
   if (field.kind === "executionPolicy") {
@@ -316,7 +332,6 @@ export function WorkflowStepInspector({
   selected,
   bagView,
   onUpdateData,
-  onUpdateType,
   onDelete
 }: WorkflowStepInspectorProps) {
   const highlight =
@@ -332,27 +347,21 @@ export function WorkflowStepInspector({
       </div>
       {!selected ? (
         <p className="text-sm text-muted-foreground">
-          Select a step to edit title, reads/writes, control config, and execution policy.
+          Select a step to edit title, bag bindings, control config, and execution policy.
         </p>
       ) : (
         <div className="space-y-3">
           <div>
             <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Node</div>
             <div className="font-mono text-xs text-zinc-700">{selected.id}</div>
+            <div className="mt-0.5 text-[11px] text-muted-foreground">
+              type <span className="font-mono text-zinc-700">{selected.type}</span>
+            </div>
           </div>
-          <FormLabel label="Type">
-            <Select value={selected.type} onChange={(event) => onUpdateType(event.target.value as WorkflowNodeType)}>
-              {workflowNodeTypes.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </Select>
-          </FormLabel>
           <FormLabel label="Title">
             <TextInput value={selected.data.title} onChange={(event) => onUpdateData({ title: event.target.value })} />
           </FormLabel>
-          <BagPortsEditor selected={selected} onUpdateData={onUpdateData} />
+          <BagPortsEditor selected={selected} bagView={bagView} onUpdateData={onUpdateData} />
           {fields
             .filter((field) => field.kind !== "bagPorts")
             .map((field) => renderField(field, selected, bagView, onUpdateData))}

@@ -7,8 +7,10 @@ import type {
   WorkflowNode
 } from "./types";
 
+import { derivedWrites, resolveWriteBindings } from "./ports";
+
 function getNodeWrites(node: WorkflowNode): string[] {
-  return node.data.writes ?? node.data.outputs ?? [];
+  return derivedWrites(node);
 }
 
 function findNode(graph: WorkflowGraph, nodeId: string): WorkflowNode | undefined {
@@ -268,19 +270,21 @@ function mergeShapes(a: BagShape | undefined, b: BagShape | undefined): BagShape
 /** Infer shapes this node publishes (defaults + contracts + per-node model.inferOutputs). */
 export function inferNodeOutputShapes(node: WorkflowNode): Record<string, BagShape> {
   const out: Record<string, BagShape> = {};
+  const writeBindings = resolveWriteBindings(node);
 
-  for (const key of getNodeWrites(node)) {
-    const contractShape = node.data.outputContracts?.[key]?.shape;
-    out[key] = contractShape ? resolveBagShape(contractShape) : { kind: "unknown" };
+  for (const [portId, bagKey] of Object.entries(writeBindings)) {
+    const contractShape = node.data.outputContracts?.[portId]?.shape;
+    out[bagKey] = contractShape ? resolveBagShape(contractShape) : { kind: "unknown" };
   }
 
   const inferred = getNodeModel(node.type).inferOutputs?.(node) ?? {};
   Object.assign(out, inferred);
 
-  // Explicit contracts always win.
-  for (const [key, contract] of Object.entries(node.data.outputContracts ?? {})) {
-    if (contract.shape) {
-      out[key] = resolveBagShape(contract.shape);
+  // Explicit contracts always win (keyed by port id, published under bag key).
+  for (const [portId, bagKey] of Object.entries(writeBindings)) {
+    const contract = node.data.outputContracts?.[portId];
+    if (contract?.shape) {
+      out[bagKey] = resolveBagShape(contract.shape);
     }
   }
 

@@ -58,7 +58,6 @@ function WorkflowRightSidebar({
           selected={session.selected}
           bagView={session.bagView}
           onUpdateData={session.onUpdateData}
-          onUpdateType={session.onUpdateType}
           onDelete={session.onDelete}
         />
       </InspectorHost>

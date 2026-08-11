@@ -23,21 +23,33 @@ Prefer `run_workflow` over raw `create_entity` / `update_entity` when a matching
 - **UI Generate** (Describe): when `PROJECTPLANER_LLM_*` is set, uses the same two-turn path (`outline` then compile) and returns `{ graph, outline, graphJson, source: "llm_two_turn" }`. Without LLM, deterministic scaffold only.
 - Typed LLM writes: `outputContracts` / `pending_llm.outputs` carry `BagShape`; resume validates `llmWrites` against those shapes.
 
-## Bag ports (inputs / outputs)
+## Bag ports vs bindings
 
-Every work node declares **bag ports**, separate from **node config**:
+Port **contracts** (types) are authored in presets/code. The UI only **binds** bag keys onto those ports.
 
-| Layer | Examples | Role |
-|-------|----------|------|
-| Config | `llm.instructions`, `tool.name`, `map.fields` | How the step behaves (inspector textareas / pickers) |
-| Ports | `reads` / `writes` + `inputs` / `outputContracts` | What bag keys it consumes / produces |
+| Layer | Fields | Who edits |
+|-------|--------|-----------|
+| Port contracts | `inputs` / `outputContracts` (port id → required + `BagShape`) | Presets / code — not the inspector |
+| Bindings | `inputBindings` / `writeBindings` (port id → bag key) | Inspector (PropPicker / write section) |
+| Derived legacy | `reads` / `writes` | Synced from binding values on parse/save |
 
-- **No separate “update bag” node** — declared `writes` + `outputContracts` are the bag write API.
+- **Inputs (UI):** one row per declared input port; pick which upstream **bag key** feeds it.
+- **Writes (UI):** bind declared **output ports** to bag keys (default bag key = port id). Writes register keys for downstream. `+` adds an unbound output; remove clears registration.
+- **Compat:** omitted bindings ⇒ **identity** (port id = bag key). Old graphs keep running.
+- **No separate “update bag” node** — write bindings are the bag write API.
 - **Shapes** use `BagShape`, including `union` (e.g. `string\|null` via `nullable()`).
 - **`required: false`** = key may be **absent**. **`null` inside a union** = key may be **present** with null.
-- **Runtime (strict for work nodes):** validate inputs before `execute`; validate outputs after successful writes / LLM resume. Control nodes only when they declare `inputs`.
+- **Runtime (strict for work nodes):** validate each input port against its bound bag key; validate write-bound outputs after successful writes / LLM resume. Control nodes only when they declare `inputs`.
+- **LLM:** `inputKeys` / `outputSchema` / `llmWrites` are **port ids**; the runner resolves to bag keys via bindings.
 - **Nullability:** branch/gate only when upstream is `T\|null` and downstream input rejects null. If the consumer accepts `T\|null`, wire directly.
 - Editor warnings (`warnShapeMismatches`) flag nullable→non-null mismatches (“add a null check or widen the input”).
+
+After changing preset graphs in the repo, refresh the living SQLite seed:
+
+```bash
+pnpm plan presets-ensure --force
+# or PROJECTPLANER_PRESETS_FORCE=1
+```
 
 ## Runtime
 

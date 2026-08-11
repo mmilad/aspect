@@ -8,14 +8,13 @@ import {
   useState,
   type ReactNode
 } from "react";
-import type { BagShape, WorkflowNode, WorkflowNodeData, WorkflowNodeType } from "@projectplaner/core";
+import type { BagShape, WorkflowNode, WorkflowNodeData } from "@projectplaner/core";
 
 export type WorkflowInspectorSession = {
   diagramOpen: boolean;
   selected: WorkflowNode | null;
   bagView: Record<string, BagShape>;
   onUpdateData: (patch: Partial<WorkflowNodeData>) => void;
-  onUpdateType: (type: WorkflowNodeType) => void;
   onDelete: () => void;
   authorOpen: boolean;
   brief: string;
@@ -43,12 +42,13 @@ export function WorkflowInspectorProvider({ children }: { children: ReactNode })
   return <WorkflowInspectorContext.Provider value={value}>{children}</WorkflowInspectorContext.Provider>;
 }
 
+/** Stable publish/clear only — safe for effect deps (does not change when session updates). */
 export function useWorkflowInspectorPublisher() {
   const ctx = useContext(WorkflowInspectorContext);
   if (!ctx) {
     throw new Error("useWorkflowInspectorPublisher requires WorkflowInspectorProvider");
   }
-  return ctx;
+  return useMemo(() => ({ publish: ctx.publish, clear: ctx.clear }), [ctx.publish, ctx.clear]);
 }
 
 export function useWorkflowInspectorSession(): WorkflowInspectorSession | null {

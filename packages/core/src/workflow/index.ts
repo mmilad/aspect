@@ -2,6 +2,7 @@ export * from "./types";
 export * from "./schema";
 export * from "./shapes";
 export * from "./contracts";
+export * from "./ports";
 export * from "./llm-defaults";
 export * from "./llm-outputs";
 export * from "./template";

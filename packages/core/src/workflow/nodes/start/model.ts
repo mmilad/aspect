@@ -1,13 +1,10 @@
-import type { BagShape, WorkflowNode } from "../_shared/types";
+import type { BagShape } from "../_shared/types";
 import type { WorkflowNodeModel } from "../_shared/model";
+import { derivedWrites } from "../../ports";
 import { executeStart } from "./execute";
 import { parseStartConfig } from "./schema";
 
 const STRING: BagShape = { kind: "primitive", type: "string" };
-
-function writesOf(node: WorkflowNode): string[] {
-  return node.data.writes ?? node.data.outputs ?? [];
-}
 
 export const startNode: WorkflowNodeModel = {
   type: "start",
@@ -17,7 +14,7 @@ export const startNode: WorkflowNodeModel = {
   execute: executeStart,
   inferOutputs: (node) => {
     const out: Record<string, BagShape> = {};
-    for (const key of writesOf(node)) {
+    for (const key of derivedWrites(node)) {
       if (key === "goal") {
         out.goal = STRING;
       }

@@ -1,4 +1,5 @@
 import type { BagShape, WorkflowNode } from "./types";
+import { resolveWriteBindings } from "./ports";
 import { resolveBagShape } from "./shapes";
 
 export type LlmOutputContract = {
@@ -9,18 +10,22 @@ export type LlmOutputContract = {
 const DEFAULT_STRING: BagShape = { kind: "primitive", type: "string" };
 
 /**
- * Resolve LLM write contracts: outputContracts shapes when present,
- * else default string for each declared write / outputSchema key.
+ * Resolve LLM write contracts keyed by **output port id**.
+ * Prefer outputContracts / llm.outputSchema port ids; fall back to write binding ports.
  */
 export function resolveLlmOutputContracts(node: WorkflowNode): {
   keys: string[];
   outputs: Record<string, LlmOutputContract>;
 } {
   const fromSchema = node.data.llm?.outputSchema;
+  const fromContracts = Object.keys(node.data.outputContracts ?? {});
+  const fromWrites = Object.keys(resolveWriteBindings(node));
   const keys =
     fromSchema && fromSchema.length > 0
       ? [...fromSchema]
-      : [...(node.data.writes ?? node.data.outputs ?? [])];
+      : fromContracts.length > 0
+        ? fromContracts
+        : fromWrites;
   const outputs: Record<string, LlmOutputContract> = {};
   for (const key of keys) {
     const contract = node.data.outputContracts?.[key];

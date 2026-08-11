@@ -1,234 +1,186 @@
 import {
-  nullable,
+  resolveInputBindings,
   serializeShapeSlim,
   type BagShape,
   type WorkflowBagKeyContract,
   type WorkflowNode,
   type WorkflowNodeData
 } from "@projectplaner/core";
-import { FormLabel, GhostButton, Select, TextInput } from "../../ui";
+import { FormLabel, GhostButton, TextInput } from "../../ui";
+import { PropPicker } from "../../workflow-workspace/workflow-bag-panel";
 
-const SHAPE_PRESETS: Array<{ value: string; label: string; shape: BagShape }> = [
-  { value: "unknown", label: "unknown", shape: { kind: "unknown" } },
-  { value: "any", label: "any", shape: { kind: "any" } },
-  { value: "string", label: "string", shape: { kind: "primitive", type: "string" } },
-  { value: "number", label: "number", shape: { kind: "primitive", type: "number" } },
-  { value: "boolean", label: "boolean", shape: { kind: "primitive", type: "boolean" } },
-  { value: "null", label: "null", shape: { kind: "primitive", type: "null" } },
-  {
-    value: "string|null",
-    label: "string|null",
-    shape: nullable({ kind: "primitive", type: "string" })
-  },
-  { value: "Entity", label: "Entity", shape: { kind: "ref", ref: "Entity" } },
-  {
-    value: "Entity[]",
-    label: "Entity[]",
-    shape: { kind: "array", items: { kind: "ref", ref: "Entity" } }
-  },
-  {
-    value: "RankedTaskCandidate[]",
-    label: "RankedTaskCandidate[]",
-    shape: { kind: "array", items: { kind: "ref", ref: "RankedTaskCandidate" } }
-  }
-];
-
-function shapeToPreset(shape: BagShape | undefined): string {
+function shapeLabel(shape: BagShape | undefined): string {
   if (!shape) {
     return "unknown";
   }
-  const slim = serializeShapeSlim(shape);
-  const match = SHAPE_PRESETS.find((preset) => serializeShapeSlim(preset.shape) === slim);
-  return match?.value ?? slim;
+  return serializeShapeSlim(shape);
 }
 
-function presetToShape(value: string): BagShape {
-  return SHAPE_PRESETS.find((preset) => preset.value === value)?.shape ?? { kind: "unknown" };
+function requiredLabel(contract: WorkflowBagKeyContract | undefined): string {
+  return contract?.required === false ? "optional" : "required";
 }
 
-function PortRow({
-  portKey,
-  contract,
-  onChangeKey,
-  onChangeContract,
-  onRemove
-}: {
-  portKey: string;
-  contract: WorkflowBagKeyContract;
-  onChangeKey: (next: string) => void;
-  onChangeContract: (next: WorkflowBagKeyContract) => void;
-  onRemove: () => void;
-}) {
-  return (
-    <div className="grid grid-cols-[1fr_auto_auto_auto] items-end gap-1">
-      <FormLabel label="key">
-        <TextInput value={portKey} onChange={(event) => onChangeKey(event.target.value.trim())} />
-      </FormLabel>
-      <FormLabel label="shape">
-        <Select
-          value={shapeToPreset(contract.shape)}
-          onChange={(event) =>
-            onChangeContract({
-              ...contract,
-              shape: presetToShape(event.target.value)
-            })
-          }
-        >
-          {SHAPE_PRESETS.map((preset) => (
-            <option key={preset.value} value={preset.value}>
-              {preset.label}
-            </option>
-          ))}
-        </Select>
-      </FormLabel>
-      <FormLabel label="req">
-        <Select
-          value={contract.required === false ? "optional" : "required"}
-          onChange={(event) =>
-            onChangeContract({
-              ...contract,
-              required: event.target.value !== "optional"
-            })
-          }
-        >
-          <option value="required">yes</option>
-          <option value="optional">no</option>
-        </Select>
-      </FormLabel>
-      <GhostButton size="xs" tone="danger" onClick={onRemove}>
-        ×
-      </GhostButton>
-    </div>
-  );
+function bagKeyOptions(view: Record<string, BagShape>): string[] {
+  return Object.keys(view).sort();
+}
+
+function identityFromPorts(ports: string[]): Record<string, string> {
+  return Object.fromEntries(ports.map((portId) => [portId, portId]));
 }
 
 export function BagPortsEditor({
   selected,
+  bagView,
   onUpdateData
 }: {
   selected: WorkflowNode;
+  bagView: Record<string, BagShape>;
   onUpdateData: (patch: Partial<WorkflowNodeData>) => void;
 }) {
-  const reads = selected.data.reads ?? [];
-  const writes = selected.data.writes ?? [];
-  const inputs = { ...(selected.data.inputs ?? {}) };
-  const outputs = { ...(selected.data.outputContracts ?? {}) };
+  const inputs = selected.data.inputs ?? {};
+  const inputPorts = Object.keys(inputs);
+  const inputBindings = resolveInputBindings(selected);
 
-  function syncReads(nextReads: string[], nextInputs: Record<string, WorkflowBagKeyContract>) {
-    onUpdateData({ reads: nextReads, inputs: nextInputs });
+  const outputContracts = selected.data.outputContracts ?? {};
+  const outputPorts = Object.keys(outputContracts);
+  const writeBindings =
+    selected.data.writeBindings !== undefined
+      ? { ...selected.data.writeBindings }
+      : identityFromPorts(outputPorts);
+  const boundPorts = Object.keys(writeBindings).filter((portId) => writeBindings[portId]?.trim());
+  const unboundOutputs = outputPorts.filter((portId) => !boundPorts.includes(portId));
+
+  function patchInputBinding(portId: string, bagKey: string) {
+    const next = { ...inputBindings, [portId]: bagKey };
+    onUpdateData({
+      inputBindings: next,
+      reads: [...new Set(Object.values(next))]
+    });
   }
 
-  function syncWrites(nextWrites: string[], nextOutputs: Record<string, WorkflowBagKeyContract>) {
-    onUpdateData({ writes: nextWrites, outputContracts: nextOutputs });
+  function patchWriteBindings(next: Record<string, string>) {
+    const cleaned: Record<string, string> = {};
+    for (const [portId, bagKey] of Object.entries(next)) {
+      const trimmed = bagKey.trim();
+      if (trimmed) {
+        cleaned[portId] = trimmed;
+      }
+    }
+    onUpdateData({
+      writeBindings: cleaned,
+      writes: [...new Set(Object.values(cleaned))]
+    });
   }
 
   return (
     <div className="space-y-3">
       <div className="space-y-2">
         <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Input ports
+          Inputs
         </div>
         <p className="text-[11px] text-muted-foreground">
-          Bag keys this step reads. Config fields (e.g. llm.instructions) are separate.
+          Port types come from the preset/code. Bind each input port to an upstream bag key.
         </p>
-        {reads.map((key) => (
-          <PortRow
-            key={`in-${key}`}
-            portKey={key}
-            contract={inputs[key] ?? { required: true, shape: { kind: "unknown" } }}
-            onChangeKey={(next) => {
-              if (!next || next === key) {
-                return;
-              }
-              const nextReads = reads.map((item) => (item === key ? next : item));
-              const nextInputs = { ...inputs };
-              nextInputs[next] = nextInputs[key] ?? { required: true, shape: { kind: "unknown" } };
-              delete nextInputs[key];
-              syncReads(nextReads, nextInputs);
-            }}
-            onChangeContract={(contract) => {
-              syncReads(reads, { ...inputs, [key]: contract });
-            }}
-            onRemove={() => {
-              const nextInputs = { ...inputs };
-              delete nextInputs[key];
-              syncReads(
-                reads.filter((item) => item !== key),
-                nextInputs
-              );
-            }}
-          />
-        ))}
-        <GhostButton
-          size="xs"
-          onClick={() => {
-            let name = "input";
-            let i = 1;
-            while (reads.includes(name)) {
-              name = `input${i}`;
-              i += 1;
-            }
-            syncReads([...reads, name], {
-              ...inputs,
-              [name]: { required: true, shape: { kind: "primitive", type: "string" } }
-            });
-          }}
-        >
-          Add input
-        </GhostButton>
+        {inputPorts.length === 0 ? (
+          <p className="text-[11px] text-muted-foreground">
+            No input ports on this node (defined in preset/code).
+          </p>
+        ) : (
+          inputPorts.map((portId) => {
+            const contract = inputs[portId];
+            return (
+              <div
+                key={`in-${portId}`}
+                className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_auto] items-end gap-1"
+              >
+                <div className="min-w-0">
+                  <div className="text-[11px] font-medium text-zinc-700">port</div>
+                  <div className="truncate font-mono text-xs text-zinc-800">{portId}</div>
+                  <div className="text-[10px] text-muted-foreground">
+                    {shapeLabel(contract?.shape)} · {requiredLabel(contract)}
+                  </div>
+                </div>
+                <PropPicker
+                  label="bag key"
+                  value={inputBindings[portId] ?? portId}
+                  options={bagKeyOptions(bagView)}
+                  onChange={(value) => patchInputBinding(portId, value)}
+                />
+                <span className="pb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                  {requiredLabel(contract)}
+                </span>
+              </div>
+            );
+          })
+        )}
       </div>
+
       <div className="space-y-2">
         <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Output ports
+          Writes
         </div>
         <p className="text-[11px] text-muted-foreground">
-          Bag keys this step writes. No separate update-bag node — writes are the bag API.
+          Name the bag key on the left; the right shows which output port fills it.
         </p>
-        {writes.map((key) => (
-          <PortRow
-            key={`out-${key}`}
-            portKey={key}
-            contract={outputs[key] ?? { required: true, shape: { kind: "unknown" } }}
-            onChangeKey={(next) => {
-              if (!next || next === key) {
-                return;
-              }
-              const nextWrites = writes.map((item) => (item === key ? next : item));
-              const nextOutputs = { ...outputs };
-              nextOutputs[next] = nextOutputs[key] ?? { required: true, shape: { kind: "unknown" } };
-              delete nextOutputs[key];
-              syncWrites(nextWrites, nextOutputs);
+        {boundPorts.length === 0 ? (
+          <p className="text-[11px] text-muted-foreground">
+            {outputPorts.length === 0
+              ? "No output ports on this node (defined in preset/code)."
+              : "No write bindings — bag keys are not registered from this step."}
+          </p>
+        ) : (
+          boundPorts.map((portId) => {
+            const contract = outputContracts[portId];
+            return (
+              <div
+                key={`out-${portId}`}
+                className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-1"
+              >
+                <FormLabel label="bag key">
+                  <TextInput
+                    value={writeBindings[portId] ?? portId}
+                    onChange={(event) => {
+                      patchWriteBindings({
+                        ...writeBindings,
+                        [portId]: event.target.value
+                      });
+                    }}
+                  />
+                </FormLabel>
+                <div className="min-w-0">
+                  <div className="text-[11px] font-medium text-zinc-700">sets</div>
+                  <div className="truncate font-mono text-xs text-zinc-800">{portId}</div>
+                  <div className="text-[10px] text-muted-foreground">{shapeLabel(contract?.shape)}</div>
+                </div>
+                <GhostButton
+                  size="xs"
+                  tone="danger"
+                  onClick={() => {
+                    const next = { ...writeBindings };
+                    delete next[portId];
+                    patchWriteBindings(next);
+                  }}
+                >
+                  ×
+                </GhostButton>
+              </div>
+            );
+          })
+        )}
+        {unboundOutputs.length > 0 ? (
+          <GhostButton
+            size="xs"
+            onClick={() => {
+              const portId = unboundOutputs[0]!;
+              patchWriteBindings({
+                ...writeBindings,
+                [portId]: portId
+              });
             }}
-            onChangeContract={(contract) => {
-              syncWrites(writes, { ...outputs, [key]: contract });
-            }}
-            onRemove={() => {
-              const nextOutputs = { ...outputs };
-              delete nextOutputs[key];
-              syncWrites(
-                writes.filter((item) => item !== key),
-                nextOutputs
-              );
-            }}
-          />
-        ))}
-        <GhostButton
-          size="xs"
-          onClick={() => {
-            let name = "output";
-            let i = 1;
-            while (writes.includes(name)) {
-              name = `output${i}`;
-              i += 1;
-            }
-            syncWrites([...writes, name], {
-              ...outputs,
-              [name]: { required: true, shape: { kind: "primitive", type: "string" } }
-            });
-          }}
-        >
-          Add output
-        </GhostButton>
+          >
+            + bind output
+          </GhostButton>
+        ) : null}
       </div>
     </div>
   );

@@ -1,14 +1,11 @@
-import type { BagShape, WorkflowNode } from "../_shared/types";
+import type { BagShape } from "../_shared/types";
 import type { WorkflowNodeModel } from "../_shared/model";
+import { derivedWrites } from "../../ports";
 import { executeTransform } from "./execute";
 import { transformInspectorFields } from "./inspector";
 import { parseTransformNodeConfig } from "./schema";
 
 const BOOLEAN: BagShape = { kind: "primitive", type: "boolean" };
-
-function writesOf(node: WorkflowNode): string[] {
-  return node.data.writes ?? node.data.outputs ?? [];
-}
 
 export const transformNode: WorkflowNodeModel = {
   type: "transform",
@@ -24,7 +21,7 @@ export const transformNode: WorkflowNodeModel = {
     if (filter?.rank !== "task_candidates") {
       return out;
     }
-    const writes = writesOf(node);
+    const writes = derivedWrites(node);
     const candidatesKey = writes[0] ?? "candidates";
     if (!node.data.outputContracts?.[candidatesKey]?.shape) {
       out[candidatesKey] = { kind: "array", items: { kind: "ref", ref: "RankedTaskCandidate" } };

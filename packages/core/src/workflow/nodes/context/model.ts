@@ -1,12 +1,9 @@
-import type { BagShape, WorkflowNode } from "../_shared/types";
+import type { BagShape } from "../_shared/types";
 import type { WorkflowNodeModel } from "../_shared/model";
+import { derivedWrites } from "../../ports";
 import { executeContext } from "./execute";
 import { contextInspectorFields } from "./inspector";
 import { parseContextNodeConfig } from "./schema";
-
-function writesOf(node: WorkflowNode): string[] {
-  return node.data.writes ?? node.data.outputs ?? [];
-}
 
 function arrayOfRef(ref: "Entity" | "EntityRelation"): BagShape {
   return { kind: "array", items: { kind: "ref", ref } };
@@ -26,7 +23,7 @@ export const contextNode: WorkflowNodeModel = {
     if (!load) {
       return out;
     }
-    const writes = writesOf(node);
+    const writes = derivedWrites(node);
     const entityKey = writes[0] ?? "matches";
     if (!node.data.outputContracts?.[entityKey]?.shape) {
       out[entityKey] = arrayOfRef("Entity");

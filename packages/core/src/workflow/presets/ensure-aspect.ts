@@ -1,4 +1,5 @@
 import { WORKFLOW_SCHEMA_VERSION, type WorkflowGraph } from "../types";
+import { identityBindings } from "./bindings";
 import type { WorkflowPreset } from "./types";
 
 const STRING = { kind: "primitive" as const, type: "string" as const };
@@ -9,10 +10,21 @@ const STRING_OR_NULL = {
   kind: "union" as const,
   options: [STRING, { kind: "primitive" as const, type: "null" as const }]
 };
+const CANDIDATE_ITEM = {
+  kind: "object" as const,
+  fields: {
+    id: STRING,
+    title: STRING,
+    status: STRING,
+    summary: STRING
+  }
+};
+const CANDIDATES = { kind: "array" as const, items: CANDIDATE_ITEM };
 
 /**
  * Ensure Aspect — search for a similar aspect before create_entity.
  * Prefer reuse; create only when needed. Keep LLM context slim via map.
+ * Ports are fixed; bindings are identity (UI may remap bag keys).
  */
 export const ensureAspectGraph: WorkflowGraph = {
   version: WORKFLOW_SCHEMA_VERSION,
@@ -24,6 +36,7 @@ export const ensureAspectGraph: WorkflowGraph = {
       data: {
         title: "Start",
         writes: ["title", "summary", "key", "reason", "parentAspectId"],
+        writeBindings: identityBindings(["title", "summary", "key", "reason", "parentAspectId"]),
         outputContracts: {
           title: { required: true, shape: STRING },
           summary: { required: false, shape: STRING },
@@ -43,7 +56,9 @@ export const ensureAspectGraph: WorkflowGraph = {
         inputs: {
           title: { required: true, shape: STRING }
         },
+        inputBindings: identityBindings(["title"]),
         writes: ["matches"],
+        writeBindings: identityBindings(["matches"]),
         auto: {
           loadContext: {
             mode: "query",
@@ -67,7 +82,9 @@ export const ensureAspectGraph: WorkflowGraph = {
         inputs: {
           matches: { required: true, shape: ENTITY_ARRAY }
         },
+        inputBindings: identityBindings(["matches"]),
         writes: ["candidates"],
+        writeBindings: identityBindings(["candidates"]),
         map: {
           from: "matches",
           as: "candidates",
@@ -80,21 +97,7 @@ export const ensureAspectGraph: WorkflowGraph = {
           ]
         },
         outputContracts: {
-          candidates: {
-            required: true,
-            shape: {
-              kind: "array",
-              items: {
-                kind: "object",
-                fields: {
-                  id: STRING,
-                  title: STRING,
-                  status: STRING,
-                  summary: STRING
-                }
-              }
-            }
-          }
+          candidates: { required: true, shape: CANDIDATES }
         }
       }
     },
@@ -109,23 +112,11 @@ export const ensureAspectGraph: WorkflowGraph = {
           title: { required: true, shape: STRING },
           summary: { required: false, shape: STRING },
           key: { required: false, shape: STRING },
-          candidates: {
-            required: true,
-            shape: {
-              kind: "array",
-              items: {
-                kind: "object",
-                fields: {
-                  id: STRING,
-                  title: STRING,
-                  status: STRING,
-                  summary: STRING
-                }
-              }
-            }
-          }
+          candidates: { required: true, shape: CANDIDATES }
         },
+        inputBindings: identityBindings(["title", "summary", "key", "candidates"]),
         writes: ["aspectId", "createNew", "confidence"],
+        writeBindings: identityBindings(["aspectId", "createNew", "confidence"]),
         outputContracts: {
           aspectId: { required: false, shape: STRING_OR_NULL },
           createNew: { required: true, shape: BOOLEAN },
@@ -158,6 +149,7 @@ export const ensureAspectGraph: WorkflowGraph = {
         inputs: {
           createNew: { required: true, shape: BOOLEAN }
         },
+        inputBindings: identityBindings(["createNew"]),
         branch: { on: "createNew" }
       }
     },
@@ -175,7 +167,9 @@ export const ensureAspectGraph: WorkflowGraph = {
           reason: { required: true, shape: STRING },
           parentAspectId: { required: false, shape: STRING }
         },
+        inputBindings: identityBindings(["title", "summary", "key", "reason", "parentAspectId"]),
         writes: ["aspectId"],
+        writeBindings: identityBindings(["aspectId"]),
         outputContracts: {
           aspectId: { required: true, shape: STRING }
         },
@@ -218,7 +212,7 @@ export const ensureAspectGraph: WorkflowGraph = {
 
 export const ensureAspectPreset: WorkflowPreset = {
   presetKey: "ensure_aspect",
-  presetVersion: 5,
+  presetVersion: 6,
   title: "Ensure Aspect",
   summary: "Search for a similar Aspect before creating one; reuse when possible.",
   body: [
@@ -226,7 +220,8 @@ export const ensureAspectPreset: WorkflowPreset = {
     "Inputs: title (required), summary, key, reason (required for create), parentAspectId (optional).",
     "Outputs: aspectId; createNew indicates whether a row was inserted.",
     "Prefer the smallest truthful existing Aspect; do not duplicate near-matches.",
-    "Bag ports use inputs/outputContracts; aspectId is string|null from the LLM step."
+    "Port contracts + identity inputBindings/writeBindings; aspectId is string|null from the LLM step.",
+    "Refresh seeded DB with: pnpm plan presets-ensure --force"
   ].join("\n"),
   status: "accepted",
   graph: ensureAspectGraph,

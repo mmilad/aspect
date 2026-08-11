@@ -1,5 +1,10 @@
 import { WORKFLOW_SCHEMA_VERSION, type WorkflowGraph } from "../types";
+import { identityBindings } from "./bindings";
 import type { WorkflowPreset } from "./types";
+
+const STRING = { kind: "primitive" as const, type: "string" as const };
+const NUMBER = { kind: "primitive" as const, type: "number" as const };
+const BOOLEAN = { kind: "primitive" as const, type: "boolean" as const };
 
 const nextWorkGraph: WorkflowGraph = {
   version: WORKFLOW_SCHEMA_VERSION,
@@ -11,9 +16,10 @@ const nextWorkGraph: WorkflowGraph = {
       data: {
         title: "Start",
         writes: ["goal", "limit"],
+        writeBindings: identityBindings(["goal", "limit"]),
         outputContracts: {
-          goal: { required: false, shape: { kind: "primitive", type: "string" } },
-          limit: { required: false, shape: { kind: "primitive", type: "number" } }
+          goal: { required: false, shape: STRING },
+          limit: { required: false, shape: NUMBER }
         }
       }
     },
@@ -25,9 +31,11 @@ const nextWorkGraph: WorkflowGraph = {
         title: "Rank task candidates",
         reads: ["goal"],
         inputs: {
-          goal: { required: false, shape: { kind: "primitive", type: "string" } }
+          goal: { required: false, shape: STRING }
         },
+        inputBindings: identityBindings(["goal"]),
         writes: ["candidates", "hasCandidates"],
+        writeBindings: identityBindings(["candidates", "hasCandidates"]),
         auto: {
           filter: {
             from: "entities",
@@ -40,7 +48,7 @@ const nextWorkGraph: WorkflowGraph = {
             required: true,
             shape: { kind: "array", items: { kind: "ref", ref: "RankedTaskCandidate" } }
           },
-          hasCandidates: { required: true, shape: { kind: "primitive", type: "boolean" } }
+          hasCandidates: { required: true, shape: BOOLEAN }
         }
       }
     },
@@ -59,13 +67,15 @@ const nextWorkGraph: WorkflowGraph = {
 
 export const nextWorkPreset: WorkflowPreset = {
   presetKey: "next_work",
-  presetVersion: 2,
+  presetVersion: 3,
   title: "Next work",
   summary: "Rank eligible open tasks by work score into bag.candidates.",
   body: [
     "Pick the next eligible task candidates from the living graph.",
     "Outputs: candidates[] (RankedTaskCandidate), hasCandidates (boolean).",
-    "Agents may still call MCP next_work for a ranked pick; this pack is the workflow-shaped equivalent."
+    "Rank node uses port contracts + identity inputBindings/writeBindings.",
+    "Agents may still call MCP next_work for a ranked pick; this pack is the workflow-shaped equivalent.",
+    "Refresh seeded DB with: pnpm plan presets-ensure --force"
   ].join("\n"),
   status: "accepted",
   graph: nextWorkGraph

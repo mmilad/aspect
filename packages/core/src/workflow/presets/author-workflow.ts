@@ -1,13 +1,17 @@
 import { WORKFLOW_SCHEMA_VERSION, type WorkflowGraph } from "../types";
+import { identityBindings } from "./bindings";
 import type { WorkflowPreset } from "./types";
 import {
   buildWorkflowCompileSystemPrompt,
   buildWorkflowOutlineSystemPrompt
 } from "../author";
 
+const STRING = { kind: "primitive" as const, type: "string" as const };
+
 /**
  * Two-step authoring: LLM outline (text) → LLM compile (JSON graph).
  * Both intermediates land in the bag so Story / inspector / run can show them.
+ * Ports are fixed; bindings are identity (UI may remap bag keys).
  */
 export const authorWorkflowGraph: WorkflowGraph = {
   version: WORKFLOW_SCHEMA_VERSION,
@@ -19,10 +23,11 @@ export const authorWorkflowGraph: WorkflowGraph = {
       data: {
         title: "Start",
         writes: ["brief", "title", "reason"],
+        writeBindings: identityBindings(["brief", "title", "reason"]),
         outputContracts: {
-          brief: { required: true, shape: { kind: "primitive", type: "string" } },
-          title: { required: false, shape: { kind: "primitive", type: "string" } },
-          reason: { required: false, shape: { kind: "primitive", type: "string" } }
+          brief: { required: true, shape: STRING },
+          title: { required: false, shape: STRING },
+          reason: { required: false, shape: STRING }
         }
       }
     },
@@ -33,9 +38,15 @@ export const authorWorkflowGraph: WorkflowGraph = {
       data: {
         title: "Outline as text",
         reads: ["brief", "title"],
+        inputs: {
+          brief: { required: true, shape: STRING },
+          title: { required: false, shape: STRING }
+        },
+        inputBindings: identityBindings(["brief", "title"]),
         writes: ["outline"],
+        writeBindings: identityBindings(["outline"]),
         outputContracts: {
-          outline: { required: true, shape: { kind: "primitive", type: "string" } }
+          outline: { required: true, shape: STRING }
         },
         llm: {
           systemPrompt: buildWorkflowOutlineSystemPrompt(),
@@ -60,9 +71,16 @@ export const authorWorkflowGraph: WorkflowGraph = {
       data: {
         title: "Compile to JSON",
         reads: ["brief", "title", "outline"],
+        inputs: {
+          brief: { required: true, shape: STRING },
+          title: { required: false, shape: STRING },
+          outline: { required: true, shape: STRING }
+        },
+        inputBindings: identityBindings(["brief", "title", "outline"]),
         writes: ["graphJson"],
+        writeBindings: identityBindings(["graphJson"]),
         outputContracts: {
-          graphJson: { required: true, shape: { kind: "primitive", type: "string" } }
+          graphJson: { required: true, shape: STRING }
         },
         llm: {
           systemPrompt: buildWorkflowCompileSystemPrompt(),
@@ -99,7 +117,7 @@ export const authorWorkflowGraph: WorkflowGraph = {
 
 export const authorWorkflowPreset: WorkflowPreset = {
   presetKey: "author_workflow",
-  presetVersion: 2,
+  presetVersion: 3,
   title: "Author workflow (outline → JSON)",
   summary:
     "Two LLM steps: write a text outline, then compile it to Workflow Step Graph v2 JSON.",
@@ -107,9 +125,11 @@ export const authorWorkflowPreset: WorkflowPreset = {
     "Bag: brief (required), title, reason optional.",
     "Step 1 writes `outline` (plain text / numbered pseudo steps).",
     "Step 2 writes `graphJson` (JSON string of { version, nodes, edges }).",
+    "Port contracts live on nodes; inputBindings/writeBindings are identity by default.",
     "Each LLM step has systemPrompt (role rules) + task instructions (bag templates).",
     "Run via run_workflow key=author_workflow; on pending_llm resume with llmWrites.",
-    "Prefer this over one-shot generate for local models."
+    "Prefer this over one-shot generate for local models.",
+    "Refresh seeded DB with: pnpm plan presets-ensure --force"
   ].join("\n"),
   status: "accepted",
   graph: authorWorkflowGraph,

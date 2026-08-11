@@ -1,10 +1,12 @@
 import { WORKFLOW_SCHEMA_VERSION, type WorkflowGraph } from "../types";
 import type { EntityType } from "../../domain/types";
+import { identityBindings } from "./bindings";
 import type { WorkflowPreset } from "./types";
 
 export type MutationOp = "create" | "update" | "delete";
 
 const CRUD_TYPES: EntityType[] = ["aspect", "feature", "task"];
+const STRING = { kind: "primitive" as const, type: "string" as const };
 
 /** Stable preset key: create_task, update_aspect, delete_feature, … */
 export function presetKeyFor(op: MutationOp, type: EntityType): string {
@@ -33,6 +35,7 @@ export function listCrudPresetKeys(): string[] {
 
 function skeletonCreateGraph(type: EntityType): WorkflowGraph {
   const resultKey = type === "task" ? "taskId" : type === "feature" ? "featureId" : "aspectId";
+  const startPorts = ["title", "summary", "key", "reason", "targetEntityId"];
   return {
     version: WORKFLOW_SCHEMA_VERSION,
     nodes: [
@@ -42,10 +45,14 @@ function skeletonCreateGraph(type: EntityType): WorkflowGraph {
         position: { x: 40, y: 120 },
         data: {
           title: "Start",
-          writes: ["title", "summary", "key", "reason", "targetEntityId"],
+          writes: startPorts,
+          writeBindings: identityBindings(startPorts),
           outputContracts: {
-            title: { required: true, shape: { kind: "primitive", type: "string" } },
-            reason: { required: true, shape: { kind: "primitive", type: "string" } }
+            title: { required: true, shape: STRING },
+            summary: { required: false, shape: STRING },
+            key: { required: false, shape: STRING },
+            reason: { required: true, shape: STRING },
+            targetEntityId: { required: false, shape: STRING }
           }
         }
       },
@@ -55,8 +62,20 @@ function skeletonCreateGraph(type: EntityType): WorkflowGraph {
         position: { x: 280, y: 120 },
         data: {
           title: `Create ${type}`,
-          reads: ["title", "summary", "key", "reason", "targetEntityId"],
+          reads: startPorts,
+          inputs: {
+            title: { required: true, shape: STRING },
+            summary: { required: false, shape: STRING },
+            key: { required: false, shape: STRING },
+            reason: { required: true, shape: STRING },
+            targetEntityId: { required: false, shape: STRING }
+          },
+          inputBindings: identityBindings(startPorts),
           writes: [resultKey],
+          writeBindings: identityBindings([resultKey]),
+          outputContracts: {
+            [resultKey]: { required: true, shape: STRING }
+          },
           write: {
             action: "create_entity",
             argsFromBag: {
@@ -85,6 +104,7 @@ function skeletonCreateGraph(type: EntityType): WorkflowGraph {
 }
 
 function skeletonUpdateGraph(type: EntityType): WorkflowGraph {
+  const startPorts = ["id", "title", "summary", "status", "reason"];
   return {
     version: WORKFLOW_SCHEMA_VERSION,
     nodes: [
@@ -94,10 +114,14 @@ function skeletonUpdateGraph(type: EntityType): WorkflowGraph {
         position: { x: 40, y: 120 },
         data: {
           title: "Start",
-          writes: ["id", "title", "summary", "status", "reason"],
+          writes: startPorts,
+          writeBindings: identityBindings(startPorts),
           outputContracts: {
-            id: { required: true, shape: { kind: "primitive", type: "string" } },
-            reason: { required: true, shape: { kind: "primitive", type: "string" } }
+            id: { required: true, shape: STRING },
+            title: { required: false, shape: STRING },
+            summary: { required: false, shape: STRING },
+            status: { required: false, shape: STRING },
+            reason: { required: true, shape: STRING }
           }
         }
       },
@@ -107,8 +131,20 @@ function skeletonUpdateGraph(type: EntityType): WorkflowGraph {
         position: { x: 280, y: 120 },
         data: {
           title: `Update ${type}`,
-          reads: ["id", "title", "summary", "status", "reason"],
+          reads: startPorts,
+          inputs: {
+            id: { required: true, shape: STRING },
+            title: { required: false, shape: STRING },
+            summary: { required: false, shape: STRING },
+            status: { required: false, shape: STRING },
+            reason: { required: true, shape: STRING }
+          },
+          inputBindings: identityBindings(startPorts),
           writes: ["entityId"],
+          writeBindings: identityBindings(["entityId"]),
+          outputContracts: {
+            entityId: { required: true, shape: STRING }
+          },
           write: {
             action: "update_entity",
             argsFromBag: {
@@ -138,6 +174,7 @@ function skeletonUpdateGraph(type: EntityType): WorkflowGraph {
 
 /** Delete = archive (status archived). Never hard-deletes. */
 function skeletonDeleteGraph(type: EntityType): WorkflowGraph {
+  const startPorts = ["id", "reason"];
   return {
     version: WORKFLOW_SCHEMA_VERSION,
     nodes: [
@@ -147,10 +184,11 @@ function skeletonDeleteGraph(type: EntityType): WorkflowGraph {
         position: { x: 40, y: 120 },
         data: {
           title: "Start",
-          writes: ["id", "reason"],
+          writes: startPorts,
+          writeBindings: identityBindings(startPorts),
           outputContracts: {
-            id: { required: true, shape: { kind: "primitive", type: "string" } },
-            reason: { required: true, shape: { kind: "primitive", type: "string" } }
+            id: { required: true, shape: STRING },
+            reason: { required: true, shape: STRING }
           }
         }
       },
@@ -160,8 +198,17 @@ function skeletonDeleteGraph(type: EntityType): WorkflowGraph {
         position: { x: 280, y: 120 },
         data: {
           title: `Archive ${type}`,
-          reads: ["id", "reason"],
+          reads: startPorts,
+          inputs: {
+            id: { required: true, shape: STRING },
+            reason: { required: true, shape: STRING }
+          },
+          inputBindings: identityBindings(startPorts),
           writes: ["entityId"],
+          writeBindings: identityBindings(["entityId"]),
+          outputContracts: {
+            entityId: { required: true, shape: STRING }
+          },
           write: {
             action: "update_entity",
             argsFromBag: {
@@ -224,7 +271,7 @@ function crudPreset(op: MutationOp, type: EntityType): WorkflowPreset {
 
   return {
     presetKey,
-    presetVersion: 1,
+    presetVersion: 2,
     title,
     summary:
       op === "delete"

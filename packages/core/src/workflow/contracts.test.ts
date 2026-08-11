@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createContextBag, WORKFLOW_SCHEMA_VERSION } from "./schema";
+import { createContextBag } from "./schema";
 import { validateNodeInputs, validateNodeOutputs } from "./contracts";
 import { nullable } from "./shapes";
 import type { WorkflowNode } from "./types";
@@ -39,10 +39,10 @@ describe("node I/O contracts", () => {
       position: { x: 0, y: 0 },
       data: {
         title: "T",
-        reads: ["taskId"],
         inputs: {
           taskId: { required: true, shape: nullable({ kind: "primitive", type: "string" }) }
         },
+        inputBindings: { taskId: "taskId" },
         tool: { name: "x" }
       }
     };
@@ -53,6 +53,37 @@ describe("node I/O contracts", () => {
       keys: { taskId: null }
     });
     expect(validateNodeInputs(node, bag).ok).toBe(true);
+  });
+
+  it("validates input port against bound bag key", () => {
+    const node: WorkflowNode = {
+      id: "n",
+      type: "tool",
+      position: { x: 0, y: 0 },
+      data: {
+        title: "T",
+        inputs: {
+          taskId: { required: true, shape: { kind: "primitive", type: "string" } }
+        },
+        inputBindings: { taskId: "selectedTask" },
+        tool: { name: "x" }
+      }
+    };
+    const missing = createContextBag({
+      workflowId: "w",
+      goal: "g",
+      startNodeId: "n",
+      keys: { taskId: "ignored" }
+    });
+    expect(validateNodeInputs(node, missing).ok).toBe(false);
+
+    const ok = createContextBag({
+      workflowId: "w",
+      goal: "g",
+      startNodeId: "n",
+      keys: { selectedTask: "t1" }
+    });
+    expect(validateNodeInputs(node, ok).ok).toBe(true);
   });
 
   it("validates required outputs after writes", () => {
@@ -67,6 +98,7 @@ describe("node I/O contracts", () => {
           id: { required: true, shape: { kind: "primitive", type: "string" } },
           title: { required: true, shape: { kind: "primitive", type: "string" } }
         },
+        writeBindings: { id: "id", title: "title" },
         auto: { assign: { set: {} } }
       }
     };
@@ -76,10 +108,7 @@ describe("node I/O contracts", () => {
       startNodeId: "n",
       keys: { id: "a" }
     });
-    const result = validateNodeOutputs(node, { ...bag, keys: { ...bag.keys, id: "a" } });
+    const result = validateNodeOutputs(node, bag);
     expect(result.ok).toBe(false);
   });
 });
-
-// silence unused
-void WORKFLOW_SCHEMA_VERSION;

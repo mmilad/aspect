@@ -15,6 +15,7 @@ import {
 import type { WorkflowContextBag, WorkflowGraph } from "../graph/types";
 import { resolveLlmOutputContracts } from "../llm-outputs";
 import { getNodeModel } from "../nodes/registry";
+import { mapPortValuesToBag } from "../ports";
 import { validateValueAgainstShape } from "../shapes";
 import type { WorkflowAdapters } from "./adapters";
 import { advanceCursor, fail } from "./helpers";
@@ -129,7 +130,8 @@ export class WorkflowRun {
           return result;
         }
       }
-      const applied = applyBagWrites(bag, Object.keys(outputs), opts.llmWrites);
+      const bagWrites = mapPortValuesToBag(node, opts.llmWrites);
+      const applied = applyBagWrites(bag, Object.keys(bagWrites), bagWrites);
       if (!applied.ok) {
         const result = this.contractFailure(bag, node.id, applied.error);
         this._bag = result.bag;

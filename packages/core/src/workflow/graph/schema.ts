@@ -15,6 +15,7 @@ import {
   type WorkflowNodeType
 } from "../nodes/_shared/types";
 import { getNodeModel } from "../nodes/registry";
+import { derivedWrites, normalizeNodePorts } from "../ports";
 import type {
   WorkflowContextBag,
   WorkflowEdge,
@@ -58,12 +59,19 @@ function parseNode(raw: unknown, errors: string[]): WorkflowNode | null {
   const model = getNodeModel(type);
   const rawData = isRecord(raw.data) ? raw.data : {};
   const configPartial = model.parseConfig(rawData, raw.id, errors);
-  const data = pickNodeData(base, configPartial, model.configKey);
+  let data = pickNodeData(base, configPartial, model.configKey);
 
-  // Auto-include map.as in writes when map config is present and writes omit it.
-  if (data.map && data.writes && !data.writes.includes(data.map.as)) {
-    data.writes = [...data.writes, data.map.as];
+  // Auto-include map.as in writeBindings/writes when map config is present.
+  if (data.map?.as) {
+    const as = data.map.as;
+    const writeBindings = { ...(data.writeBindings ?? {}) };
+    if (!Object.values(writeBindings).includes(as) && !(as in writeBindings)) {
+      writeBindings[as] = as;
+    }
+    data = { ...data, writeBindings };
   }
+
+  data = normalizeNodePorts(data);
 
   return {
     id: raw.id,
@@ -409,7 +417,7 @@ export function applyBagWrites(
 }
 
 export function getNodeWrites(node: WorkflowNode): string[] {
-  return node.data.writes ?? node.data.outputs ?? [];
+  return derivedWrites(node);
 }
 
 export function findStartNode(graph: WorkflowGraph): WorkflowNode | undefined {

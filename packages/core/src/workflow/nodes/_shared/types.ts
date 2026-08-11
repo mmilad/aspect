@@ -241,6 +241,10 @@ export interface WorkflowNodeData {
   outputs?: string[];
   inputs?: Record<string, WorkflowBagKeyContract>;
   outputContracts?: Record<string, WorkflowBagKeyContract>;
+  /** portId → bag key this step reads from (identity when omitted). */
+  inputBindings?: Record<string, string>;
+  /** output portId → bag key this step writes to (identity when omitted). */
+  writeBindings?: Record<string, string>;
   auto?: WorkflowAutoConfig;
   tool?: WorkflowToolConfig;
   llm?: WorkflowLlmConfig;

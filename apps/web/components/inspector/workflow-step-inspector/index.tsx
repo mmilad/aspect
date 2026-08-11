@@ -14,6 +14,7 @@ import {
 import { FormLabel, GhostButton, Select, TextArea, TextInput } from "../../ui";
 import { PropPicker, WorkflowBagPanel } from "../../workflow-workspace/workflow-bag-panel";
 import { BagPortsEditor } from "./bag-ports-editor";
+import { StartRunInputsEditor } from "./start-run-inputs-editor";
 
 export interface WorkflowStepInspectorProps {
   selected: WorkflowNode | null;
@@ -99,7 +100,8 @@ function readFieldValue(selected: WorkflowNode, field: WorkflowInspectorField): 
     field.kind === "executionPolicy" ||
     field.kind === "mapFields" ||
     field.kind === "toolArgs" ||
-    field.kind === "bagPorts"
+    field.kind === "bagPorts" ||
+    field.kind === "startRunInputs"
   ) {
     return "";
   }
@@ -132,6 +134,10 @@ function renderField(
         onUpdateData={onUpdateData}
       />
     );
+  }
+
+  if (field.kind === "startRunInputs") {
+    return <StartRunInputsEditor key="startRunInputs" selected={selected} onUpdateData={onUpdateData} />;
   }
 
   if (field.kind === "executionPolicy") {
@@ -361,7 +367,9 @@ export function WorkflowStepInspector({
           <FormLabel label="Title">
             <TextInput value={selected.data.title} onChange={(event) => onUpdateData({ title: event.target.value })} />
           </FormLabel>
-          <BagPortsEditor selected={selected} bagView={bagView} onUpdateData={onUpdateData} />
+          {selected.type === "start" ? null : (
+            <BagPortsEditor selected={selected} bagView={bagView} onUpdateData={onUpdateData} />
+          )}
           {fields
             .filter((field) => field.kind !== "bagPorts")
             .map((field) => renderField(field, selected, bagView, onUpdateData))}

@@ -14,6 +14,7 @@ import {
 import {
   parseWorkflowGraph,
   bagViewAtNode,
+  getNodeModel,
   renderWorkflowStory,
   renderWorkflowMermaid,
   warnMissingUpstreamKeys,
@@ -108,7 +109,7 @@ function defaultDataForType(type: WorkflowNodeType): WorkflowNodeData {
     case "branch":
       return { title, branch: { on: "flag" } };
     case "start":
-      return { title: "Start", writes: ["goal"] };
+      return getNodeModel("start").defaultData();
     default:
       return { title };
   }
@@ -141,6 +142,7 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
   const { publish, clear } = useWorkflowInspectorPublisher();
 
   const selected = nodes.find((node) => node.id === selectedId)?.data.workflow ?? null;
+  const hasStart = nodes.some((node) => node.data.workflow.type === "start");
   const bagView = useMemo(() => {
     const graph = fromRf(nodes as FlowRfNode[], edges, version);
     const parsed = parseWorkflowGraph(graph);
@@ -314,6 +316,10 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
 
   const addNode = useCallback(
     (type: WorkflowNodeType) => {
+      if (type === "start" && nodes.some((node) => node.data.workflow.type === "start")) {
+        setStatus("Workflow already has a Start node.");
+        return;
+      }
       const id = `${type}_${Date.now().toString(36)}`;
       const workflow: WorkflowNode = {
         id,
@@ -321,20 +327,30 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
         position: { x: 160 + nodes.length * 24, y: 80 + (nodes.length % 4) * 72 },
         data: defaultDataForType(type)
       };
-      setNodes((current) => [...current, { id, type: "workflow", position: workflow.position, data: { workflow } }]);
+      setNodes((current) => [
+        ...current,
+        {
+          id,
+          type: "workflow",
+          position: workflow.position,
+          deletable: type !== "start",
+          data: { workflow }
+        }
+      ]);
       syncSelection(id);
     },
-    [nodes.length, setNodes, syncSelection]
+    [nodes, setNodes, syncSelection]
   );
 
   const deleteSelected = useCallback(() => {
-    if (!selectedId || selectedId === "start") {
+    const selectedNode = nodes.find((node) => node.id === selectedId);
+    if (!selectedId || selectedNode?.data.workflow.type === "start") {
       return;
     }
     setNodes((current) => current.filter((node) => node.id !== selectedId));
     setEdges((current) => current.filter((edge) => edge.source !== selectedId && edge.target !== selectedId));
     syncSelection(null);
-  }, [selectedId, setNodes, setEdges, syncSelection]);
+  }, [selectedId, nodes, setNodes, setEdges, syncSelection]);
 
   const save = useCallback(async () => {
     const graph = currentGraph();
@@ -529,6 +545,7 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
               connectKind={connectKind}
               onConnectKindChange={setConnectKind}
               onAddNode={addNode}
+              hasStart={hasStart}
             />
           )
         }
@@ -587,6 +604,7 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
             onConnectKindChange={setConnectKind}
             onAddNode={addNode}
             onClose={() => setContextMenu(null)}
+            hasStart={hasStart}
           />
         </div>
       )}

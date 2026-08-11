@@ -533,7 +533,19 @@ export function emptyWorkflowGraph(): WorkflowGraph {
   return {
     version: WORKFLOW_SCHEMA_VERSION,
     nodes: [
-      { id: "start", type: "start", position: { x: 80, y: 120 }, data: { title: "Start", writes: ["goal"] } },
+      {
+        id: "start",
+        type: "start",
+        position: { x: 80, y: 120 },
+        data: {
+          title: "Start",
+          writes: ["goal"],
+          writeBindings: { goal: "goal" },
+          outputContracts: {
+            goal: { required: false, shape: { kind: "primitive", type: "string" } }
+          }
+        }
+      },
       { id: "end", type: "end", position: { x: 420, y: 120 }, data: { title: "End" } }
     ],
     edges: [{ id: "e_start_end", source: "start", target: "end", kind: "next" }]

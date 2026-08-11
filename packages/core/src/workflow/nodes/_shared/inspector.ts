@@ -35,6 +35,10 @@ export type WorkflowInspectorField =
   | {
       /** Reads/writes ports with required + shape contracts. */
       kind: "bagPorts";
+    }
+  | {
+      /** Start-only: author run-input outputContracts (name / shape / required). */
+      kind: "startRunInputs";
     };
 
 export function getDataPath(data: WorkflowNodeData, path: string): unknown {

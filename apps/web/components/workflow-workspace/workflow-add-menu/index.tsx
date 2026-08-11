@@ -15,17 +15,24 @@ export function WorkflowAddMenuBody({
   connectKind,
   onConnectKindChange,
   onAddNode,
-  onClose
+  onClose,
+  hasStart = false
 }: {
   connectKind: WorkflowEdgeKind;
   onConnectKindChange: (kind: WorkflowEdgeKind) => void;
   onAddNode: (type: WorkflowNodeType) => void;
   onClose?: () => void;
+  /** When true, Start is omitted — graphs allow exactly one. */
+  hasStart?: boolean;
 }) {
   function add(type: WorkflowNodeType) {
     onAddNode(type);
     onClose?.();
   }
+
+  const controlTypes = hasStart
+    ? workflowControlNodeTypes.filter((type) => type !== "start")
+    : workflowControlNodeTypes;
 
   return (
     <div className="min-w-[180px] rounded-md border border-border bg-white p-2 shadow-pane">
@@ -44,7 +51,7 @@ export function WorkflowAddMenuBody({
           <option value="error">error</option>
         </select>
       </div>
-      <Section label="Control" types={workflowControlNodeTypes} onAdd={add} />
+      <Section label="Control" types={controlTypes} onAdd={add} />
       <Section label="Work" types={workflowWorkNodeTypes} onAdd={add} />
     </div>
   );
@@ -82,11 +89,13 @@ function Section({
 export function WorkflowToolbarAdd({
   connectKind,
   onConnectKindChange,
-  onAddNode
+  onAddNode,
+  hasStart = false
 }: {
   connectKind: WorkflowEdgeKind;
   onConnectKindChange: (kind: WorkflowEdgeKind) => void;
   onAddNode: (type: WorkflowNodeType) => void;
+  hasStart?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -116,6 +125,7 @@ export function WorkflowToolbarAdd({
             onConnectKindChange={onConnectKindChange}
             onAddNode={onAddNode}
             onClose={() => setOpen(false)}
+            hasStart={hasStart}
           />
         </div>
       ) : null}
@@ -129,13 +139,15 @@ export function WorkflowCanvasContextMenu({
   connectKind,
   onConnectKindChange,
   onAddNode,
-  onClose
+  onClose,
+  hasStart = false
 }: {
   position: MenuPosition;
   connectKind: WorkflowEdgeKind;
   onConnectKindChange: (kind: WorkflowEdgeKind) => void;
   onAddNode: (type: WorkflowNodeType) => void;
   onClose: () => void;
+  hasStart?: boolean;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -177,6 +189,7 @@ export function WorkflowCanvasContextMenu({
         onConnectKindChange={onConnectKindChange}
         onAddNode={onAddNode}
         onClose={onClose}
+        hasStart={hasStart}
       />
     </div>
   );

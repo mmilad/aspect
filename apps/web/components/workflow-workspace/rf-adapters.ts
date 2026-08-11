@@ -27,6 +27,7 @@ export function toRfNodes(graph: WorkflowGraph, selectedId: string | null): Flow
     type: "workflow",
     position: node.position,
     selected: node.id === selectedId,
+    deletable: node.type !== "start",
     data: { workflow: node }
   }));
 }

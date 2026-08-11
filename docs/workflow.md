@@ -25,11 +25,13 @@ Prefer `run_workflow` over raw `create_entity` / `update_entity` when a matching
 
 ## Bag ports vs bindings
 
-Port **contracts** (types) are authored in presets/code. The UI only **binds** bag keys onto those ports.
+Port **contracts** (types) are authored in presets/code for work nodes. The UI only **binds** bag keys onto those ports.
+
+**Exception — Start:** Start has no upstream. Its `outputContracts` / `writes` are the **workflow run inputs** (name, shape, required). Authors edit them in the inspector. Graphs allow **exactly one** Start (scaffolded; hidden from Add when present; non-deletable).
 
 | Layer | Fields | Who edits |
 |-------|--------|-----------|
-| Port contracts | `inputs` / `outputContracts` (port id → required + `BagShape`) | Presets / code — not the inspector |
+| Port contracts | `inputs` / `outputContracts` (port id → required + `BagShape`) | Presets / code — not the inspector (**Start** may edit `outputContracts` as run inputs) |
 | Bindings | `inputBindings` / `writeBindings` (port id → bag key) | Inspector (PropPicker / write section) |
 | Derived legacy | `reads` / `writes` | Synced from binding values on parse/save |
 

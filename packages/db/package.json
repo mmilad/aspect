@@ -10,7 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "plan": "tsx src/agent-cli.ts",
     "db:push": "drizzle-kit push",
-    "test:node": "tsx --test src/query.node-test.ts src/presets.node-test.ts src/workflow-runtime.node-test.ts src/rollup.node-test.ts src/projects.node-test.ts"
+    "test:node": "tsx --test src/query.node-test.ts src/presets.node-test.ts src/workflow-runtime.node-test.ts src/rollup.node-test.ts src/projects.node-test.ts src/example-signal-desk.node-test.ts"
   },
   "dependencies": {
     "@projectplaner/core": "workspace:*",

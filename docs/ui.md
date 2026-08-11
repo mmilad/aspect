@@ -20,7 +20,7 @@ Add workflow steps via toolbar **Add** or canvas **right-click** context menu (c
 
 | Route | Purpose |
 |-------|---------|
-| `/` | Multi-project hub — list / create / delete projects (`PLAN` is protected) |
+| `/` | Multi-project hub — list / create / delete projects (`PLAN` is protected). Manual **Create example (Signal Desk)** seeds key `DEMO` (content pipeline); not auto-seeded — delete `DEMO` to recreate. |
 | `/projects/[key]` | Project Workspace — operational stats hub (counts by type/status, workflow defs) |
 | Graph | React Flow entity graph — navigate, filter, open entities |
 | Issues | Task list with status / tag filters |

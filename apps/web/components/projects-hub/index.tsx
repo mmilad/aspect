@@ -4,11 +4,23 @@ import { useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FolderKanban, Trash2 } from "lucide-react";
-import type { ProjectSummary } from "@projectplaner/db";
 import { FormLabel, GhostButton, TextInput } from "../ui";
 import { projectPaths } from "../../lib/project-paths";
 
+/** Keep in sync with EXAMPLE_PROJECT_KEY in @projectplaner/db (do not import db in client). */
+const EXAMPLE_PROJECT_KEY = "DEMO";
 const PROTECTED_KEY = "PLAN";
+
+type ProjectSummary = {
+  id: string;
+  key: string;
+  title: string;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+  entityCount: number;
+  workflowCount: number;
+};
 
 interface ProjectsHubProps {
   initialProjects: ProjectSummary[];
@@ -20,8 +32,11 @@ export function ProjectsHub({ initialProjects }: ProjectsHubProps) {
   const [key, setKey] = useState("");
   const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
+  const [exampleBusy, setExampleBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
+
+  const exampleExists = projects.some((project) => project.key === EXAMPLE_PROJECT_KEY);
 
   const sorted = useMemo(
     () => [...projects].sort((a, b) => a.key.localeCompare(b.key)),
@@ -60,6 +75,25 @@ export function ProjectsHub({ initialProjects }: ProjectsHubProps) {
       setError(err instanceof Error ? err.message : "Could not create project.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function onCreateExample() {
+    setExampleBusy(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/projects/example", { method: "POST" });
+      const payload = (await response.json()) as { project?: ProjectSummary; error?: string };
+      if (!response.ok || !payload.project) {
+        throw new Error(payload.error ?? "Could not create example project.");
+      }
+      await refreshList();
+      router.push(projectPaths.workspace(payload.project.key));
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not create example project.");
+    } finally {
+      setExampleBusy(false);
     }
   }
 
@@ -113,27 +147,49 @@ export function ProjectsHub({ initialProjects }: ProjectsHubProps) {
             <TextInput
               value={key}
               onChange={(event) => setKey(event.target.value.toUpperCase())}
-              placeholder="DEMO"
+              placeholder="ACME"
               maxLength={32}
               required
-              disabled={busy}
+              disabled={busy || exampleBusy}
             />
           </FormLabel>
           <FormLabel label="Title">
             <TextInput
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              placeholder="Demo project"
+              placeholder="Acme project"
               required
-              disabled={busy}
+              disabled={busy || exampleBusy}
             />
           </FormLabel>
           <div className="flex items-end">
-            <GhostButton type="submit" tone="primary" disabled={busy || !key.trim() || !title.trim()}>
+            <GhostButton
+              type="submit"
+              tone="primary"
+              disabled={busy || exampleBusy || !key.trim() || !title.trim()}
+            >
               {busy ? "Creating…" : "Create project"}
             </GhostButton>
           </div>
         </form>
+
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed border-border bg-white px-3 py-2">
+          <p className="mr-auto text-xs text-muted-foreground">
+            Example: Signal Desk content pipeline (key {EXAMPLE_PROJECT_KEY}). Delete to recreate.
+          </p>
+          <GhostButton
+            type="button"
+            tone="accent"
+            disabled={busy || exampleBusy || exampleExists}
+            onClick={() => void onCreateExample()}
+          >
+            {exampleBusy
+              ? "Creating example…"
+              : exampleExists
+                ? `${EXAMPLE_PROJECT_KEY} exists`
+                : "Create example (Signal Desk)"}
+          </GhostButton>
+        </div>
 
         {error ? <p className="text-xs text-rose-700">{error}</p> : null}
 
@@ -173,7 +229,7 @@ export function ProjectsHub({ initialProjects }: ProjectsHubProps) {
                       <GhostButton
                         size="xs"
                         tone="danger"
-                        disabled={deletingKey === project.key}
+                        disabled={deletingKey === project.key || busy || exampleBusy}
                         onClick={() => onDelete(project)}
                       >
                         <span className="inline-flex items-center gap-1">

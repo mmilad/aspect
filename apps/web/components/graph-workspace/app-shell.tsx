@@ -37,11 +37,12 @@ import type { GraphMatch, GraphMode, GraphSurface } from "./types";
 
 interface AppShellProps {
   snapshot: ProjectPlanSnapshot;
+  /** @deprecated Graph is the only AppShell host; Workspace is a separate stats page. */
   graphOnly?: boolean;
   initialSelectedId?: string;
 }
 
-export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: AppShellProps) {
+export function AppShell({ snapshot, initialSelectedId }: AppShellProps) {
   const router = useRouter();
   const pathname = usePathname();
   const allGraphEntities = useMemo(() => buildGraphEntities(snapshot), [snapshot]);
@@ -185,12 +186,12 @@ export function AppShell({ snapshot, graphOnly = false, initialSelectedId }: App
     <ProjectShell
       project={snapshot.project}
       scopeLabel={centerNode.path}
-      activeView={graphOnly ? "graph" : "workspace"}
+      activeView="graph"
       chrome={{ entityId: selectedId ?? centerNode.id }}
       leftSidebar={
         <ProjectLeftSidebar
           snapshot={snapshot}
-          activeView={graphOnly ? "graph" : "workspace"}
+          activeView="graph"
           selectedId={selectedId}
           activeTypes={activeTypes}
           entityTypes={allEntityTypes}

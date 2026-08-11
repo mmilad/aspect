@@ -1,10 +1,25 @@
 import type { Entity, EntityRelation, Tag } from "@projectplaner/core";
 import { getTagsForEntity } from "@projectplaner/core";
-import { getProjectSnapshot, listRelations } from "@projectplaner/db";
+import {
+  getProjectSnapshot,
+  getProjectStats,
+  listProjects,
+  listRelations,
+  type ProjectStats,
+  type ProjectSummary
+} from "@projectplaner/db";
 import { createWebPlanApi, withDb } from "./plan-api";
 
 export async function loadProject(key = "PLAN") {
   return withDb(async (db) => getProjectSnapshot(db, key));
+}
+
+export async function loadProjects(): Promise<ProjectSummary[]> {
+  return withDb(async (db) => listProjects(db));
+}
+
+export async function loadProjectStats(key: string): Promise<ProjectStats | null> {
+  return withDb(async (db) => getProjectStats(db, key));
 }
 
 export type EntityDetailRelation = {

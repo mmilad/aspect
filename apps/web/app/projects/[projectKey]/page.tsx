@@ -1,14 +1,27 @@
 import { notFound } from "next/navigation";
-import { AppShell } from "../../../components/graph-workspace";
-import { loadProject } from "../../../lib/data";
+import { ProjectViewShell } from "../../../components/project-view-shell";
+import { ProjectWorkspaceHub } from "../../../components/project-workspace";
+import { loadProject, loadProjectStats } from "../../../lib/data";
 
-export default async function ProjectPage({ params }: { params: Promise<{ projectKey: string }> }) {
+export default async function ProjectWorkspacePage({
+  params
+}: {
+  params: Promise<{ projectKey: string }>;
+}) {
   const { projectKey } = await params;
-  const snapshot = await loadProject(projectKey);
+  const [snapshot, stats] = await Promise.all([loadProject(projectKey), loadProjectStats(projectKey)]);
 
-  if (!snapshot) {
+  if (!snapshot || !stats) {
     notFound();
   }
 
-  return <AppShell snapshot={snapshot} />;
+  return (
+    <ProjectViewShell
+      snapshot={snapshot}
+      activeView="workspace"
+      scopeLabel="hub"
+      scrollCenter
+      center={<ProjectWorkspaceHub snapshot={snapshot} stats={stats} />}
+    />
+  );
 }

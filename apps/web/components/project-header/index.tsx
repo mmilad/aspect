@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Workflow } from "lucide-react";
 import type { ProjectPlanSnapshot } from "@projectplaner/core";
 import { Badge } from "../ui/badge";
@@ -48,10 +49,16 @@ export function ProjectHeader({ project, scopeLabel, activeView, chrome }: Proje
           </div>
         </div>
         <div className={styles.topActions}>
+          <Link
+            href="/"
+            className="rounded-md border border-border bg-white px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-muted"
+          >
+            Projects
+          </Link>
           <Badge>{key}</Badge>
           <div className={styles.surfaceSwitch} role="tablist" aria-label="Chrome surface">
             <ToolbarLink
-              href={projectPaths.graph(key)}
+              href={projectPaths.workspace(key)}
               size="xs"
               active={surface === "entity-graph"}
               aria-current={surface === "entity-graph" ? "page" : undefined}
@@ -81,15 +88,6 @@ export function ProjectHeader({ project, scopeLabel, activeView, chrome }: Proje
             <ToolbarLink href={projectPaths.graph(key)} size="xs" active={activeView === "graph"}>
               Graph
             </ToolbarLink>
-            {chrome?.entityId ? (
-              <ToolbarLink
-                href={projectPaths.entity(key, chrome.entityId)}
-                size="xs"
-                active={activeView === "entity"}
-              >
-                Entity
-              </ToolbarLink>
-            ) : null}
           </>
         ) : (
           <>

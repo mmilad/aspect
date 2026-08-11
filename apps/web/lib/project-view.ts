@@ -38,7 +38,11 @@ export function isWorkflowsNavActive(view: ProjectView): boolean {
   return view === "workflows" || view === "workflow";
 }
 
-/** Workspace is an alias of Graph for planning-return (sidebar Project Tabs). */
+/** Graph canvas route only (Workspace is a separate stats hub). */
 export function isGraphNavActive(view: ProjectView): boolean {
-  return view === "graph" || view === "workspace";
+  return view === "graph";
+}
+
+export function isWorkspaceNavActive(view: ProjectView): boolean {
+  return view === "workspace";
 }

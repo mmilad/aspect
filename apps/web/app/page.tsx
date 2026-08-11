@@ -1,6 +1,7 @@
-import { redirect } from "next/navigation";
+import { ProjectsHub } from "../components/projects-hub";
+import { loadProjects } from "../lib/data";
 
-export default function HomePage() {
-  redirect("/projects/PLAN");
+export default async function HomePage() {
+  const projects = await loadProjects();
+  return <ProjectsHub initialProjects={projects} />;
 }
-

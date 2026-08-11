@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Columns3, GitFork, ListTodo } from "lucide-react";
+import { Columns3, GitFork, LayoutDashboard, ListTodo } from "lucide-react";
 import type { ProjectPlanSnapshot } from "@projectplaner/core";
 import { projectPaths } from "../../lib/project-paths";
-import { isGraphNavActive, type ProjectView } from "../../lib/project-view";
+import { isGraphNavActive, isWorkspaceNavActive, type ProjectView } from "../../lib/project-view";
 import { cn } from "../../lib/utils";
 import styles from "./style.module.css";
 
@@ -22,6 +22,15 @@ export function ProjectTabsNav({ snapshot, activeView, selectedId }: ProjectTabs
     <section className={styles.section}>
       <div className={styles.heading}>Project Tabs</div>
       <nav className={styles.nav} aria-label="Project tabs">
+        <Link
+          className={cn(styles.link, isWorkspaceNavActive(activeView) && styles.activeLink)}
+          href={projectPaths.workspace(key)}
+        >
+          <span className="inline-flex items-center gap-2">
+            <LayoutDashboard className="h-4 w-4" />
+            Workspace
+          </span>
+        </Link>
         <Link
           className={cn(styles.link, isGraphNavActive(activeView) && styles.activeLink)}
           href={projectPaths.graph(key, selectedId)}

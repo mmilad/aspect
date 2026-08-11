@@ -31,7 +31,7 @@ export type ProjectViewShellProps = {
 
 /**
  * Shared 3-pane project page wiring for entity/flow (and similar) views.
- * Graph/workspace keep their own host because they own interactive selection state.
+ * Graph keeps its own host because it owns interactive selection state.
  */
 export function ProjectViewShell({
   snapshot,

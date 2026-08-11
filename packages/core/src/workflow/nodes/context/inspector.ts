@@ -1,6 +1,7 @@
 import type { WorkflowInspectorField } from "../_shared/inspector";
 
 export const contextInspectorFields: WorkflowInspectorField[] = [
+  { kind: "bagPorts" },
   {
     kind: "select",
     label: "Load mode",

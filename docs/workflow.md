@@ -23,6 +23,22 @@ Prefer `run_workflow` over raw `create_entity` / `update_entity` when a matching
 - **UI Generate** (Describe): when `PROJECTPLANER_LLM_*` is set, uses the same two-turn path (`outline` then compile) and returns `{ graph, outline, graphJson, source: "llm_two_turn" }`. Without LLM, deterministic scaffold only.
 - Typed LLM writes: `outputContracts` / `pending_llm.outputs` carry `BagShape`; resume validates `llmWrites` against those shapes.
 
+## Bag ports (inputs / outputs)
+
+Every work node declares **bag ports**, separate from **node config**:
+
+| Layer | Examples | Role |
+|-------|----------|------|
+| Config | `llm.instructions`, `tool.name`, `map.fields` | How the step behaves (inspector textareas / pickers) |
+| Ports | `reads` / `writes` + `inputs` / `outputContracts` | What bag keys it consumes / produces |
+
+- **No separate “update bag” node** — declared `writes` + `outputContracts` are the bag write API.
+- **Shapes** use `BagShape`, including `union` (e.g. `string\|null` via `nullable()`).
+- **`required: false`** = key may be **absent**. **`null` inside a union** = key may be **present** with null.
+- **Runtime (strict for work nodes):** validate inputs before `execute`; validate outputs after successful writes / LLM resume. Control nodes only when they declare `inputs`.
+- **Nullability:** branch/gate only when upstream is `T\|null` and downstream input rejects null. If the consumer accepts `T\|null`, wire directly.
+- Editor warnings (`warnShapeMismatches`) flag nullable→non-null mismatches (“add a null check or widen the input”).
+
 ## Runtime
 
 - Steps: start → context / map / branch / write / llm / … → end.

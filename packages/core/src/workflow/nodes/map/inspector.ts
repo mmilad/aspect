@@ -1,6 +1,7 @@
 import type { WorkflowInspectorField } from "../_shared/inspector";
 
 export const mapInspectorFields: WorkflowInspectorField[] = [
+  { kind: "bagPorts" },
   { kind: "bagKey", label: "Map from", path: "map.from" },
   { kind: "text", label: "Write as", path: "map.as" },
   {

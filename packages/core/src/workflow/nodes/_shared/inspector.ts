@@ -31,6 +31,10 @@ export type WorkflowInspectorField =
   | {
       /** Tool argsFromBag first-mapping picker. */
       kind: "toolArgs";
+    }
+  | {
+      /** Reads/writes ports with required + shape contracts. */
+      kind: "bagPorts";
     };
 
 export function getDataPath(data: WorkflowNodeData, path: string): unknown {

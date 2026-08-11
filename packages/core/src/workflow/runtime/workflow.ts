@@ -1,9 +1,16 @@
 import type { Entity, EntityRelation, JsonRecord } from "../../domain/types";
 import {
+  shouldStrictValidateInputs,
+  shouldStrictValidateOutputs,
+  validateNodeInputs,
+  validateNodeOutputs
+} from "../contracts";
+import {
   applyBagWrites,
   findNode,
   findStartNode,
-  getNodeWrites
+  getNodeWrites,
+  outgoingByKind
 } from "../graph/schema";
 import type { WorkflowContextBag, WorkflowGraph } from "../graph/types";
 import { resolveLlmOutputContracts } from "../llm-outputs";
@@ -36,6 +43,22 @@ export class WorkflowRun {
 
   get bag(): WorkflowContextBag {
     return this._bag;
+  }
+
+  private contractFailure(bag: WorkflowContextBag, nodeId: string, error: string): WorkflowStepResult {
+    const node = findNode(this.graph, nodeId);
+    if (node?.data.executionPolicy?.onExhausted === "error_edge") {
+      const errorEdge = outgoingByKind(this.graph, nodeId, "error")[0];
+      if (errorEdge) {
+        return {
+          kind: "advanced",
+          bag: { ...bag, cursor: errorEdge.target, status: "running", error },
+          nodeId: errorEdge.target,
+          message: error
+        };
+      }
+    }
+    return fail(bag, nodeId, error);
   }
 
   async step(opts?: {
@@ -89,7 +112,7 @@ export class WorkflowRun {
       for (const [key, contract] of Object.entries(outputs)) {
         if (!(key in opts.llmWrites)) {
           if (contract.required) {
-            const result = fail(bag, node.id, `Missing declared LLM write key: ${key}`);
+            const result = this.contractFailure(bag, node.id, `Missing declared LLM write key: ${key}`);
             this._bag = result.bag;
             return result;
           }
@@ -97,16 +120,28 @@ export class WorkflowRun {
         }
         const check = validateValueAgainstShape(opts.llmWrites[key], contract.shape);
         if (!check.ok) {
-          const result = fail(bag, node.id, `LLM write '${key}' failed shape check: ${check.error}`);
+          const result = this.contractFailure(
+            bag,
+            node.id,
+            `LLM write '${key}' failed shape check: ${check.error}`
+          );
           this._bag = result.bag;
           return result;
         }
       }
       const applied = applyBagWrites(bag, Object.keys(outputs), opts.llmWrites);
       if (!applied.ok) {
-        const result = fail(bag, node.id, applied.error);
+        const result = this.contractFailure(bag, node.id, applied.error);
         this._bag = result.bag;
         return result;
+      }
+      if (shouldStrictValidateOutputs(node)) {
+        const outCheck = validateNodeOutputs(node, applied.bag);
+        if (!outCheck.ok) {
+          const result = this.contractFailure(applied.bag, node.id, outCheck.error);
+          this._bag = result.bag;
+          return result;
+        }
       }
       const result = await advanceCursor(this.graph, applied.bag, node.id);
       this._bag = result.bag;
@@ -122,6 +157,15 @@ export class WorkflowRun {
       );
       this._bag = result.bag;
       return result;
+    }
+
+    if (shouldStrictValidateInputs(node)) {
+      const inCheck = validateNodeInputs(node, bag);
+      if (!inCheck.ok) {
+        const result = this.contractFailure(bag, node.id, inCheck.error);
+        this._bag = result.bag;
+        return result;
+      }
     }
 
     const model = getNodeModel(node.type);
@@ -163,6 +207,14 @@ export class WorkflowRun {
     };
 
     const result = await model.execute(ctx);
+    if (result.kind === "advanced" && shouldStrictValidateOutputs(node)) {
+      const outCheck = validateNodeOutputs(node, result.bag);
+      if (!outCheck.ok) {
+        const failed = this.contractFailure(result.bag, node.id, outCheck.error);
+        this._bag = failed.bag;
+        return failed;
+      }
+    }
     this._bag = result.bag;
     return result;
   }

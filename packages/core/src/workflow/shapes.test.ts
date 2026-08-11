@@ -4,11 +4,17 @@ import {
   bagViewAtNode,
   deriveMapOutputShape,
   inferNodeOutputShapes,
+  isShapeAssignable,
   listShapePaths,
+  nullable,
+  parseBagShape,
   serializeBagViewSlim,
   serializeShapeSlim,
+  shapeAcceptsNull,
+  shapeMayBeNull,
   slimShapesForReads,
-  validateValueAgainstShape
+  validateValueAgainstShape,
+  warnShapeMismatches
 } from "./shapes";
 
 describe("workflow bag shapes", () => {
@@ -113,5 +119,83 @@ describe("workflow bag shapes", () => {
         items: { kind: "primitive", type: "string" }
       }).ok
     ).toBe(false);
+  });
+
+  it("supports union and nullable shapes", () => {
+    const stringOrNull = nullable({ kind: "primitive", type: "string" });
+    expect(serializeShapeSlim(stringOrNull)).toBe("string|null");
+    expect(validateValueAgainstShape("x", stringOrNull).ok).toBe(true);
+    expect(validateValueAgainstShape(null, stringOrNull).ok).toBe(true);
+    expect(validateValueAgainstShape(1, stringOrNull).ok).toBe(false);
+    expect(shapeAcceptsNull(stringOrNull)).toBe(true);
+    expect(shapeAcceptsNull({ kind: "primitive", type: "string" })).toBe(false);
+    expect(shapeMayBeNull(stringOrNull)).toBe(true);
+    expect(
+      isShapeAssignable(stringOrNull, { kind: "primitive", type: "string" })
+    ).toBe(false);
+    expect(isShapeAssignable(stringOrNull, stringOrNull)).toBe(true);
+    expect(
+      isShapeAssignable({ kind: "primitive", type: "string" }, stringOrNull)
+    ).toBe(true);
+    expect(
+      parseBagShape({
+        kind: "union",
+        options: [
+          { kind: "primitive", type: "string" },
+          { kind: "primitive", type: "null" }
+        ]
+      })
+    ).toEqual(stringOrNull);
+  });
+
+  it("warns when nullable upstream feeds non-null input", () => {
+    const graph = parseWorkflowGraph({
+      version: WORKFLOW_SCHEMA_VERSION,
+      nodes: [
+        { id: "start", type: "start", position: { x: 0, y: 0 }, data: { title: "Start", writes: ["goal"] } },
+        {
+          id: "produce",
+          type: "transform",
+          position: { x: 100, y: 0 },
+          data: {
+            title: "Produce",
+            writes: ["taskId"],
+            outputContracts: {
+              taskId: { required: true, shape: nullable({ kind: "primitive", type: "string" }) }
+            },
+            auto: { assign: { set: { taskId: null } } }
+          }
+        },
+        {
+          id: "consume",
+          type: "tool",
+          position: { x: 200, y: 0 },
+          data: {
+            title: "Consume",
+            reads: ["taskId"],
+            inputs: {
+              taskId: { required: true, shape: { kind: "primitive", type: "string" } }
+            },
+            writes: ["ok"],
+            tool: { name: "noop" }
+          }
+        },
+        { id: "end", type: "end", position: { x: 300, y: 0 }, data: { title: "End" } }
+      ],
+      edges: [
+        { id: "e1", source: "start", target: "produce", kind: "next" },
+        { id: "e2", source: "produce", target: "consume", kind: "next" },
+        { id: "e3", source: "consume", target: "end", kind: "next" }
+      ]
+    });
+    expect(graph.ok).toBe(true);
+    if (!graph.ok) {
+      return;
+    }
+    // Seed inferred output so bag view sees the nullable contract.
+    const produce = graph.graph.nodes.find((node) => node.id === "produce");
+    expect(produce?.data.outputContracts?.taskId).toBeTruthy();
+    const warnings = warnShapeMismatches(graph.graph);
+    expect(warnings.some((warning) => warning.includes("null check"))).toBe(true);
   });
 });

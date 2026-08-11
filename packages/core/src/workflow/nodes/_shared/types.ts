@@ -227,7 +227,8 @@ export type BagShape =
   | { kind: "primitive"; type: "string" | "number" | "boolean" | "null" }
   | { kind: "object"; fields: Record<string, BagShape>; ref?: string }
   | { kind: "array"; items: BagShape }
-  | { kind: "ref"; ref: string };
+  | { kind: "ref"; ref: string }
+  | { kind: "union"; options: BagShape[] };
 
 export const bagShapeCatalogRefs = ["Entity", "EntityRelation", "RankedTaskCandidate", "Json"] as const;
 export type BagShapeCatalogRef = (typeof bagShapeCatalogRefs)[number];

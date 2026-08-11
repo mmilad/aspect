@@ -12,7 +12,8 @@ const nextWorkGraph: WorkflowGraph = {
         title: "Start",
         writes: ["goal", "limit"],
         outputContracts: {
-          goal: { required: false, shape: { kind: "primitive", type: "string" } }
+          goal: { required: false, shape: { kind: "primitive", type: "string" } },
+          limit: { required: false, shape: { kind: "primitive", type: "number" } }
         }
       }
     },
@@ -22,6 +23,10 @@ const nextWorkGraph: WorkflowGraph = {
       position: { x: 280, y: 120 },
       data: {
         title: "Rank task candidates",
+        reads: ["goal"],
+        inputs: {
+          goal: { required: false, shape: { kind: "primitive", type: "string" } }
+        },
         writes: ["candidates", "hasCandidates"],
         auto: {
           filter: {
@@ -29,6 +34,13 @@ const nextWorkGraph: WorkflowGraph = {
             rank: "task_candidates",
             keys: ["id", "title", "status", "summary", "workScore"]
           }
+        },
+        outputContracts: {
+          candidates: {
+            required: true,
+            shape: { kind: "array", items: { kind: "ref", ref: "RankedTaskCandidate" } }
+          },
+          hasCandidates: { required: true, shape: { kind: "primitive", type: "boolean" } }
         }
       }
     },
@@ -47,12 +59,12 @@ const nextWorkGraph: WorkflowGraph = {
 
 export const nextWorkPreset: WorkflowPreset = {
   presetKey: "next_work",
-  presetVersion: 1,
+  presetVersion: 2,
   title: "Next work",
   summary: "Rank eligible open tasks by work score into bag.candidates.",
   body: [
     "Pick the next eligible task candidates from the living graph.",
-    "Outputs: candidates[], hasCandidates.",
+    "Outputs: candidates[] (RankedTaskCandidate), hasCandidates (boolean).",
     "Agents may still call MCP next_work for a ranked pick; this pack is the workflow-shaped equivalent."
   ].join("\n"),
   status: "accepted",

@@ -15,6 +15,7 @@ import {
 } from "@projectplaner/core";
 import { FormLabel, GhostButton, Select, TextArea, TextInput } from "../../ui";
 import { PropPicker, WorkflowBagPanel } from "../../workflow-workspace/workflow-bag-panel";
+import { BagPortsEditor } from "./bag-ports-editor";
 
 export interface WorkflowStepInspectorProps {
   selected: WorkflowNode | null;
@@ -85,7 +86,12 @@ function applyFieldPatch(
 }
 
 function readFieldValue(selected: WorkflowNode, field: WorkflowInspectorField): string {
-  if (field.kind === "executionPolicy" || field.kind === "mapFields" || field.kind === "toolArgs") {
+  if (
+    field.kind === "executionPolicy" ||
+    field.kind === "mapFields" ||
+    field.kind === "toolArgs" ||
+    field.kind === "bagPorts"
+  ) {
     return "";
   }
   if (field.path === "join.mode") {
@@ -108,6 +114,10 @@ function renderField(
   bagView: Record<string, BagShape>,
   onUpdateData: (patch: Partial<WorkflowNodeData>) => void
 ) {
+  if (field.kind === "bagPorts") {
+    return <BagPortsEditor key="bagPorts" selected={selected} onUpdateData={onUpdateData} />;
+  }
+
   if (field.kind === "executionPolicy") {
     return (
       <div key="executionPolicy" className="space-y-3">
@@ -342,33 +352,10 @@ export function WorkflowStepInspector({
           <FormLabel label="Title">
             <TextInput value={selected.data.title} onChange={(event) => onUpdateData({ title: event.target.value })} />
           </FormLabel>
-          <FormLabel label="Reads (comma)">
-            <TextInput
-              value={(selected.data.reads ?? []).join(", ")}
-              onChange={(event) =>
-                onUpdateData({
-                  reads: event.target.value
-                    .split(",")
-                    .map((part) => part.trim())
-                    .filter(Boolean)
-                })
-              }
-            />
-          </FormLabel>
-          <FormLabel label="Writes (comma)">
-            <TextInput
-              value={(selected.data.writes ?? []).join(", ")}
-              onChange={(event) =>
-                onUpdateData({
-                  writes: event.target.value
-                    .split(",")
-                    .map((part) => part.trim())
-                    .filter(Boolean)
-                })
-              }
-            />
-          </FormLabel>
-          {fields.map((field) => renderField(field, selected, bagView, onUpdateData))}
+          <BagPortsEditor selected={selected} onUpdateData={onUpdateData} />
+          {fields
+            .filter((field) => field.kind !== "bagPorts")
+            .map((field) => renderField(field, selected, bagView, onUpdateData))}
           {selected.type !== "start" ? (
             <GhostButton size="xs" tone="danger" onClick={onDelete}>
               Delete node

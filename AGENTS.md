@@ -36,6 +36,9 @@ When a mutation preset is seeded, prefer MCP/HTTP `run_workflow` over direct cre
 LLM steps pause as `pending_llm`; Cursor/Codex (or a new spawn) resume with `{ runId, llmWrites }`.
 LLM `instructions` may use bag templates (`{{title}}`, `{{@reads}}`, `{{@shapes}}`); the runner
 fills them from declared reads before returning `pending_llm`.
+Work-node bag ports (`reads`/`writes` + `inputs`/`outputContracts`) are runtime-validated;
+nullable upstream outputs only need a branch when the consumer rejects null. Config fields
+(e.g. `llm.instructions`) are not bag ports — see `docs/workflow.md`.
 
 ## Architecture
 

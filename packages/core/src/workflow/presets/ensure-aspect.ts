@@ -1,6 +1,15 @@
 import { WORKFLOW_SCHEMA_VERSION, type WorkflowGraph } from "../types";
 import type { WorkflowPreset } from "./types";
 
+const STRING = { kind: "primitive" as const, type: "string" as const };
+const BOOLEAN = { kind: "primitive" as const, type: "boolean" as const };
+const NUMBER = { kind: "primitive" as const, type: "number" as const };
+const ENTITY_ARRAY = { kind: "array" as const, items: { kind: "ref" as const, ref: "Entity" } };
+const STRING_OR_NULL = {
+  kind: "union" as const,
+  options: [STRING, { kind: "primitive" as const, type: "null" as const }]
+};
+
 /**
  * Ensure Aspect — search for a similar aspect before create_entity.
  * Prefer reuse; create only when needed. Keep LLM context slim via map.
@@ -16,11 +25,11 @@ export const ensureAspectGraph: WorkflowGraph = {
         title: "Start",
         writes: ["title", "summary", "key", "reason", "parentAspectId"],
         outputContracts: {
-          title: { required: true, shape: { kind: "primitive", type: "string" } },
-          summary: { required: false, shape: { kind: "primitive", type: "string" } },
-          key: { required: false, shape: { kind: "primitive", type: "string" } },
-          reason: { required: true, shape: { kind: "primitive", type: "string" } },
-          parentAspectId: { required: false, shape: { kind: "primitive", type: "string" } }
+          title: { required: true, shape: STRING },
+          summary: { required: false, shape: STRING },
+          key: { required: false, shape: STRING },
+          reason: { required: true, shape: STRING },
+          parentAspectId: { required: false, shape: STRING }
         }
       }
     },
@@ -31,6 +40,9 @@ export const ensureAspectGraph: WorkflowGraph = {
       data: {
         title: "Search aspects",
         reads: ["title"],
+        inputs: {
+          title: { required: true, shape: STRING }
+        },
         writes: ["matches"],
         auto: {
           loadContext: {
@@ -41,7 +53,7 @@ export const ensureAspectGraph: WorkflowGraph = {
           }
         },
         outputContracts: {
-          matches: { shape: { kind: "array", items: { kind: "ref", ref: "Entity" } } }
+          matches: { required: true, shape: ENTITY_ARRAY }
         }
       }
     },
@@ -52,6 +64,9 @@ export const ensureAspectGraph: WorkflowGraph = {
       data: {
         title: "Slim candidates",
         reads: ["matches"],
+        inputs: {
+          matches: { required: true, shape: ENTITY_ARRAY }
+        },
         writes: ["candidates"],
         map: {
           from: "matches",
@@ -63,6 +78,23 @@ export const ensureAspectGraph: WorkflowGraph = {
             { from: "status", as: "status" },
             { from: "summary", as: "summary" }
           ]
+        },
+        outputContracts: {
+          candidates: {
+            required: true,
+            shape: {
+              kind: "array",
+              items: {
+                kind: "object",
+                fields: {
+                  id: STRING,
+                  title: STRING,
+                  status: STRING,
+                  summary: STRING
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -73,12 +105,31 @@ export const ensureAspectGraph: WorkflowGraph = {
       data: {
         title: "Reuse or create?",
         reads: ["title", "summary", "key", "candidates"],
+        inputs: {
+          title: { required: true, shape: STRING },
+          summary: { required: false, shape: STRING },
+          key: { required: false, shape: STRING },
+          candidates: {
+            required: true,
+            shape: {
+              kind: "array",
+              items: {
+                kind: "object",
+                fields: {
+                  id: STRING,
+                  title: STRING,
+                  status: STRING,
+                  summary: STRING
+                }
+              }
+            }
+          }
+        },
         writes: ["aspectId", "createNew", "confidence"],
         outputContracts: {
-          // aspectId may be a reuse id or null when createNew=true
-          aspectId: { required: false, shape: { kind: "any" } },
-          createNew: { required: true, shape: { kind: "primitive", type: "boolean" } },
-          confidence: { required: true, shape: { kind: "primitive", type: "number" } }
+          aspectId: { required: false, shape: STRING_OR_NULL },
+          createNew: { required: true, shape: BOOLEAN },
+          confidence: { required: true, shape: NUMBER }
         },
         llm: {
           inputKeys: ["title", "summary", "key", "candidates"],
@@ -104,6 +155,9 @@ export const ensureAspectGraph: WorkflowGraph = {
       data: {
         title: "Create new?",
         reads: ["createNew"],
+        inputs: {
+          createNew: { required: true, shape: BOOLEAN }
+        },
         branch: { on: "createNew" }
       }
     },
@@ -114,7 +168,17 @@ export const ensureAspectGraph: WorkflowGraph = {
       data: {
         title: "Create aspect",
         reads: ["title", "summary", "key", "reason", "parentAspectId"],
+        inputs: {
+          title: { required: true, shape: STRING },
+          summary: { required: false, shape: STRING },
+          key: { required: false, shape: STRING },
+          reason: { required: true, shape: STRING },
+          parentAspectId: { required: false, shape: STRING }
+        },
         writes: ["aspectId"],
+        outputContracts: {
+          aspectId: { required: true, shape: STRING }
+        },
         write: {
           action: "create_entity",
           argsFromBag: {
@@ -154,14 +218,15 @@ export const ensureAspectGraph: WorkflowGraph = {
 
 export const ensureAspectPreset: WorkflowPreset = {
   presetKey: "ensure_aspect",
-  presetVersion: 4,
+  presetVersion: 5,
   title: "Ensure Aspect",
   summary: "Search for a similar Aspect before creating one; reuse when possible.",
   body: [
     "Call this workflow before create_entity for aspects.",
     "Inputs: title (required), summary, key, reason (required for create), parentAspectId (optional).",
     "Outputs: aspectId; createNew indicates whether a row was inserted.",
-    "Prefer the smallest truthful existing Aspect; do not duplicate near-matches."
+    "Prefer the smallest truthful existing Aspect; do not duplicate near-matches.",
+    "Bag ports use inputs/outputContracts; aspectId is string|null from the LLM step."
   ].join("\n"),
   status: "accepted",
   graph: ensureAspectGraph,

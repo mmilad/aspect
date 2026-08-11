@@ -22,7 +22,8 @@ function outgoingEdges(graph: WorkflowGraph, nodeId: string) {
 const STRING: BagShape = { kind: "primitive", type: "string" };
 const NUMBER: BagShape = { kind: "primitive", type: "number" };
 const BOOLEAN: BagShape = { kind: "primitive", type: "boolean" };
-const NULLABLE_STRING: BagShape = { kind: "primitive", type: "string" };
+const NULL_PRIM: BagShape = { kind: "primitive", type: "null" };
+const NULLABLE_STRING: BagShape = { kind: "union", options: [STRING, NULL_PRIM] };
 
 function objectShape(fields: Record<string, BagShape>, ref?: string): BagShape {
   return { kind: "object", fields, ...(ref ? { ref } : {}) };
@@ -86,7 +87,79 @@ export function resolveBagShape(shape: BagShape | undefined): BagShape {
     }
     return { kind: "object", fields, ...(shape.ref ? { ref: shape.ref } : {}) };
   }
+  if (shape.kind === "union") {
+    return {
+      kind: "union",
+      options: shape.options.map((option) => resolveBagShape(option))
+    };
+  }
   return shape;
+}
+
+/** `T | null` — distinct from `required: false` (key may be absent). */
+export function nullable(shape: BagShape): BagShape {
+  return {
+    kind: "union",
+    options: [shape, { kind: "primitive", type: "null" }]
+  };
+}
+
+export function union(options: BagShape[]): BagShape {
+  return { kind: "union", options };
+}
+
+/** True when shape can accept a null value (union includes null, or is any/unknown). */
+export function shapeAcceptsNull(shape: BagShape | undefined): boolean {
+  const resolved = resolveBagShape(shape);
+  if (resolved.kind === "any" || resolved.kind === "unknown") {
+    return true;
+  }
+  if (resolved.kind === "primitive" && resolved.type === "null") {
+    return true;
+  }
+  if (resolved.kind === "union") {
+    return resolved.options.some((option) => shapeAcceptsNull(option));
+  }
+  return false;
+}
+
+/** True when upstream may produce null (nullable union / null primitive). */
+export function shapeMayBeNull(shape: BagShape | undefined): boolean {
+  const resolved = resolveBagShape(shape);
+  if (resolved.kind === "primitive" && resolved.type === "null") {
+    return true;
+  }
+  if (resolved.kind === "union") {
+    return resolved.options.some((option) => shapeMayBeNull(option));
+  }
+  return false;
+}
+
+/**
+ * Whether an upstream output shape is assignable to a downstream input shape.
+ * Unknown/any are permissive. Nullable upstream into non-null downstream is not assignable.
+ */
+export function isShapeAssignable(upstream: BagShape | undefined, downstream: BagShape | undefined): boolean {
+  const from = resolveBagShape(upstream);
+  const to = resolveBagShape(downstream);
+  if (to.kind === "any" || to.kind === "unknown" || from.kind === "any" || from.kind === "unknown") {
+    return true;
+  }
+  if (shapeMayBeNull(from) && !shapeAcceptsNull(to)) {
+    return false;
+  }
+  if (to.kind === "union") {
+    // Upstream must fit at least one arm, or be a subset union.
+    if (from.kind === "union") {
+      return from.options.every((option) => to.options.some((arm) => isShapeAssignable(option, arm)));
+    }
+    return to.options.some((arm) => isShapeAssignable(from, arm));
+  }
+  if (from.kind === "union") {
+    // Every upstream arm must be assignable (worst-case).
+    return from.options.every((option) => isShapeAssignable(option, to));
+  }
+  return serializeShapeSlim(from) === serializeShapeSlim(to);
 }
 
 export function arrayOfRef(ref: BagShapeCatalogRef): BagShape {
@@ -100,6 +173,15 @@ export function refShape(ref: BagShapeCatalogRef): BagShape {
 /** List field paths available on a shape (one level + nested via resolve). */
 export function listShapePaths(shape: BagShape | undefined, prefix = ""): string[] {
   const resolved = resolveBagShape(shape);
+  if (resolved.kind === "union") {
+    const paths = new Set<string>();
+    for (const option of resolved.options) {
+      for (const path of listShapePaths(option, prefix)) {
+        paths.add(path);
+      }
+    }
+    return [...paths];
+  }
   if (resolved.kind === "array") {
     return listShapePaths(resolved.items, prefix);
   }
@@ -111,7 +193,7 @@ export function listShapePaths(shape: BagShape | undefined, prefix = ""): string
     const path = prefix ? `${prefix}.${key}` : key;
     paths.push(path);
     const nested = resolveBagShape(field);
-    if (nested.kind === "object") {
+    if (nested.kind === "object" || nested.kind === "union") {
       paths.push(...listShapePaths(nested, path));
     }
   }
@@ -328,10 +410,16 @@ export function warnShapeMismatches(graph: WorkflowGraph): string[] {
         warnings.push(`Node ${node.id} expects shape for \`${key}\`, but upstream does not guarantee it.`);
         continue;
       }
-      const expected = serializeShapeSlim(contract.shape);
-      const actual = serializeShapeSlim(upstream);
-      if (expected !== actual && expected !== "any" && actual !== "any" && actual !== "unknown") {
-        warnings.push(`Node ${node.id} input \`${key}\` expects ${expected}, upstream has ${actual}.`);
+      if (!isShapeAssignable(upstream, contract.shape)) {
+        if (shapeMayBeNull(upstream) && !shapeAcceptsNull(contract.shape)) {
+          warnings.push(
+            `Node ${node.id} input \`${key}\` expects non-null ${serializeShapeSlim(contract.shape)}, upstream has ${serializeShapeSlim(upstream)}; add a null check (branch/gate) or widen the input to accept null.`
+          );
+        } else {
+          warnings.push(
+            `Node ${node.id} input \`${key}\` expects ${serializeShapeSlim(contract.shape)}, upstream has ${serializeShapeSlim(upstream)}.`
+          );
+        }
       }
     }
   }
@@ -362,6 +450,10 @@ export function serializeShapeSlim(shape: BagShape | undefined): string {
         return "object";
       }
       return `object{${keys.join(",")}}`;
+    }
+    case "union": {
+      const parts = resolved.options.map((option) => serializeShapeSlim(option));
+      return parts.join("|");
     }
     default:
       return "unknown";
@@ -412,6 +504,20 @@ export function validateValueAgainstShape(
   const resolved = resolveBagShape(shape);
   if (resolved.kind === "any" || resolved.kind === "unknown") {
     return { ok: true };
+  }
+  if (resolved.kind === "union") {
+    const errors: string[] = [];
+    for (const option of resolved.options) {
+      const check = validateValueAgainstShape(value, option);
+      if (check.ok) {
+        return { ok: true };
+      }
+      errors.push(check.error);
+    }
+    return {
+      ok: false,
+      error: `expected ${serializeShapeSlim(resolved)} (none matched: ${errors.join("; ")})`
+    };
   }
   if (resolved.kind === "primitive") {
     if (resolved.type === "null") {
@@ -499,6 +605,19 @@ export function parseBagShape(raw: unknown): BagShape | undefined {
         fields,
         ref: typeof raw.ref === "string" ? raw.ref : undefined
       };
+    }
+    case "union": {
+      if (!Array.isArray(raw.options) || raw.options.length === 0) {
+        return undefined;
+      }
+      const options: BagShape[] = [];
+      for (const item of raw.options) {
+        const parsed = parseBagShape(item);
+        if (parsed) {
+          options.push(parsed);
+        }
+      }
+      return options.length > 0 ? { kind: "union", options } : undefined;
     }
     default:
       return undefined;

@@ -214,6 +214,76 @@ export type KanbanScopeCrumb = {
   title: string;
 };
 
+/** Lightweight scope row for the left sidebar (aspect, feature, or project root). */
+export type SidebarScopeEntry = {
+  id: string;
+  title: string;
+  path?: string;
+};
+
+/**
+ * Current board focus + ancestor shortcuts for the left Scope section.
+ * `recent` never includes `center` (avoids duplicate titles).
+ */
+export function buildKanbanSidebarScopes(
+  snapshot: ProjectPlanSnapshot,
+  scopeId: string | null
+): {
+  center: SidebarScopeEntry;
+  recent: SidebarScopeEntry[];
+  /** Best ProjectNode for creation rail / inspector when scoped. */
+  focusNode: ProjectNode | null;
+} {
+  const root = snapshot.nodes[0] ?? null;
+  const crumbs = buildKanbanBreadcrumbs(snapshot, scopeId);
+  const scopeAspect = scopeId
+    ? snapshot.nodes.find((node) => node.id === scopeId) ?? null
+    : null;
+  const scopeFeature = scopeId ? snapshot.features.find((feature) => feature.id === scopeId) ?? null : null;
+
+  const center: SidebarScopeEntry = scopeId
+    ? {
+        id: scopeId,
+        title: crumbs[crumbs.length - 1]?.title ?? scopeAspect?.title ?? scopeFeature?.title ?? scopeId,
+        path: scopeAspect?.path
+      }
+    : {
+        id: root?.id ?? "root",
+        title: root?.title ?? "Top-level Aspects",
+        path: root?.path
+      };
+
+  const recent: SidebarScopeEntry[] = [];
+  if (root && root.id !== center.id) {
+    recent.push({ id: root.id, title: root.title, path: root.path });
+  }
+  for (const crumb of crumbs) {
+    if (crumb.id === center.id) {
+      continue;
+    }
+    if (recent.some((entry) => entry.id === crumb.id)) {
+      continue;
+    }
+    recent.push({ id: crumb.id, title: crumb.title });
+  }
+
+  let focusNode: ProjectNode | null = scopeAspect;
+  if (!focusNode && scopeFeature) {
+    const primaryAspectId =
+      snapshot.featureAspectLinks.find((link) => link.featureId === scopeFeature.id && link.isPrimary)?.aspectId ??
+      snapshot.featureAspectLinks.find((link) => link.featureId === scopeFeature.id)?.aspectId ??
+      null;
+    focusNode = primaryAspectId
+      ? snapshot.nodes.find((node) => node.id === primaryAspectId) ?? root
+      : root;
+  }
+  if (!focusNode) {
+    focusNode = root;
+  }
+
+  return { center, recent, focusNode };
+}
+
 export function buildKanbanBreadcrumbs(snapshot: ProjectPlanSnapshot, scopeId: string | null): KanbanScopeCrumb[] {
   if (!scopeId) {
     return [];

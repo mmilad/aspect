@@ -50,6 +50,7 @@
 }
 
 .scopeItem {
+  display: block;
   width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -60,6 +61,12 @@
   padding: 7px 8px;
   text-align: left;
   font-size: 12px;
+  color: hsl(var(--foreground));
+  text-decoration: none;
+}
+
+.scopeItem:hover {
+  background: hsl(var(--muted));
 }
 
 .contextHint {

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { KanbanBoard } from "../../../../components/kanban-board";
 import { ProjectViewShell } from "../../../../components/project-view-shell";
 import { loadProject } from "../../../../lib/data";
+import { buildKanbanSidebarScopes } from "../../../../lib/kanban";
 
 export default async function ProjectKanbanPage({
   params,
@@ -19,16 +20,22 @@ export default async function ProjectKanbanPage({
   }
 
   const scopeId = query.scope ?? null;
-  const scopeNode = scopeId ? snapshot.nodes.find((node) => node.id === scopeId) : null;
+  const { center: scopeCenter, recent: recentScopes, focusNode } = buildKanbanSidebarScopes(
+    snapshot,
+    scopeId
+  );
   const scopeFeature = scopeId ? snapshot.features.find((feature) => feature.id === scopeId) : null;
-  const scopeLabel = scopeNode?.title ?? scopeFeature?.title ?? "kanban";
 
   return (
     <ProjectViewShell
       snapshot={snapshot}
       activeView="kanban"
-      scopeLabel={scopeLabel}
-      selectedId={query.selected ?? scopeId ?? undefined}
+      scopeLabel={scopeCenter.title}
+      selectedId={query.selected ?? scopeId ?? focusNode?.id}
+      selectedNode={focusNode}
+      selectedFeature={scopeFeature ?? null}
+      scopeCenter={scopeCenter}
+      recentScopes={recentScopes}
       scrollCenter
       center={
         <KanbanBoard snapshot={snapshot} scopeId={scopeId} selectedId={query.selected ?? scopeId ?? undefined} />

@@ -6,7 +6,10 @@ import { describe, it } from "node:test";
 import {
   WORKFLOW_IR_V1_KEY,
   WORKFLOW_IR_V1_SCHEMA,
+  WORKFLOW_NODE_PLAN_V1_KEY,
+  WORKFLOW_NODE_QA_V1_KEY,
   WORKFLOW_SCHEMA_VERSION,
+  WORKFLOW_STEP_DRAFT_V1_KEY,
   createContextBag,
   parseWorkflowGraph
 } from "@projectplaner/core";
@@ -44,22 +47,32 @@ describe("llm_json_schemas", () => {
   }
 
   it(
-    "creates tables and seeds workflow_ir_v1 once",
+    "creates tables and seeds catalog schemas once",
     withTempDb((db) => {
       const first = ensureLlmJsonSchemas(db, { projectKey: "PLAN" });
-      assert.deepEqual(first.seeded, [WORKFLOW_IR_V1_KEY]);
+      assert.deepEqual(first.seeded, [
+        WORKFLOW_IR_V1_KEY,
+        WORKFLOW_NODE_PLAN_V1_KEY,
+        WORKFLOW_NODE_QA_V1_KEY,
+        WORKFLOW_STEP_DRAFT_V1_KEY
+      ]);
       assert.deepEqual(first.skipped, []);
 
       const second = ensureLlmJsonSchemas(db, { projectKey: "PLAN" });
       assert.deepEqual(second.seeded, []);
-      assert.deepEqual(second.skipped, [WORKFLOW_IR_V1_KEY]);
+      assert.deepEqual(second.skipped, [
+        WORKFLOW_IR_V1_KEY,
+        WORKFLOW_NODE_PLAN_V1_KEY,
+        WORKFLOW_NODE_QA_V1_KEY,
+        WORKFLOW_STEP_DRAFT_V1_KEY
+      ]);
 
       const row = getLlmJsonSchemaByKey(db, WORKFLOW_IR_V1_KEY, "PLAN");
       assert.ok(row);
       assert.equal(row.version, 1);
       assert.equal(row.status, "active");
       assert.deepEqual(row.schema, WORKFLOW_IR_V1_SCHEMA);
-      assert.equal(listLlmJsonSchemas(db, "PLAN").length, 1);
+      assert.equal(listLlmJsonSchemas(db, "PLAN").length, 4);
     })
   );
 

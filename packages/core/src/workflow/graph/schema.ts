@@ -137,6 +137,15 @@ export function parseEdge(
   };
 }
 
+export function parseWorkflowNode(raw: unknown): { ok: true; node: WorkflowNode } | { ok: false; errors: string[] } {
+  const errors: string[] = [];
+  const node = parseNode(raw, errors);
+  if (!node || errors.length > 0) {
+    return { ok: false, errors };
+  }
+  return { ok: true, node };
+}
+
 export function validateTopology(graph: WorkflowGraph, errors: string[]): void {
   const nodeById = new Map(graph.nodes.map((node) => [node.id, node]));
   const incoming = new Map<string, WorkflowEdge[]>();
@@ -211,6 +220,27 @@ export function validateTopology(graph: WorkflowGraph, errors: string[]): void {
     }
   }
 
+  function canReach(from: string, to: string): boolean {
+    const queue = [from];
+    const visited = new Set<string>();
+    while (queue.length > 0) {
+      const id = queue.shift()!;
+      if (id === to) {
+        return true;
+      }
+      if (visited.has(id)) {
+        continue;
+      }
+      visited.add(id);
+      for (const edge of outgoing.get(id) ?? []) {
+        if (edge.kind !== "depends_on" && edge.kind !== "error") {
+          queue.push(edge.target);
+        }
+      }
+    }
+    return false;
+  }
+
   // Ambiguous multi-next merge into work/control (non-join) nodes is forbidden.
   for (const [targetId, edges] of incoming) {
     const target = nodeById.get(targetId);
@@ -218,7 +248,8 @@ export function validateTopology(graph: WorkflowGraph, errors: string[]): void {
       continue;
     }
     const nextIns = edges.filter((edge) => edge.kind === "next" && edge.targetPin !== "continue");
-    if (nextIns.length > 1) {
+    const nonLoopbackNextIns = nextIns.filter((edge) => !canReach(targetId, edge.source));
+    if (nonLoopbackNextIns.length > 1) {
       errors.push(
         `Node ${targetId} has multiple next in-edges; use a join with depends_on for fan-in.`
       );

@@ -2,6 +2,7 @@ import type { WorkflowNodeModel } from "./_shared/model";
 import type { WorkflowNodeType } from "./_shared/types";
 import { branchNode } from "./branch/model";
 import { contextNode } from "./context/model";
+import { createWorkflowNodeNode } from "./create_workflow_node/model";
 import { endNode } from "./end/model";
 import { errorEndNode } from "./error_end/model";
 import { foreachNode } from "./foreach/model";
@@ -33,6 +34,7 @@ export const workflowNodeModels: Record<WorkflowNodeType, WorkflowNodeModel> = {
   subworkflow: subworkflowNode,
   tool: toolNode,
   llm: llmNode,
+  create_workflow_node: createWorkflowNodeNode,
   context: contextNode,
   transform: transformNode,
   map: mapNode,

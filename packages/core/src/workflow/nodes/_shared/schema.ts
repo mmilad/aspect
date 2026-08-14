@@ -26,6 +26,7 @@ export const CONFIG_KEYS = [
   "foreach",
   "map",
   "push",
+  "createWorkflowNode",
   "wait",
   "subworkflow"
 ] as const;

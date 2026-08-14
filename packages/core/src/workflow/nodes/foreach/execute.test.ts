@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { WORKFLOW_NODE_PLAN_V1_KEY, WORKFLOW_NODE_QA_V1_KEY } from "../../llm-json-schemas";
 import { parseWorkflowGraph, WORKFLOW_SCHEMA_VERSION } from "../../schema";
 import { createStepGraph } from "../../presets";
 import { WorkflowRun } from "../../runtime/workflow";
@@ -116,22 +117,159 @@ describe("foreach execution", () => {
     expect(result.bag.keys.decisions).toEqual(["alpha", "beta", "gamma"]);
   });
 
-  it("runs the create_step preset foreach pilot", async () => {
+  it("create_step preset interprets instructions into a node plan and returns a stepDraft", async () => {
     const run = new WorkflowRun({
       graph: createStepGraph,
       bag: {
         workflowId: "create_step",
         cursor: "start",
-        goal: "copy missions",
-        keys: { missions: ["alpha", "beta", "gamma"] },
+        goal: "create step",
+        keys: {
+          stepInstructions: "Build a step that reads missions from the bag and writes the same values as decisions.",
+          availableBagShape: { missions: "string[]", decisions: "string[]" },
+          allowedNodeTypes: ["foreach", "push"]
+        },
         status: "running"
       }
     });
 
-    const result = await run.runUntilPause();
+    let step = await run.step();
+    expect(step.kind).toBe("advanced");
+    step = await run.step();
+    expect(step.kind).toBe("pending_llm");
+    expect(step.llm?.schemaKey).toBe(WORKFLOW_NODE_PLAN_V1_KEY);
+    expect(step.llm?.outputSchema).toEqual(["nodePlan"]);
+    expect(step.llm?.instructions).toContain("Only plan one node");
 
-    expect(result.kind).toBe("completed");
-    expect(result.bag.keys.decisions).toEqual(["alpha", "beta", "gamma"]);
+    step = await run.step({
+      llmWrites: {
+        nodePlan: {
+          nodeType: "foreach",
+          title: "Each mission",
+          purpose: "Iterate over missions so later body nodes can write decisions.",
+          reads: ["missions"],
+          config: {
+            itemsFrom: "missions",
+            itemKey: "mission",
+            indexKey: "missionIndex"
+          },
+        }
+      }
+    });
+    expect(step.kind).toBe("advanced");
+    step = await run.step();
+    expect(step.kind).toBe("advanced");
+    expect(step.nodeId).toBe("verify_node");
+    step = await run.step();
+    expect(step.kind).toBe("pending_llm");
+    expect(step.nodeId).toBe("verify_node");
+    expect(step.llm?.schemaKey).toBe(WORKFLOW_NODE_QA_V1_KEY);
+    expect(step.llm?.outputSchema).toEqual([
+      "nodeAccepted",
+      "qaReason",
+      "repairInstructions",
+      "improvements"
+    ]);
+    expect(step.llm?.instructions).toContain("Verify whether the materialized workflow node");
+
+    step = await run.step({
+      llmWrites: {
+        nodeAccepted: true,
+        qaReason: "The foreach node reads missions and exposes item/index keys for the body.",
+        repairInstructions: "",
+        improvements: []
+      }
+    });
+    expect(step.kind).toBe("advanced");
+    step = await run.step();
+    expect(step.kind).toBe("advanced");
+    step = await run.step();
+    expect(step.kind).toBe("completed");
+    expect(step.bag.keys.stepDraft).toMatchObject({
+      nodes: [{ type: "foreach" }],
+      validation: { ok: true, errors: [] }
+    });
+  });
+
+  it("create_step routes rejected QA into a dedicated fix step", async () => {
+    const run = new WorkflowRun({
+      graph: createStepGraph,
+      bag: {
+        workflowId: "create_step",
+        cursor: "start",
+        goal: "create step",
+        keys: {
+          stepInstructions: "Create workflow node type foreach for the missions list.",
+          availableBagShape: { missions: "string[]" },
+          allowedNodeTypes: ["foreach"]
+        },
+        status: "running"
+      }
+    });
+
+    let step = await run.step();
+    expect(step.kind).toBe("advanced");
+    step = await run.step();
+    expect(step.kind).toBe("pending_llm");
+
+    step = await run.step({
+      llmWrites: {
+        nodePlan: {
+          nodeType: "foreach",
+          title: "Each mission",
+          config: {}
+        }
+      }
+    });
+    expect(step.kind).toBe("advanced");
+    step = await run.step();
+    expect(step.kind).toBe("advanced");
+    expect(step.nodeId).toBe("verify_node");
+    step = await run.step();
+    expect(step.kind).toBe("pending_llm");
+    expect(step.nodeId).toBe("verify_node");
+    expect(step.bag.keys.hasValidationErrors).toBe(true);
+    expect(step.bag.keys.repairInstructions).toContain("foreach.itemsFrom");
+
+    step = await run.step({
+      llmWrites: {
+        nodeAccepted: false,
+        qaReason: "The foreach config is missing itemsFrom.",
+        repairInstructions: "Set foreach.itemsFrom to missions and expose missionIndex.",
+        improvements: ["Add itemKey mission.", "Add indexKey missionIndex."]
+      }
+    });
+    expect(step.kind).toBe("advanced");
+    step = await run.step();
+    expect(step.kind).toBe("advanced");
+    expect(step.nodeId).toBe("fix_node_plan");
+    step = await run.step();
+    expect(step.kind).toBe("pending_llm");
+    expect(step.nodeId).toBe("fix_node_plan");
+    expect(step.llm?.schemaKey).toBe(WORKFLOW_NODE_PLAN_V1_KEY);
+    expect(step.llm?.instructions).toContain("Repair the previous workflow node plan");
+    expect(step.llm?.reads.repairInstructions).toContain("foreach.itemsFrom");
+
+    step = await run.step({
+      llmWrites: {
+        nodePlan: {
+          nodeType: "foreach",
+          title: "Each mission",
+          config: {
+            itemsFrom: "missions",
+            itemKey: "mission",
+            indexKey: "missionIndex"
+          }
+        }
+      }
+    });
+    expect(step.kind).toBe("advanced");
+    step = await run.step();
+    expect(step.kind).toBe("advanced");
+    expect(step.nodeId).toBe("verify_node");
+    step = await run.step();
+    expect(step.kind).toBe("pending_llm");
+    expect(step.nodeId).toBe("verify_node");
   });
 
   it("awaits a scoped body chain for every item", async () => {

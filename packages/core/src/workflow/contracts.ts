@@ -14,7 +14,8 @@ const WORK_NODE_TYPES = new Set<WorkflowNodeType>([
   "context",
   "transform",
   "map",
-  "push"
+  "push",
+  "create_workflow_node"
 ]);
 
 function isRequired(contract: WorkflowBagKeyContract | undefined): boolean {

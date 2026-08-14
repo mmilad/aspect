@@ -15,7 +15,16 @@ export const workflowControlNodeTypes = [
   "subworkflow"
 ] as const;
 
-export const workflowWorkNodeTypes = ["tool", "llm", "context", "transform", "map", "write", "push"] as const;
+export const workflowWorkNodeTypes = [
+  "tool",
+  "llm",
+  "context",
+  "transform",
+  "map",
+  "write",
+  "push",
+  "create_workflow_node"
+] as const;
 
 /** Canonical palette (filter is accepted on parse and rewritten to transform). */
 export const workflowNodeTypes = [...workflowControlNodeTypes, ...workflowWorkNodeTypes] as const;
@@ -215,6 +224,16 @@ export interface WorkflowPushConfig {
   valueFrom: string;
 }
 
+export interface WorkflowCreateWorkflowNodeConfig {
+  planFrom: string;
+  outputKey?: string;
+  metaKey?: string;
+  errorsKey?: string;
+  hasErrorsKey?: string;
+  repairInstructionsKey?: string;
+  stepDraftKey?: string;
+}
+
 export interface WorkflowExecutionPolicy {
   timeoutMs?: number;
   retry?: {
@@ -271,6 +290,7 @@ export interface WorkflowNodeData {
   wait?: WorkflowWaitConfig;
   subworkflow?: WorkflowSubworkflowConfig;
   push?: WorkflowPushConfig;
+  createWorkflowNode?: WorkflowCreateWorkflowNodeConfig;
   executionPolicy?: WorkflowExecutionPolicy;
   [key: string]: unknown;
 }

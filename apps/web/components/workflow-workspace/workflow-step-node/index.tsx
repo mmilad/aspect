@@ -78,7 +78,7 @@ export function WorkflowStepNode({ data, selected }: NodeProps<FlowRfNode>) {
         </div>
       ))}
 
-      {node.type === "switch" || node.type === "foreach" ? (
+      {node.type === "switch" || node.type === "foreach" || node.type === "branch" ? (
         <div className="mt-2 grid gap-1 text-[10px]">
           {execOutputs.map((pin) => (
             <div key={pin} className="rounded border border-current/20 px-1.5 py-0.5 opacity-80">

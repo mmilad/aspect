@@ -6,11 +6,15 @@ import { parseBranchNodeConfig } from "./schema";
 export const branchNode: WorkflowNodeModel = {
   type: "branch",
   kind: "control",
+  description: "Routes execution by a boolean bag value.",
   configKey: "branch",
   defaultData: () => ({ title: "Branch", reads: [], branch: {} }),
   parseConfig: parseBranchNodeConfig,
   execute: executeBranch,
   inspectorFields: branchInspectorFields,
+  execOutputs: () => ["true", "false"],
+  dataInputs: (node) => [node.data.branch?.on ?? "route"],
+  canvasFields: (node) => [{ label: "on", value: node.data.branch?.on ?? "route" }],
   validateTopology: (ctx) => {
     const routes = ctx.outgoing.filter((edge) => edge.kind === "route" || edge.sourcePin);
     if (routes.length < 2) {

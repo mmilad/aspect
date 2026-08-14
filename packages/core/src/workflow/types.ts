@@ -9,6 +9,7 @@ export type {
   WorkflowBagKeyContract,
   WorkflowBranchConfig,
   WorkflowControlNodeType,
+  WorkflowCreateWorkflowNodeConfig,
   WorkflowEdgeKind,
   WorkflowExecutionPolicy,
   WorkflowFilterAuto,

@@ -107,6 +107,8 @@ function defaultDataForType(type: WorkflowNodeType): WorkflowNodeData {
         writes: ["results"],
         push: { target: "results", valueFrom: "items[itemIndex]" }
       };
+    case "create_workflow_node":
+      return getNodeModel("create_workflow_node").defaultData();
     case "subworkflow":
       return { title, subworkflow: { workflowId: "" } };
     case "wait":

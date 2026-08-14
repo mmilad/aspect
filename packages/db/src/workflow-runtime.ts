@@ -15,6 +15,7 @@ import {
 import type { DatabaseSync } from "node:sqlite";
 import { createEntity, getEntity, listEntities, listRelations, updateEntity } from "./repository";
 import { rollupParentStatus } from "./rollup";
+import { getLlmJsonSchemaByKey } from "./llm-json-schemas";
 import {
   createWorkflowRun,
   getOrMigrateWorkflowGraph,
@@ -145,6 +146,18 @@ export function createSqliteWorkflowAdapters(
       }
 
       throw new Error(`Unsupported write action: ${action}`);
+    },
+    resolveLlmJsonSchema: (key: string) => {
+      const row = getLlmJsonSchemaByKey(db, key, projectKey);
+      if (!row) {
+        return null;
+      }
+      return {
+        key: row.key,
+        schema: row.schema,
+        version: row.version,
+        id: row.id
+      };
     }
   };
 }
@@ -275,7 +288,15 @@ export async function advanceWorkflowRun(
             : step.kind === "completed"
               ? "succeeded"
               : "running",
-      input: {},
+      input:
+        step.kind === "pending_llm" && step.llm?.schemaKey
+          ? {
+              schemaKey: step.llm.schemaKey,
+              schemaId: step.llm.jsonSchemaId ?? null,
+              version: step.llm.jsonSchemaVersion ?? null,
+              schema_json: step.llm.jsonSchema ?? null
+            }
+          : {},
       output: {
         kind: step.kind,
         message: step.message ?? null,

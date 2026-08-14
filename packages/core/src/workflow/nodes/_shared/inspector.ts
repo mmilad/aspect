@@ -39,6 +39,11 @@ export type WorkflowInspectorField =
   | {
       /** Start-only: author run-input outputContracts (name / shape / required). */
       kind: "startRunInputs";
+    }
+  | {
+      /** LLM node: pick a centralized JSON Schema by key (searchable select). */
+      kind: "llmSchemaKey";
+      label: string;
     };
 
 export function getDataPath(data: WorkflowNodeData, path: string): unknown {

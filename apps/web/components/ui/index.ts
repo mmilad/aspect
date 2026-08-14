@@ -4,3 +4,4 @@ export { EntityLink } from "./entity-link";
 export { Field, Metric } from "./field";
 export { GhostButton, ToolbarLink } from "./ghost-button";
 export { TextInput, TextArea, Select, FormLabel } from "./controls";
+export { SearchSelect, filterSearchSelectOptions, type SearchSelectOption } from "./search-select";

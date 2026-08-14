@@ -1,4 +1,5 @@
 import { resolveWorkflowLlmSystemPrompt } from "../../llm-defaults";
+import { resolveLlmNodeFormat } from "../../llm-format";
 import { resolveLlmOutputContracts } from "../../llm-outputs";
 import {
   pickBagByInputPorts,
@@ -17,6 +18,23 @@ export async function executeLlm(ctx: NodeExecuteContext): Promise<WorkflowStepR
   }
   if (!instructions.trim()) {
     return ctx.fail(`LLM node ${ctx.node.id} requires instructions or instructionRef.`);
+  }
+
+  const formatResolved = await resolveLlmNodeFormat({
+    format: llm.format,
+    schemaKey: llm.schemaKey,
+    adapters: ctx.adapters
+  });
+  if (!formatResolved.ok) {
+    return ctx.fail(`LLM node ${ctx.node.id}: ${formatResolved.error}`);
+  }
+  if (formatResolved.format === "json_schema") {
+    const { keys } = resolveLlmOutputContracts(ctx.node);
+    if (keys.length === 0) {
+      return ctx.fail(
+        `LLM node ${ctx.node.id} with schemaKey needs a write port for the JSON response.`
+      );
+    }
   }
 
   // Port ids (templates + pending_llm.reads are port-keyed).
@@ -57,6 +75,8 @@ export async function executeLlm(ctx: NodeExecuteContext): Promise<WorkflowStepR
     };
   }
 
+  const resolved = formatResolved.resolved;
+
   return {
     kind: "pending_llm",
     bag: { ...ctx.bag, status: "pending_llm", cursor: ctx.node.id },
@@ -71,6 +91,15 @@ export async function executeLlm(ctx: NodeExecuteContext): Promise<WorkflowStepR
       outputSchema,
       outputs,
       tools: llm.tools ?? [],
+      format: formatResolved.format,
+      ...(formatResolved.schemaKey ? { schemaKey: formatResolved.schemaKey } : {}),
+      ...(resolved
+        ? {
+            jsonSchema: resolved.schema,
+            jsonSchemaVersion: resolved.version,
+            ...(resolved.id ? { jsonSchemaId: resolved.id } : {})
+          }
+        : {}),
       ...(warnings.length > 0 ? { warnings } : {})
     }
   };

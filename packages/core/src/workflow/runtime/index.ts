@@ -9,6 +9,7 @@ export {
   createFunctionRegistry,
   type FunctionRegistry,
   type WorkflowAdapters,
+  type ResolvedLlmJsonSchema,
   type WorkflowFunctionHandler,
   type WorkflowMatch,
   type WorkflowToolCall,

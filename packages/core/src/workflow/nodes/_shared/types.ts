@@ -92,6 +92,9 @@ export interface WorkflowToolConfig {
   argsFromBag?: Record<string, string>;
 }
 
+export const workflowLlmFormats = ["text", "json", "json_schema"] as const;
+export type WorkflowLlmFormat = (typeof workflowLlmFormats)[number];
+
 export interface WorkflowLlmConfig {
   /** Chat system role; blank/missing → DEFAULT_WORKFLOW_LLM_SYSTEM_PROMPT at run. */
   systemPrompt?: string;
@@ -100,7 +103,12 @@ export interface WorkflowLlmConfig {
   instructionRef?: string;
   tools?: string[];
   inputKeys?: string[];
+  /** Bag port ids for llmWrites (legacy). Not a JSON Schema. */
   outputSchema?: string[];
+  /** Wire format for the LLM call. `schemaKey` implies `json_schema`. */
+  format?: WorkflowLlmFormat;
+  /** Key in llm_json_schemas (e.g. workflow_ir_v1). */
+  schemaKey?: string;
 }
 
 export interface WorkflowWriteConfig {

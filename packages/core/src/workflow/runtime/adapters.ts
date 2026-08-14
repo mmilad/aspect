@@ -33,6 +33,13 @@ export interface FunctionRegistry {
   [name: string]: WorkflowFunctionHandler;
 }
 
+export type ResolvedLlmJsonSchema = {
+  key: string;
+  schema: Record<string, unknown>;
+  version: number;
+  id?: string;
+};
+
 export interface WorkflowAdapters {
   loadContext?: (input: {
     query: string;
@@ -47,6 +54,10 @@ export interface WorkflowAdapters {
   resolveSubworkflow?: (
     workflowId: string
   ) => Promise<WorkflowGraph | null> | WorkflowGraph | null;
+  /** Resolve a centralized JSON Schema by key (llm_json_schemas). */
+  resolveLlmJsonSchema?: (
+    key: string
+  ) => Promise<ResolvedLlmJsonSchema | null> | ResolvedLlmJsonSchema | null;
   /** Optional tag ids marked business-critical for workScore light signals. */
   criticalTaggedIds?: Set<string>;
   /**

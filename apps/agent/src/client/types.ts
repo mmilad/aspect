@@ -25,6 +25,11 @@ export type PendingLlmSurface = {
   shapes?: Record<string, string>;
   outputSchema: string[];
   tools: string[];
+  format?: "text" | "json" | "json_schema";
+  schemaKey?: string;
+  jsonSchema?: Record<string, unknown>;
+  jsonSchemaId?: string;
+  jsonSchemaVersion?: number;
   warnings?: string[];
 };
 
@@ -36,6 +41,11 @@ export type WorkflowLlmPending = {
   shapes?: Record<string, string>;
   outputSchema: string[];
   tools: string[];
+  format?: "text" | "json" | "json_schema";
+  schemaKey?: string;
+  jsonSchema?: Record<string, unknown>;
+  jsonSchemaId?: string;
+  jsonSchemaVersion?: number;
   warnings?: string[];
 };
 

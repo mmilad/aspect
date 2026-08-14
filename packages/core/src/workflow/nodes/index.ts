@@ -21,6 +21,7 @@ export type {
   WorkflowJoinMergeConfig,
   WorkflowLegacyNodeType,
   WorkflowLlmConfig,
+  WorkflowLlmFormat,
   WorkflowLoadContextAuto,
   WorkflowMapConfig,
   WorkflowMapField,
@@ -43,6 +44,7 @@ export {
   WORKFLOW_SCHEMA_VERSION,
   workflowControlNodeTypes,
   workflowEdgeKinds,
+  workflowLlmFormats,
   workflowNodeTypes,
   workflowRetryOnValues,
   workflowWorkNodeTypes

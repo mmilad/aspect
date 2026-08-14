@@ -24,6 +24,14 @@ export interface WorkflowLlmPending {
   /** Typed write contracts (BagShape) for each outputSchema key. */
   outputs?: Record<string, { shape: BagShape; required?: boolean; slim?: string }>;
   tools: string[];
+  /** LLM wire format. */
+  format?: "text" | "json" | "json_schema";
+  /** llm_json_schemas.key when format is json_schema. */
+  schemaKey?: string;
+  /** Resolved JSON Schema snapshot for the LLM call. */
+  jsonSchema?: Record<string, unknown>;
+  jsonSchemaId?: string;
+  jsonSchemaVersion?: number;
   /** Template fill warnings (unknown/disallowed tokens). */
   warnings?: string[];
 }

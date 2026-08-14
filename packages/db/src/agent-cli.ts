@@ -356,10 +356,12 @@ async function main(): Promise<void> {
 
   if (command === "presets-ensure") {
     const { ensureWorkflowPresets } = await import("./presets");
+    const { ensureLlmJsonSchemas } = await import("./llm-json-schemas");
     const db = createDatabase();
     try {
       const result = await ensureWorkflowPresets(db, { force: forcePresets, only: onlyPresets });
-      console.log(JSON.stringify(result, null, 2));
+      const schemas = ensureLlmJsonSchemas(db, { force: forcePresets });
+      console.log(JSON.stringify({ ...result, llmJsonSchemas: schemas }, null, 2));
       return;
     } finally {
       db.close();

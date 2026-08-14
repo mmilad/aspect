@@ -12,6 +12,7 @@ import {
   type WorkflowNodeData
 } from "@projectplaner/core";
 import { FormLabel, GhostButton, Select, TextArea, TextInput } from "../../ui";
+import { LlmJsonSchemaPicker } from "./llm-json-schema-picker";
 import { PropPicker, WorkflowBagPanel } from "../../workflow-workspace/workflow-bag-panel";
 import { BagPortsEditor } from "./bag-ports-editor";
 import { StartRunInputsEditor } from "./start-run-inputs-editor";
@@ -19,6 +20,7 @@ import { StartRunInputsEditor } from "./start-run-inputs-editor";
 export interface WorkflowStepInspectorProps {
   selected: WorkflowNode | null;
   bagView: Record<string, BagShape>;
+  projectKey?: string;
   onUpdateData: (patch: Partial<WorkflowNodeData>) => void;
   onDelete: () => void;
 }
@@ -73,6 +75,18 @@ function applyFieldPatch(
     onUpdateData({ ...next, writes, writeBindings });
     return;
   }
+  if (path === "llm.schemaKey") {
+    const key = String(value ?? "").trim();
+    const next = setDataPath(selected.data, "llm.schemaKey", key || undefined);
+    onUpdateData({
+      llm: {
+        ...(next.llm ?? {}),
+        schemaKey: key || undefined,
+        format: key ? "json_schema" : next.llm?.format === "json_schema" ? "text" : next.llm?.format
+      }
+    });
+    return;
+  }
   if (path === "llm.systemPrompt" || path === "llm.instructions") {
     const next = setDataPath(selected.data, path, value);
     const inputPorts = Object.keys(selected.data.inputs ?? {});
@@ -101,7 +115,8 @@ function readFieldValue(selected: WorkflowNode, field: WorkflowInspectorField): 
     field.kind === "mapFields" ||
     field.kind === "toolArgs" ||
     field.kind === "bagPorts" ||
-    field.kind === "startRunInputs"
+    field.kind === "startRunInputs" ||
+    field.kind === "llmSchemaKey"
   ) {
     return "";
   }
@@ -123,7 +138,8 @@ function renderField(
   field: WorkflowInspectorField,
   selected: WorkflowNode,
   bagView: Record<string, BagShape>,
-  onUpdateData: (patch: Partial<WorkflowNodeData>) => void
+  onUpdateData: (patch: Partial<WorkflowNodeData>) => void,
+  projectKey: string
 ) {
   if (field.kind === "bagPorts") {
     return (
@@ -138,6 +154,17 @@ function renderField(
 
   if (field.kind === "startRunInputs") {
     return <StartRunInputsEditor key="startRunInputs" selected={selected} onUpdateData={onUpdateData} />;
+  }
+
+  if (field.kind === "llmSchemaKey") {
+    return (
+      <LlmJsonSchemaPicker
+        key="llmSchemaKey"
+        projectKey={projectKey}
+        value={selected.data.llm?.schemaKey ?? ""}
+        onChange={(key) => applyFieldPatch(selected, "llm.schemaKey", key, onUpdateData)}
+      />
+    );
   }
 
   if (field.kind === "executionPolicy") {
@@ -337,6 +364,7 @@ function renderField(
 export function WorkflowStepInspector({
   selected,
   bagView,
+  projectKey = "PLAN",
   onUpdateData,
   onDelete
 }: WorkflowStepInspectorProps) {
@@ -372,7 +400,7 @@ export function WorkflowStepInspector({
           )}
           {fields
             .filter((field) => field.kind !== "bagPorts")
-            .map((field) => renderField(field, selected, bagView, onUpdateData))}
+            .map((field) => renderField(field, selected, bagView, onUpdateData, projectKey))}
           {selected.type !== "start" ? (
             <GhostButton size="xs" tone="danger" onClick={onDelete}>
               Delete node

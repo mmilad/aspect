@@ -14,5 +14,20 @@ export const llmInspectorFields: WorkflowInspectorField[] = [
     label: "Task instructions",
     path: "llm.instructions"
   },
+  {
+    kind: "select",
+    label: "Response format",
+    path: "llm.format",
+    options: [
+      { value: "", label: "text (default)" },
+      { value: "text", label: "text" },
+      { value: "json", label: "json" },
+      { value: "json_schema", label: "json_schema" }
+    ]
+  },
+  {
+    kind: "llmSchemaKey",
+    label: "JSON schema"
+  },
   { kind: "executionPolicy" }
 ];

@@ -20,6 +20,6 @@ export class CallableLlmAdapter implements LlmAdapter {
   async complete(input: LlmCompleteInput): Promise<Record<string, unknown>> {
     const prompt = buildAdapterPrompt(input.pending);
     const text = await this.completeText(prompt, input);
-    return parseLlmWrites(text, input.pending.outputSchema);
+    return parseLlmWrites(text, input.pending.outputSchema, { format: input.pending.format });
   }
 }

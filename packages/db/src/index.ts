@@ -3,6 +3,7 @@ export * from "./repository";
 export * from "./query";
 export * from "./workflows";
 export * from "./presets";
+export * from "./llm-json-schemas";
 export * from "./workflow-runtime";
 export * from "./migrate-status";
 export * from "./rollup";

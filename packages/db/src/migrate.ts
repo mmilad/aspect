@@ -297,5 +297,31 @@ export function runMigrations(sqlite: MigrationDatabase): void {
     );
 
     CREATE INDEX IF NOT EXISTS workflow_run_tokens_run_idx ON workflow_run_tokens(run_id);
+
+    CREATE TABLE IF NOT EXISTS llm_json_schemas (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      key TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      schema_json TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS llm_json_schemas_project_key_idx
+      ON llm_json_schemas(project_id, key);
+
+    CREATE TABLE IF NOT EXISTS llm_json_schema_versions (
+      id TEXT PRIMARY KEY,
+      schema_id TEXT NOT NULL REFERENCES llm_json_schemas(id) ON DELETE CASCADE,
+      version INTEGER NOT NULL,
+      schema_json TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS llm_json_schema_versions_schema_version_idx
+      ON llm_json_schema_versions(schema_id, version);
   `);
 }

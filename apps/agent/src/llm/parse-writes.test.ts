@@ -19,9 +19,9 @@ describe("agent llm parse-writes", () => {
     expect(prompt).toContain('"goal": "workspace"');
   });
 
-  it("parses llmWrites JSON for output schema keys", () => {
-    expect(parseLlmWrites('{"aspectId":"a1","noise":1}', ["aspectId"])).toEqual({
-      aspectId: "a1"
-    });
+  it("wraps json_schema responses onto the single write port", () => {
+    expect(
+      parseLlmWrites('{"title":"N","steps":[]}', ["ir"], { format: "json_schema" })
+    ).toEqual({ ir: { title: "N", steps: [] } });
   });
 });

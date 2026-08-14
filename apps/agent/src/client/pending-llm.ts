@@ -20,6 +20,11 @@ export function toPendingLlmSurface(response: WorkflowRunResponse): PendingLlmSu
     shapes: llm?.shapes,
     outputSchema: llm?.outputSchema ?? [],
     tools: llm?.tools ?? [],
+    format: llm?.format,
+    schemaKey: llm?.schemaKey,
+    jsonSchema: llm?.jsonSchema,
+    jsonSchemaId: llm?.jsonSchemaId,
+    jsonSchemaVersion: llm?.jsonSchemaVersion,
     warnings: llm?.warnings
   };
 }

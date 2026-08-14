@@ -10,10 +10,21 @@ export function buildAdapterPrompt(pending: PendingLlmSurface): string {
     pending.outputSchema.length > 0
       ? pending.outputSchema.map((key) => `- ${key}`).join("\n")
       : "- (no outputSchema; return a JSON object of writes)";
+  const formatLines =
+    pending.format === "json_schema" && pending.jsonSchema
+      ? [
+          "Response format: json_schema",
+          pending.schemaKey ? `JSON schema key: ${pending.schemaKey}` : "",
+          "JSON Schema:",
+          JSON.stringify(pending.jsonSchema)
+        ].filter(Boolean)
+      : pending.format
+        ? [`Response format: ${pending.format}`]
+        : ["Reply with a single JSON object only (no markdown) whose keys match the output schema."];
 
   return [
     "You are filling a Projectplaner workflow LLM node.",
-    "Reply with a single JSON object only (no markdown) whose keys match the output schema.",
+    ...formatLines,
     "",
     "=== SYSTEM ===",
     pending.systemPrompt.trim() || "(empty)",
@@ -30,7 +41,11 @@ export function buildAdapterPrompt(pending: PendingLlmSurface): string {
 }
 
 /** Pull the first JSON object from model text and keep outputSchema keys when listed. */
-export function parseLlmWrites(text: string, outputSchema: string[] = []): Record<string, unknown> {
+export function parseLlmWrites(
+  text: string,
+  outputSchema: string[] = [],
+  options?: { format?: string }
+): Record<string, unknown> {
   const trimmed = text.trim();
   const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
   const candidate = fenced?.[1]?.trim() ?? trimmed;
@@ -46,6 +61,13 @@ export function parseLlmWrites(text: string, outputSchema: string[] = []): Recor
   const record = parsed as Record<string, unknown>;
   if (outputSchema.length === 0) {
     return record;
+  }
+  if (
+    options?.format === "json_schema" &&
+    outputSchema.length === 1 &&
+    !(outputSchema[0]! in record)
+  ) {
+    return { [outputSchema[0]!]: record };
   }
   const writes: Record<string, unknown> = {};
   for (const key of outputSchema) {

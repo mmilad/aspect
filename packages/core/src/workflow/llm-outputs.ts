@@ -1,6 +1,6 @@
 import type { BagShape, WorkflowNode } from "./types";
 import { resolveWriteBindings } from "./ports";
-import { resolveBagShape } from "./shapes";
+import { BAG_SHAPE_CATALOG, resolveBagShape } from "./shapes";
 
 export type LlmOutputContract = {
   shape: BagShape;
@@ -30,7 +30,11 @@ export function resolveLlmOutputContracts(node: WorkflowNode): {
   for (const key of keys) {
     const contract = node.data.outputContracts?.[key];
     outputs[key] = {
-      shape: contract?.shape ? resolveBagShape(contract.shape) : DEFAULT_STRING,
+      shape: contract?.shape
+        ? resolveBagShape(contract.shape)
+        : node.data.llm?.schemaKey
+          ? BAG_SHAPE_CATALOG.Json
+          : DEFAULT_STRING,
       required: contract?.required !== false
     };
   }

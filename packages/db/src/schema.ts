@@ -221,6 +221,45 @@ export const entityRelationsV2 = sqliteTable("entity_relations_v2", {
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`)
 });
 
+export const llmJsonSchemas = sqliteTable(
+  "llm_json_schemas",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    key: text("key").notNull(),
+    title: text("title").notNull(),
+    description: text("description").notNull().default(""),
+    schemaJson: text("schema_json").notNull(),
+    status: text("status").notNull().default("active"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`)
+  },
+  (table) => ({
+    projectKey: uniqueIndex("llm_json_schemas_project_key_idx").on(table.projectId, table.key)
+  })
+);
+
+export const llmJsonSchemaVersions = sqliteTable(
+  "llm_json_schema_versions",
+  {
+    id: text("id").primaryKey(),
+    schemaId: text("schema_id")
+      .notNull()
+      .references(() => llmJsonSchemas.id, { onDelete: "cascade" }),
+    version: integer("version").notNull(),
+    schemaJson: text("schema_json").notNull(),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`)
+  },
+  (table) => ({
+    schemaVersion: uniqueIndex("llm_json_schema_versions_schema_version_idx").on(
+      table.schemaId,
+      table.version
+    )
+  })
+);
+
 export const entityTagAssignments = sqliteTable("entity_tag_assignments", {
   id: text("id").primaryKey(),
   tagId: text("tag_id")

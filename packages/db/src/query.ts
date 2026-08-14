@@ -6,48 +6,9 @@ import type {
 } from "@projectplaner/core";
 import type { Entity } from "@projectplaner/core";
 import type { DatabaseSync } from "node:sqlite";
+import { compileSelect, type SqlFragment, type SqlValue } from "./query-builder";
 import { getEntity, listRelations } from "./repository";
-
-type SqlValue = string | number | null;
-type SqlFragment = { sql: string; values: SqlValue[] };
-
-type EntityRow = {
-  id: string;
-  project_id: string;
-  type: string;
-  key: string | null;
-  slug: string;
-  title: string;
-  summary: string;
-  body: string;
-  status: string;
-  sort_order: number;
-  metadata_json: string;
-};
-
-function parseJson<T>(value: string, fallback: T): T {
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return fallback;
-  }
-}
-
-function mapEntityRow(row: EntityRow): Entity {
-  return {
-    id: row.id,
-    projectId: row.project_id,
-    type: row.type as Entity["type"],
-    key: row.key,
-    slug: row.slug,
-    title: row.title,
-    summary: row.summary,
-    body: row.body,
-    status: row.status as Entity["status"],
-    sortOrder: row.sort_order,
-    metadata: parseJson(row.metadata_json, {})
-  };
-}
+import { mapEntityRow, type EntityRow } from "./storage";
 
 function asList(value: unknown): SqlValue[] {
   if (Array.isArray(value)) {
@@ -274,30 +235,20 @@ function orderClause(orderBy: EntityOrderBy[]): string {
 export async function executePlan(db: DatabaseSync, plan: QueryPlan): Promise<Entity[]> {
   aliasCounter = 0;
   const whereFrag = compilePredicate(plan.where, "entities");
-  const values: SqlValue[] = [plan.projectKey, ...whereFrag.values];
+  const query = compileSelect({
+    select: "entities.*",
+    from: "entities",
+    joins: ["INNER JOIN projects ON projects.id = entities.project_id"],
+    where: [
+      { sql: "projects.key = ?", values: [plan.projectKey] },
+      whereFrag
+    ],
+    orderBy: [orderClause(plan.orderBy)],
+    limit: plan.limit,
+    offset: plan.offset
+  });
 
-  let sql = `
-    SELECT entities.*
-    FROM entities
-    INNER JOIN projects ON projects.id = entities.project_id
-    WHERE projects.key = ?
-      AND (${whereFrag.sql})
-    ORDER BY ${orderClause(plan.orderBy)}
-  `;
-
-  if (typeof plan.limit === "number") {
-    sql += " LIMIT ?";
-    values.push(plan.limit);
-  }
-  if (typeof plan.offset === "number" && plan.offset > 0) {
-    if (typeof plan.limit !== "number") {
-      sql += " LIMIT -1";
-    }
-    sql += " OFFSET ?";
-    values.push(plan.offset);
-  }
-
-  const rows = db.prepare(sql).all(...values) as EntityRow[];
+  const rows = db.prepare(query.sql).all(...query.values) as EntityRow[];
   return rows.map(mapEntityRow);
 }
 

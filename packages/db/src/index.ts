@@ -1,6 +1,11 @@
 export * from "./client";
+export * from "./api";
 export * from "./repository";
+export * from "./repositories";
 export * from "./query";
+export * from "./queries";
+export * as queryBuilder from "./query-builder";
+export * from "./storage";
 export * from "./workflows";
 export * from "./presets";
 export * from "./llm-json-schemas";

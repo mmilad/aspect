@@ -13,7 +13,8 @@ export async function GET(request: Request) {
         key: row.key,
         title: row.title,
         description: row.description,
-        version: row.version
+        version: row.version,
+        schema: row.schema
       }));
     return NextResponse.json({ schemas });
   });

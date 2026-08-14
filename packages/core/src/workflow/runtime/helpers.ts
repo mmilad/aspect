@@ -94,6 +94,26 @@ export function readValuePath(value: unknown, path: string): unknown {
   return readPath(value, path);
 }
 
+export function readBagExpression(keys: Record<string, unknown>, expression: string): unknown {
+  const trimmed = expression.trim();
+  const indexed = /^([a-zA-Z0-9_]+)\[([a-zA-Z0-9_]+)\]$/.exec(trimmed);
+  if (indexed) {
+    const source = keys[indexed[1]];
+    const index = keys[indexed[2]];
+    if (!Array.isArray(source) || typeof index !== "number") {
+      return undefined;
+    }
+    return source[index];
+  }
+
+  const dotIndex = /^([a-zA-Z0-9_]+)\.([a-zA-Z0-9_.]+)$/.exec(trimmed);
+  if (dotIndex) {
+    return readValuePath(keys[dotIndex[1]], dotIndex[2]);
+  }
+
+  return keys[trimmed];
+}
+
 export function projectMapFields(
   source: unknown,
   fields: Array<{ from: string; as: string }>

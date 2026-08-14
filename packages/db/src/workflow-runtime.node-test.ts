@@ -3,13 +3,14 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { ensureAspectPreset, createContextBag, parseWorkflowGraph } from "@projectplaner/core";
+import { createContextBag, createStepGraph, ensureAspectPreset, parseWorkflowGraph } from "@projectplaner/core";
 import {
   advanceWorkflowRun,
   createDatabase,
   createEntity,
   createWorkflowRun,
   ensureWorkflowPresets,
+  loadWorkflowGraph,
   saveWorkflowGraph
 } from "./index";
 
@@ -124,6 +125,50 @@ describe("advanceWorkflowRun ensure_aspect", () => {
       });
       assert.equal(started.flow.metadata.presetKey, "ensure_aspect");
       assert.equal(started.step.kind, "pending_llm");
+    } finally {
+      db.close();
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("persists v3 exec pins when saving and loading workflow graphs", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "projectplaner-wf-pins-"));
+    const dbPath = path.join(dir, "test.db");
+    const db = createDatabase(dbPath);
+    try {
+      db.prepare(`INSERT INTO projects (id, key, title, description) VALUES (?, ?, ?, ?)`).run(
+        "project_test",
+        "PLAN",
+        "Plan",
+        ""
+      );
+
+      const flow = await createEntity(db, {
+        projectKey: "PLAN",
+        type: "flow",
+        title: "Pin persistence",
+        summary: "Save/reload pin ids.",
+        status: "planned",
+        slug: "pin-persistence"
+      });
+
+      saveWorkflowGraph(db, {
+        workflowId: flow.entity.id,
+        projectId: "project_test",
+        graph: createStepGraph
+      });
+
+      const loaded = loadWorkflowGraph(db, flow.entity.id);
+      assert.ok(loaded);
+      const loop = loaded.edges.find((edge) => edge.id === "e3");
+      const back = loaded.edges.find((edge) => edge.id === "e4");
+      const completed = loaded.edges.find((edge) => edge.id === "e5");
+      assert.equal(loop?.sourcePin, "loop");
+      assert.equal(loop?.targetPin, "in");
+      assert.equal(back?.sourcePin, "then");
+      assert.equal(back?.targetPin, "continue");
+      assert.equal(completed?.sourcePin, "completed");
+      assert.equal(completed?.targetPin, "in");
     } finally {
       db.close();
       fs.rmSync(dir, { recursive: true, force: true });

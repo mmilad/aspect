@@ -95,10 +95,17 @@ function defaultDataForType(type: WorkflowNodeType): WorkflowNodeData {
         title,
         foreach: {
           itemsFrom: "items",
-          body: { type: "subworkflow", workflowId: "" },
-          failureMode: "fail",
-          collect: { from: "result", as: "results" }
+          itemKey: "item",
+          indexKey: "itemIndex",
+          failureMode: "fail"
         }
+      };
+    case "push":
+      return {
+        title,
+        reads: ["items", "itemIndex", "results"],
+        writes: ["results"],
+        push: { target: "results", valueFrom: "items[itemIndex]" }
       };
     case "subworkflow":
       return { title, subworkflow: { workflowId: "" } };
@@ -217,13 +224,22 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
         targetNode?.data.workflow.type,
         connectKind
       );
+      const sourcePin = connection.sourceHandle?.split(":", 2)[1] ?? (kind === "route" ? "default" : "then");
+      const targetPin = connection.targetHandle?.split(":", 2)[1] ?? "in";
       setEdges((current) =>
         addEdge(
           {
             ...connection,
             id: `e_${connection.source}_${connection.target}_${current.length + 1}`,
             data: { kind },
-            label: kind === "route" ? "default" : kind === "depends_on" ? "depends_on" : undefined,
+            label:
+              kind === "route"
+                ? sourcePin
+                : targetPin === "continue"
+                  ? "continue"
+                  : kind === "depends_on"
+                    ? "depends_on"
+                    : undefined,
             style:
               kind === "depends_on"
                 ? { stroke: "#0369a1", strokeWidth: 1.5, strokeDasharray: "6 4" }
@@ -231,7 +247,9 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
                   ? { stroke: "#7c3aed", strokeWidth: 1.75 }
                   : kind === "error"
                     ? { stroke: "#e11d48", strokeWidth: 1.75 }
-                    : { stroke: "#3f3f46", strokeWidth: 1.5 }
+                    : { stroke: "#3f3f46", strokeWidth: 1.5 },
+            sourceHandle: connection.sourceHandle,
+            targetHandle: connection.targetHandle
           },
           current
         )

@@ -22,7 +22,7 @@ export function buildWorkflowOutlineSystemPrompt(): string {
 export function buildWorkflowCompileSystemPrompt(): string {
   return [
     "You compile a text outline into Projectplaner Workflow Step Graph v2 JSON.",
-    "Return ONLY valid JSON for { version: 2, nodes, edges } — no markdown fences, no prose.",
+    "Return ONLY valid JSON for { version: 3, nodes, edges } — no markdown fences, no prose.",
     "Control node types: start, end, error_end, branch, switch, fork, join, foreach, gate, wait, subworkflow.",
     "Work node types: tool, llm, context, transform, map, write.",
     "Exactly one start node and at least one end or error_end node.",

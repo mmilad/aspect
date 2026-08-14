@@ -1,4 +1,5 @@
 import type { BagShape, WorkflowNode, WorkflowNodeData, WorkflowNodeKind, WorkflowNodeType } from "./types";
+import type { WorkflowEdge } from "../../graph/types";
 import type { NodeExecuteContext, WorkflowStepResult } from "../../runtime/types";
 import type { WorkflowInspectorField } from "./inspector";
 
@@ -6,16 +7,24 @@ export interface NodeTopologyContext {
   node: WorkflowNode;
   graph: {
     nodes: WorkflowNode[];
-    edges: Array<{ id: string; source: string; target: string; kind: string; label?: string }>;
+    edges: WorkflowEdge[];
   };
-  incoming: Array<{ id: string; source: string; target: string; kind: string; label?: string }>;
-  outgoing: Array<{ id: string; source: string; target: string; kind: string; label?: string }>;
+  incoming: WorkflowEdge[];
+  outgoing: WorkflowEdge[];
   errors: string[];
 }
 
 export interface WorkflowNodeModel {
   type: WorkflowNodeType;
   kind: WorkflowNodeKind;
+  description?: string;
+  execInputs?: (node: WorkflowNode) => string[];
+  execOutputs?: (node: WorkflowNode) => string[];
+  execInputDescriptions?: (node: WorkflowNode) => Record<string, string>;
+  execOutputDescriptions?: (node: WorkflowNode) => Record<string, string>;
+  dataInputs?: (node: WorkflowNode) => string[];
+  dataOutputs?: (node: WorkflowNode) => string[];
+  canvasFields?: (node: WorkflowNode) => Array<{ label: string; value: string }>;
   /** Config key on data for this type, if any */
   configKey?: keyof WorkflowNodeData;
   defaultData: () => WorkflowNodeData;

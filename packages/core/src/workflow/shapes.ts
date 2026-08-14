@@ -21,6 +21,34 @@ function outgoingEdges(graph: WorkflowGraph, nodeId: string) {
   return graph.edges.filter((edge) => edge.source === nodeId);
 }
 
+function isLoopBodyReachable(graph: WorkflowGraph, foreachId: string, targetId: string): boolean {
+  const queue = outgoingEdges(graph, foreachId)
+    .filter((edge) => (edge.sourcePin ?? edge.label) === "loop")
+    .map((edge) => edge.target);
+  const visited = new Set<string>();
+
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    if (id === targetId) {
+      return true;
+    }
+    if (visited.has(id)) {
+      continue;
+    }
+    visited.add(id);
+
+    if (id === foreachId) {
+      continue;
+    }
+
+    for (const edge of outgoingEdges(graph, id)) {
+      queue.push(edge.target);
+    }
+  }
+
+  return false;
+}
+
 const STRING: BagShape = { kind: "primitive", type: "string" };
 const NUMBER: BagShape = { kind: "primitive", type: "number" };
 const BOOLEAN: BagShape = { kind: "primitive", type: "boolean" };
@@ -386,12 +414,18 @@ export function bagViewAtNode(graph: WorkflowGraph, nodeId: string): Record<stri
     }
   }
 
-  // Foreach: expose item/index for UI when inspecting the foreach node itself.
-  if (target.type === "foreach" && target.data.foreach) {
-    const itemsFrom = target.data.foreach.itemsFrom;
+  for (const node of graph.nodes) {
+    if (node.type !== "foreach" || !node.data.foreach) {
+      continue;
+    }
+    if (node.id !== target.id && !isLoopBodyReachable(graph, node.id, target.id)) {
+      continue;
+    }
+
+    const itemsFrom = node.data.foreach.itemsFrom;
     const itemsShape = resolveBagShape(view[itemsFrom]);
-    const itemKey = target.data.foreach.itemKey ?? "item";
-    const indexKey = target.data.foreach.indexKey ?? "index";
+    const itemKey = node.data.foreach.itemKey ?? "item";
+    const indexKey = node.data.foreach.indexKey ?? "index";
     view[itemKey] =
       itemsShape.kind === "array" ? resolveBagShape(itemsShape.items) : { kind: "unknown" };
     view[indexKey] = NUMBER;

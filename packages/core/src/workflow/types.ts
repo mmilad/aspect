@@ -31,6 +31,7 @@ export type {
   WorkflowNodeKind,
   WorkflowNodeType,
   WorkflowPosition,
+  WorkflowPushConfig,
   WorkflowRetryOn,
   WorkflowSubworkflowConfig,
   WorkflowSwitchConfig,

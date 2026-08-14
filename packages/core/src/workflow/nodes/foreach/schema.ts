@@ -17,31 +17,33 @@ export function parseForeachConfig(
     errors.push(`Node ${nodeId} foreach.itemsFrom is required.`);
     return undefined;
   }
-  if (!isRecord(raw.body)) {
-    errors.push(`Node ${nodeId} foreach.body is required.`);
-    return undefined;
-  }
   let body: WorkflowForeachConfig["body"] | null = null;
-  if (raw.body.type === "subworkflow" && typeof raw.body.workflowId === "string") {
-    body = {
-      type: "subworkflow",
-      workflowId: raw.body.workflowId,
-      inputMap: asStringMap(raw.body.inputMap),
-      outputMap: asStringMap(raw.body.outputMap)
-    };
-  } else if (
-    raw.body.type === "subgraph" &&
-    typeof raw.body.entryNodeId === "string" &&
-    typeof raw.body.exitNodeId === "string"
-  ) {
-    body = {
-      type: "subgraph",
-      entryNodeId: raw.body.entryNodeId,
-      exitNodeId: raw.body.exitNodeId
-    };
-  } else {
-    errors.push(`Node ${nodeId} foreach.body must be subworkflow|{subgraph entry/exit}.`);
-    return undefined;
+  if (raw.body !== undefined) {
+    if (!isRecord(raw.body)) {
+      errors.push(`Node ${nodeId} foreach.body must be an object.`);
+      return undefined;
+    }
+    if (raw.body.type === "subworkflow" && typeof raw.body.workflowId === "string") {
+      body = {
+        type: "subworkflow",
+        workflowId: raw.body.workflowId,
+        inputMap: asStringMap(raw.body.inputMap),
+        outputMap: asStringMap(raw.body.outputMap)
+      };
+    } else if (
+      raw.body.type === "subgraph" &&
+      typeof raw.body.entryNodeId === "string" &&
+      typeof raw.body.exitNodeId === "string"
+    ) {
+      body = {
+        type: "subgraph",
+        entryNodeId: raw.body.entryNodeId,
+        exitNodeId: raw.body.exitNodeId
+      };
+    } else {
+      errors.push(`Node ${nodeId} foreach.body must be subworkflow|{subgraph entry/exit}.`);
+      return undefined;
+    }
   }
 
   const collect =
@@ -61,7 +63,7 @@ export function parseForeachConfig(
     itemsFrom: raw.itemsFrom,
     itemKey: typeof raw.itemKey === "string" ? raw.itemKey : undefined,
     indexKey: typeof raw.indexKey === "string" ? raw.indexKey : undefined,
-    body,
+    ...(body ? { body } : {}),
     concurrency: typeof raw.concurrency === "number" ? raw.concurrency : undefined,
     failureMode: raw.failureMode === "fail" || raw.failureMode === "continue" ? raw.failureMode : undefined,
     collect: collect && (typeof collect.from === "string" || collect.from.length > 0) ? collect : undefined

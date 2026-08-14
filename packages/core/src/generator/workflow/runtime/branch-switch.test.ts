@@ -69,4 +69,58 @@ describe("branch and switch runtime", () => {
     expect(step.kind).toBe("advanced");
     expect(step.nodeId).toBe("other");
   });
+
+  it("switch routes by sourcePin when labels are stale", async () => {
+    const parsed = parseWorkflowGraph({
+      version: 3,
+      nodes: [
+        { id: "start", type: "start", position: { x: 0, y: 0 }, data: { title: "Start", writes: ["kind"] } },
+        {
+          id: "sw",
+          type: "switch",
+          position: { x: 100, y: 0 },
+          data: { title: "By kind", switch: { on: "kind", cases: ["create"], defaultLabel: "default" } }
+        },
+        { id: "create", type: "end", position: { x: 200, y: 0 }, data: { title: "Create" } },
+        { id: "other", type: "end", position: { x: 200, y: 100 }, data: { title: "Default" } }
+      ],
+      edges: [
+        { id: "e0", source: "start", target: "sw", kind: "next", sourcePin: "then", targetPin: "in" },
+        {
+          id: "e1",
+          source: "sw",
+          target: "create",
+          kind: "route",
+          label: "old-create-label",
+          sourcePin: "create",
+          targetPin: "in"
+        },
+        {
+          id: "e2",
+          source: "sw",
+          target: "other",
+          kind: "route",
+          label: "old-default-label",
+          sourcePin: "default",
+          targetPin: "in"
+        }
+      ]
+    });
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) {
+      return;
+    }
+
+    let bag = createContextBag({
+      workflowId: "wf",
+      goal: "g",
+      startNodeId: "start",
+      keys: { kind: "create" }
+    });
+    let step = await stepWorkflow({ graph: parsed.graph, bag });
+    bag = step.bag;
+    step = await stepWorkflow({ graph: parsed.graph, bag });
+    expect(step.kind).toBe("advanced");
+    expect(step.nodeId).toBe("create");
+  });
 });

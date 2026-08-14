@@ -1,6 +1,6 @@
 import type { EntityType, JsonRecord } from "../../../domain/types";
 
-/** Workflow Step Graph v2 node types. */
+/** Workflow Step Graph node types. */
 export const workflowControlNodeTypes = [
   "start",
   "end",
@@ -15,9 +15,9 @@ export const workflowControlNodeTypes = [
   "subworkflow"
 ] as const;
 
-export const workflowWorkNodeTypes = ["tool", "llm", "context", "transform", "map", "write"] as const;
+export const workflowWorkNodeTypes = ["tool", "llm", "context", "transform", "map", "write", "push"] as const;
 
-/** Canonical v2 palette (filter is accepted on parse and rewritten to transform). */
+/** Canonical palette (filter is accepted on parse and rewritten to transform). */
 export const workflowNodeTypes = [...workflowControlNodeTypes, ...workflowWorkNodeTypes] as const;
 
 export type WorkflowControlNodeType = (typeof workflowControlNodeTypes)[number];
@@ -177,7 +177,7 @@ export interface WorkflowForeachConfig {
   itemsFrom: string;
   itemKey?: string;
   indexKey?: string;
-  body: WorkflowForeachBodySubworkflow | WorkflowForeachBodySubgraph;
+  body?: WorkflowForeachBodySubworkflow | WorkflowForeachBodySubgraph;
   concurrency?: number;
   failureMode?: "fail" | "continue";
   collect?: WorkflowForeachCollectConfig;
@@ -208,6 +208,11 @@ export interface WorkflowMapConfig {
   as: string;
   mode?: "array" | "object";
   fields: WorkflowMapField[];
+}
+
+export interface WorkflowPushConfig {
+  target: string;
+  valueFrom: string;
 }
 
 export interface WorkflowExecutionPolicy {
@@ -265,6 +270,7 @@ export interface WorkflowNodeData {
   map?: WorkflowMapConfig;
   wait?: WorkflowWaitConfig;
   subworkflow?: WorkflowSubworkflowConfig;
+  push?: WorkflowPushConfig;
   executionPolicy?: WorkflowExecutionPolicy;
   [key: string]: unknown;
 }
@@ -283,6 +289,8 @@ export type TopologyEdgeRef = {
   target: string;
   kind: string;
   label?: string;
+  sourcePin?: string;
+  targetPin?: string;
 };
 
 export type TopologyEdgeMaps = {
@@ -290,4 +298,4 @@ export type TopologyEdgeMaps = {
   outgoing: Map<string, TopologyEdgeRef[]>;
 };
 
-export const WORKFLOW_SCHEMA_VERSION = 2;
+export const WORKFLOW_SCHEMA_VERSION = 3;

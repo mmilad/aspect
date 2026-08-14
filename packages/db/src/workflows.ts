@@ -123,7 +123,7 @@ export function loadWorkflowGraph(db: DatabaseSync, workflowId: string): Workflo
 
   const edgeRows = db
     .prepare(
-      `SELECT id, source_id, target_id, kind, label
+      `SELECT id, source_id, target_id, kind, label, config_json
        FROM workflow_edges WHERE workflow_id = ? ORDER BY id`
     )
     .all(workflowId) as Array<{
@@ -132,6 +132,7 @@ export function loadWorkflowGraph(db: DatabaseSync, workflowId: string): Workflo
     target_id: string;
     kind: string;
     label: string | null;
+    config_json: string;
   }>;
 
   const nodes: WorkflowNode[] = nodeRows.map((row) => {
@@ -153,7 +154,14 @@ export function loadWorkflowGraph(db: DatabaseSync, workflowId: string): Workflo
     source: row.source_id,
     target: row.target_id,
     kind: row.kind as WorkflowEdgeKind,
-    label: row.label ?? undefined
+    label: row.label ?? undefined,
+    ...(() => {
+      const config = parseJson<{ sourcePin?: unknown; targetPin?: unknown }>(row.config_json, {});
+      return {
+        sourcePin: typeof config.sourcePin === "string" ? config.sourcePin : undefined,
+        targetPin: typeof config.targetPin === "string" ? config.targetPin : undefined
+      };
+    })()
   }));
 
   const parsed = parseWorkflowGraph({ version: WORKFLOW_SCHEMA_VERSION, nodes, edges });
@@ -205,8 +213,16 @@ export function saveWorkflowGraph(
         db,
         `INSERT INTO workflow_edges
           (id, workflow_id, source_id, target_id, kind, label, config_json)
-         VALUES (?, ?, ?, ?, ?, ?, '{}')`,
-        [edge.id, input.workflowId, edge.source, edge.target, edge.kind, edge.label ?? null]
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          edge.id,
+          input.workflowId,
+          edge.source,
+          edge.target,
+          edge.kind,
+          edge.label ?? null,
+          compactJson({ sourcePin: edge.sourcePin, targetPin: edge.targetPin })
+        ]
       );
     }
 

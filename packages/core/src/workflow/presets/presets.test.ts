@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { bagViewAtNode, parseWorkflowGraph, serializeShapeSlim } from "../schema";
+import {
+  bagViewAtNode,
+  parseWorkflowGraph,
+  serializeShapeSlim,
+  WORKFLOW_SCHEMA_VERSION
+} from "../schema";
 import { ensureAspectPreset, listWorkflowPresets } from "./index";
 
 describe("workflow presets", () => {
@@ -15,20 +20,23 @@ describe("workflow presets", () => {
     expect(presets.some((preset) => preset.presetKey === "create_step")).toBe(true);
   });
 
-  it("every pack parses as v2", () => {
+  it("every pack parses into the current workflow graph version", () => {
     for (const preset of listWorkflowPresets()) {
       const parsed = parseWorkflowGraph(preset.graph);
       expect(parsed.ok, preset.presetKey).toBe(true);
+      if (parsed.ok) {
+        expect(parsed.graph.version).toBe(WORKFLOW_SCHEMA_VERSION);
+      }
     }
   });
 
-  it("ensure_aspect graph parses as v2", () => {
+  it("ensure_aspect graph parses into the current workflow graph version", () => {
     const parsed = parseWorkflowGraph(ensureAspectPreset.graph);
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) {
       return;
     }
-    expect(parsed.graph.version).toBe(2);
+    expect(parsed.graph.version).toBe(WORKFLOW_SCHEMA_VERSION);
     expect(parsed.graph.nodes.some((node) => node.type === "map")).toBe(true);
     expect(parsed.graph.nodes.some((node) => node.type === "branch")).toBe(true);
   });

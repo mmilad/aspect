@@ -6,6 +6,8 @@ export interface WorkflowEdge {
   target: string;
   kind: WorkflowEdgeKind;
   label?: string;
+  sourcePin?: string;
+  targetPin?: string;
 }
 
 export interface WorkflowGraph {

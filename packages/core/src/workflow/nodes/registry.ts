@@ -10,6 +10,7 @@ import { gateNode } from "./gate/model";
 import { joinNode } from "./join/model";
 import { llmNode } from "./llm/model";
 import { mapNode } from "./map/model";
+import { pushNode } from "./push/model";
 import { startNode } from "./start/model";
 import { subworkflowNode } from "./subworkflow/model";
 import { switchNode } from "./switch/model";
@@ -35,7 +36,8 @@ export const workflowNodeModels: Record<WorkflowNodeType, WorkflowNodeModel> = {
   context: contextNode,
   transform: transformNode,
   map: mapNode,
-  write: writeNode
+  write: writeNode,
+  push: pushNode
 };
 
 export function getNodeModel(type: WorkflowNodeType): WorkflowNodeModel {

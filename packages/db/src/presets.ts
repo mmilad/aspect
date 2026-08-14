@@ -108,7 +108,7 @@ function presetMetadata(preset: WorkflowPreset, dirty = false): JsonRecord {
     presetKey: preset.presetKey,
     presetVersion: preset.presetVersion,
     presetDirty: dirty,
-    schemaVersion: 2
+    schemaVersion: 3
   };
 }
 

@@ -361,6 +361,96 @@ function renderField(
   );
 }
 
+function SwitchCasesEditor({
+  selected,
+  onUpdateData
+}: {
+  selected: WorkflowNode;
+  onUpdateData: (patch: Partial<WorkflowNodeData>) => void;
+}) {
+  if (selected.type !== "switch") {
+    return null;
+  }
+  const cases = selected.data.switch?.cases ?? [];
+  return (
+    <div className="space-y-2">
+      <div className="text-[11px] font-medium text-zinc-700">Cases</div>
+      {cases.map((caseLabel, index) => (
+        <div key={`${caseLabel}-${index}`} className="flex gap-1">
+          <TextInput
+            className="text-xs"
+            value={caseLabel}
+            onChange={(event) => {
+              const next = [...cases];
+              next[index] = event.target.value;
+              onUpdateData({ switch: { ...(selected.data.switch ?? {}), cases: next } });
+            }}
+          />
+          <GhostButton
+            size="xs"
+            tone="danger"
+            onClick={() => {
+              const next = cases.filter((_, itemIndex) => itemIndex !== index);
+              onUpdateData({ switch: { ...(selected.data.switch ?? {}), cases: next } });
+            }}
+          >
+            Remove
+          </GhostButton>
+        </div>
+      ))}
+      <GhostButton
+        size="xs"
+        onClick={() =>
+          onUpdateData({
+            switch: {
+              ...(selected.data.switch ?? { defaultLabel: "default" }),
+              cases: [...cases, `case_${cases.length + 1}`]
+            }
+          })
+        }
+      >
+        Add case
+      </GhostButton>
+    </div>
+  );
+}
+
+function NodeMeta({
+  selected
+}: {
+  selected: WorkflowNode;
+}) {
+  const model = getNodeModel(selected.type);
+  const execInputs = model.execInputs?.(selected) ?? ["in"];
+  const execOutputs = model.execOutputs?.(selected) ?? ["then"];
+  const inputDescriptions = model.execInputDescriptions?.(selected) ?? {};
+  const outputDescriptions = model.execOutputDescriptions?.(selected) ?? {};
+
+  if (!model.description && execInputs.length === 0 && execOutputs.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="rounded-md border border-dashed border-zinc-300 bg-zinc-50 p-2 text-[11px] text-zinc-700">
+      {model.description ? <div className="leading-snug">{model.description}</div> : null}
+      <div className="mt-2 grid gap-1">
+        {execInputs.map((pin) => (
+          <div key={`in:${pin}`}>
+            <span className="font-mono text-zinc-900">in:{pin}</span>
+            {inputDescriptions[pin] ? <span> - {inputDescriptions[pin]}</span> : null}
+          </div>
+        ))}
+        {execOutputs.map((pin) => (
+          <div key={`out:${pin}`}>
+            <span className="font-mono text-zinc-900">out:{pin}</span>
+            {outputDescriptions[pin] ? <span> - {outputDescriptions[pin]}</span> : null}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function WorkflowStepInspector({
   selected,
   bagView,
@@ -392,12 +482,14 @@ export function WorkflowStepInspector({
               type <span className="font-mono text-zinc-700">{selected.type}</span>
             </div>
           </div>
+          <NodeMeta selected={selected} />
           <FormLabel label="Title">
             <TextInput value={selected.data.title} onChange={(event) => onUpdateData({ title: event.target.value })} />
           </FormLabel>
           {selected.type === "start" ? null : (
             <BagPortsEditor selected={selected} bagView={bagView} onUpdateData={onUpdateData} />
           )}
+          <SwitchCasesEditor selected={selected} onUpdateData={onUpdateData} />
           {fields
             .filter((field) => field.kind !== "bagPorts")
             .map((field) => renderField(field, selected, bagView, onUpdateData, projectKey))}

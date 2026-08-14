@@ -21,6 +21,18 @@ const EDGE_STYLE: Record<WorkflowEdgeKind, Partial<Edge>> = {
   error: { animated: false, style: { stroke: "#e11d48", strokeWidth: 1.75 }, labelStyle: { fill: "#9f1239", fontSize: 10 } }
 };
 
+function encodeHandle(direction: "in" | "out", pin?: string): string | undefined {
+  return pin ? `${direction}:${pin}` : undefined;
+}
+
+function decodeHandle(handle: string | null | undefined, fallback: string): string {
+  if (!handle) {
+    return fallback;
+  }
+  const [, pin] = handle.split(":", 2);
+  return pin || fallback;
+}
+
 export function toRfNodes(graph: WorkflowGraph, selectedId: string | null): FlowRfNode[] {
   return graph.nodes.map((node) => ({
     id: node.id,
@@ -37,7 +49,15 @@ export function toRfEdges(graph: WorkflowGraph): Edge[] {
     id: edge.id,
     source: edge.source,
     target: edge.target,
-    label: edge.kind === "route" || edge.kind === "depends_on" || edge.kind === "error" ? edge.label ?? edge.kind : edge.label,
+    sourceHandle: encodeHandle("out", edge.sourcePin),
+    targetHandle: encodeHandle("in", edge.targetPin),
+    label:
+      edge.label ??
+      (edge.targetPin === "continue"
+        ? "continue"
+        : edge.kind === "route" || edge.kind === "depends_on" || edge.kind === "error"
+          ? edge.kind
+          : undefined),
     data: { kind: edge.kind },
     ...EDGE_STYLE[edge.kind]
   }));
@@ -58,7 +78,10 @@ export function fromRf(nodes: FlowRfNode[], edges: Edge[], version: number): Wor
         source: edge.source,
         target: edge.target,
         kind,
-        label: typeof edge.label === "string" ? edge.label : undefined
+        label:
+          typeof edge.label === "string" && edge.label !== "continue" ? edge.label : undefined,
+        sourcePin: decodeHandle(edge.sourceHandle, kind === "route" ? String(edge.label ?? "default") : "then"),
+        targetPin: decodeHandle(edge.targetHandle, "in")
       };
     })
   };
@@ -83,7 +106,7 @@ export function defaultEdgeKindForConnection(
   if (targetType === "join") {
     return "depends_on";
   }
-  if (sourceType === "switch" || sourceType === "branch" || sourceType === "gate") {
+  if (sourceType === "switch" || sourceType === "branch" || sourceType === "gate" || sourceType === "foreach") {
     return "route";
   }
   return "next";

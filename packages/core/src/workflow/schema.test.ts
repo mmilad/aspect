@@ -8,7 +8,8 @@ import {
   readContextBag,
   warnMissingUpstreamKeys,
   writeContextBag,
-  writeWorkflowGraph
+  writeWorkflowGraph,
+  WORKFLOW_SCHEMA_VERSION
 } from "./schema";
 
 const legacyV1Flow = {
@@ -100,14 +101,16 @@ const legacyV1Flow = {
   ]
 };
 
-describe("workflow graph v2", () => {
+describe("workflow graph v3", () => {
   it("migrates legacy v1 filter graphs to transform + typed next edges", () => {
     const result = parseWorkflowGraph(legacyV1Flow);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.graph.version).toBe(2);
+      expect(result.graph.version).toBe(WORKFLOW_SCHEMA_VERSION);
       expect(result.graph.nodes.find((node) => node.id === "filter")?.type).toBe("transform");
       expect(result.graph.edges.every((edge) => edge.kind === "next")).toBe(true);
+      expect(result.graph.edges.every((edge) => edge.sourcePin === "then")).toBe(true);
+      expect(result.graph.edges.every((edge) => edge.targetPin === "in")).toBe(true);
     }
   });
 
@@ -117,7 +120,7 @@ describe("workflow graph v2", () => {
     if (result.ok) {
       expect(result.graph.nodes).toHaveLength(6);
       expect(result.graph.edges).toHaveLength(5);
-      expect(result.graph.version).toBe(2);
+      expect(result.graph.version).toBe(WORKFLOW_SCHEMA_VERSION);
     }
   });
 
@@ -185,7 +188,7 @@ describe("workflow graph v2", () => {
     }
     const metadata = writeWorkflowGraph({}, parsed.graph);
     expect(parseWorkflowGraph(metadata.graph).ok).toBe(true);
-    expect(metadata.schemaVersion).toBe(2);
+    expect(metadata.schemaVersion).toBe(WORKFLOW_SCHEMA_VERSION);
 
     const bag = createContextBag({
       workflowId: "flow_1",

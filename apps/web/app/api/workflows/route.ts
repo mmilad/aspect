@@ -40,7 +40,7 @@ export async function POST(request: Request) {
       summary: body.summary?.trim() || brief.slice(0, 160),
       body: brief,
       status: "planned",
-      metadata: { schemaVersion: 2 },
+      metadata: { schemaVersion: 3 },
       ...(body.targetEntityId
         ? {
             relations: [

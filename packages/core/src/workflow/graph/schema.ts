@@ -88,7 +88,7 @@ export function inferEdgeKind(
   if (typeof raw.kind === "string" && WORKFLOW_EDGE_KIND_SET.has(raw.kind)) {
     return raw.kind as WorkflowEdgeKind;
   }
-  if (sourceType === "switch" || sourceType === "branch" || sourceType === "gate") {
+  if (sourceType === "switch" || sourceType === "branch" || sourceType === "gate" || sourceType === "foreach") {
     if (typeof raw.label === "string" && raw.label && raw.label !== "default") {
       return "route";
     }
@@ -122,7 +122,18 @@ export function parseEdge(
     source: raw.source,
     target: raw.target,
     kind,
-    label: typeof raw.label === "string" ? raw.label : undefined
+    label: typeof raw.label === "string" ? raw.label : undefined,
+    sourcePin:
+      typeof raw.sourcePin === "string"
+        ? raw.sourcePin
+        : kind === "route" && typeof raw.label === "string"
+          ? raw.label
+          : kind === "error"
+            ? "error"
+            : kind === "depends_on"
+              ? "depends_on"
+              : "then",
+    targetPin: typeof raw.targetPin === "string" ? raw.targetPin : "in"
   };
 }
 
@@ -182,8 +193,20 @@ export function validateTopology(graph: WorkflowGraph, errors: string[]): void {
     }
     if (edge.kind === "route") {
       const source = nodeById.get(edge.source);
-      if (source && source.type !== "switch" && source.type !== "branch" && source.type !== "gate") {
-        errors.push(`Edge ${edge.id} route source must be switch, branch, or gate.`);
+      if (
+        source &&
+        source.type !== "switch" &&
+        source.type !== "branch" &&
+        source.type !== "gate" &&
+        source.type !== "foreach"
+      ) {
+        errors.push(`Edge ${edge.id} route source must be switch, branch, gate, or foreach.`);
+      }
+    }
+    if (edge.targetPin === "continue") {
+      const target = nodeById.get(edge.target);
+      if (target && target.type !== "foreach") {
+        errors.push(`Edge ${edge.id} targetPin=continue target must be foreach.`);
       }
     }
   }
@@ -194,7 +217,7 @@ export function validateTopology(graph: WorkflowGraph, errors: string[]): void {
     if (!target || target.type === "join") {
       continue;
     }
-    const nextIns = edges.filter((edge) => edge.kind === "next");
+    const nextIns = edges.filter((edge) => edge.kind === "next" && edge.targetPin !== "continue");
     if (nextIns.length > 1) {
       errors.push(
         `Node ${targetId} has multiple next in-edges; use a join with depends_on for fan-in.`
@@ -228,7 +251,7 @@ export function rewriteLegacyBooleanSwitches(graph: WorkflowGraph): void {
   }
 }
 
-/** Parse and validate a Workflow Step Graph (v1 migrated or v2). Always returns version 2. */
+/** Parse and validate a Workflow Step Graph. Legacy graphs are normalized to the current version. */
 export function parseWorkflowGraph(raw: unknown): WorkflowParseOutcome {
   const errors: string[] = [];
 
@@ -454,16 +477,16 @@ export function resolveNextNodeId(
     return null;
   }
 
-  const routes = edges.filter((edge) => edge.kind === "route");
+  const routes = edges.filter((edge) => edge.kind === "route" || edge.sourcePin === routeLabel);
   if (routes.length > 0) {
-    const labeled = routes.find((edge) => (edge.label ?? "default") === routeLabel);
+    const labeled = routes.find((edge) => (edge.sourcePin ?? edge.label ?? "default") === routeLabel);
     if (labeled) {
       return labeled.target;
     }
   }
 
-  const nexts = edges.filter((edge) => edge.kind === "next");
-  const labeledNext = nexts.find((edge) => (edge.label ?? "default") === routeLabel);
+  const nexts = edges.filter((edge) => edge.kind === "next" || edge.sourcePin === "then");
+  const labeledNext = nexts.find((edge) => (edge.sourcePin ?? edge.label ?? "then") === routeLabel);
   if (labeledNext) {
     return labeledNext.target;
   }
@@ -471,7 +494,7 @@ export function resolveNextNodeId(
 }
 
 /**
- * Resolve a switch/branch route among `route` edges only.
+ * Resolve a switch/branch route among route-like exec pins.
  * Falls back to defaultLabel when the discriminant has no matching label.
  */
 export function resolveRouteNextNodeId(
@@ -481,12 +504,19 @@ export function resolveRouteNextNodeId(
   options?: { defaultLabel?: string }
 ): string | null {
   const defaultLabel = options?.defaultLabel ?? "default";
-  const routes = outgoingByKind(graph, nodeId, "route");
-  const exact = routes.find((edge) => (edge.label ?? "default") === routeLabel);
+  const routes = outgoingEdges(graph, nodeId).filter(
+    (edge) =>
+      edge.kind === "route" ||
+      (Boolean(edge.sourcePin) &&
+        edge.sourcePin !== "then" &&
+        edge.sourcePin !== "depends_on" &&
+        edge.sourcePin !== "error")
+  );
+  const exact = routes.find((edge) => (edge.sourcePin ?? edge.label ?? "default") === routeLabel);
   if (exact) {
     return exact.target;
   }
-  const fallback = routes.find((edge) => (edge.label ?? "default") === defaultLabel);
+  const fallback = routes.find((edge) => (edge.sourcePin ?? edge.label ?? "default") === defaultLabel);
   return fallback?.target ?? null;
 }
 

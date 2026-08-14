@@ -1,4 +1,4 @@
-import { findStartNode } from "../../graph/schema";
+import { findStartNode, outgoingEdges } from "../../graph/schema";
 import type { WorkflowContextBag } from "../../graph/types";
 import { mapBagByMap } from "../../runtime/helpers";
 import type { NodeExecuteContext, WorkflowStepResult } from "../../runtime/types";
@@ -157,8 +157,8 @@ async function runSubgraphBody(
 
 export async function executeForeach(ctx: NodeExecuteContext): Promise<WorkflowStepResult> {
   const config = ctx.node.data.foreach;
-  if (!config?.itemsFrom || !config.body) {
-    return ctx.fail(`Foreach ${ctx.node.id} requires foreach.itemsFrom and foreach.body.`);
+  if (!config?.itemsFrom) {
+    return ctx.fail(`Foreach ${ctx.node.id} requires foreach.itemsFrom.`);
   }
 
   const items = ctx.read(config.itemsFrom);
@@ -168,6 +168,46 @@ export async function executeForeach(ctx: NodeExecuteContext): Promise<WorkflowS
 
   const itemKey = config.itemKey ?? "item";
   const indexKey = config.indexKey ?? "index";
+  const hasLoopPins = outgoingEdges(ctx.graph, ctx.node.id).some(
+    (edge) => edge.sourcePin === "loop" || edge.sourcePin === "completed"
+  );
+
+  if (hasLoopPins || !config.body) {
+    const loops = (
+      typeof ctx.bag.keys.__loops === "object" && ctx.bag.keys.__loops !== null
+        ? ctx.bag.keys.__loops
+        : {}
+    ) as Record<string, { index?: number }>;
+    const previous = loops[ctx.node.id];
+    const index = typeof previous?.index === "number" ? previous.index + 1 : 0;
+
+    if (index >= items.length) {
+      const { [ctx.node.id]: _done, ...remainingLoops } = loops;
+      ctx.bag = {
+        ...ctx.bag,
+        keys: {
+          ...ctx.bag.keys,
+          __loops: remainingLoops
+        }
+      };
+      return ctx.advance("completed");
+    }
+
+    ctx.bag = {
+      ...ctx.bag,
+      keys: {
+        ...ctx.bag.keys,
+        [itemKey]: items[index],
+        [indexKey]: index,
+        __loops: {
+          ...loops,
+          [ctx.node.id]: { index }
+        }
+      }
+    };
+    return ctx.advance("loop");
+  }
+
   const failureMode = config.failureMode ?? "fail";
   const collected: unknown[] = [];
   const maxStepsPerItem = 50;

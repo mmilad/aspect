@@ -76,6 +76,68 @@ describe("workflow bag shapes", () => {
     );
   });
 
+  it("exposes distinct foreach index keys only on loop body paths", () => {
+    const stringShape = { kind: "primitive" as const, type: "string" as const };
+    const stringArray = { kind: "array" as const, items: stringShape };
+    const graph = parseWorkflowGraph({
+      version: WORKFLOW_SCHEMA_VERSION,
+      nodes: [
+        {
+          id: "start",
+          type: "start",
+          position: { x: 0, y: 0 },
+          data: {
+            title: "Start",
+            writes: ["missions", "checks"],
+            outputContracts: {
+              missions: { required: true, shape: stringArray },
+              checks: { required: true, shape: stringArray }
+            }
+          }
+        },
+        {
+          id: "missions_each",
+          type: "foreach",
+          position: { x: 100, y: 0 },
+          data: {
+            title: "Each mission",
+            foreach: { itemsFrom: "missions", itemKey: "mission", indexKey: "missionIndex" }
+          }
+        },
+        {
+          id: "checks_each",
+          type: "foreach",
+          position: { x: 220, y: -60 },
+          data: {
+            title: "Each check",
+            foreach: { itemsFrom: "checks", itemKey: "check", indexKey: "checkIndex" }
+          }
+        },
+        { id: "body", type: "push", position: { x: 340, y: -60 }, data: { title: "Body", push: { target: "results", valueFrom: "mission" } } },
+        { id: "end", type: "end", position: { x: 340, y: 100 }, data: { title: "End" } }
+      ],
+      edges: [
+        { id: "e1", source: "start", target: "missions_each", kind: "next" },
+        { id: "e2", source: "missions_each", target: "checks_each", kind: "route", sourcePin: "loop", targetPin: "in" },
+        { id: "e3", source: "checks_each", target: "body", kind: "route", sourcePin: "loop", targetPin: "in" },
+        { id: "e4", source: "body", target: "checks_each", kind: "next", sourcePin: "then", targetPin: "continue" },
+        { id: "e5", source: "checks_each", target: "missions_each", kind: "route", sourcePin: "completed", targetPin: "continue" },
+        { id: "e6", source: "missions_each", target: "end", kind: "route", sourcePin: "completed", targetPin: "in" }
+      ]
+    });
+    expect(graph.ok).toBe(true);
+    if (!graph.ok) {
+      return;
+    }
+
+    const bodyView = bagViewAtNode(graph.graph, "body");
+    expect(serializeShapeSlim(bodyView.missionIndex)).toBe("number");
+    expect(serializeShapeSlim(bodyView.checkIndex)).toBe("number");
+    const endView = bagViewAtNode(graph.graph, "end");
+    expect(endView.missionIndex).toBeUndefined();
+    expect(endView.checkIndex).toBeUndefined();
+  });
+
   it("derives map output shape from field projection", () => {
     const shape = deriveMapOutputShape(
       {

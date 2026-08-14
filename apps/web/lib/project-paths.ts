@@ -27,6 +27,7 @@ export const projectPaths = {
   kanban: (projectKey: string, selectedOrOpts?: string | { selected?: string; scope?: string }) =>
     withKanbanQuery(projectKey, selectedOrOpts),
   workflows: (projectKey: string) => `/projects/${projectKey}/workflows`,
+  schemas: (projectKey: string) => `/projects/${projectKey}/schemas`,
   entity: (projectKey: string, entityId: string, tab?: string) =>
     tab
       ? `/projects/${projectKey}/entities/${entityId}?tab=${encodeURIComponent(tab)}`

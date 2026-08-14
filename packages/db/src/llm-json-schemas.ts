@@ -25,6 +25,14 @@ export type EnsureLlmJsonSchemasResult = {
   reseeded: string[];
 };
 
+export type CreateLlmJsonSchemaInput = {
+  projectKey?: string;
+  key: string;
+  title: string;
+  description?: string;
+  schema: Record<string, unknown>;
+};
+
 type SchemaRow = {
   id: string;
   project_id: string;
@@ -119,6 +127,45 @@ export function listLlmJsonSchemas(
     status: row.status,
     version: currentVersion(db, row.id)
   }));
+}
+
+export function createLlmJsonSchema(
+  db: DatabaseSync,
+  input: CreateLlmJsonSchemaInput
+): LlmJsonSchemaRecord {
+  const projectKey = input.projectKey ?? "PLAN";
+  const projectId = findProjectId(db, projectKey);
+  if (!projectId) {
+    throw new Error(`Project "${projectKey}" was not found.`);
+  }
+
+  const key = input.key.trim();
+  const title = input.title.trim();
+  if (!key) {
+    throw new Error("Schema key is required.");
+  }
+  if (!title) {
+    throw new Error("Schema title is required.");
+  }
+
+  const existing = getLlmJsonSchemaByKey(db, key, projectKey);
+  if (existing) {
+    throw new Error(`Schema key "${key}" already exists.`);
+  }
+
+  const id = `ljs_${randomUUID()}`;
+  const schemaJson = JSON.stringify(input.schema);
+  db.prepare(
+    `INSERT INTO llm_json_schemas (id, project_id, key, title, description, schema_json, status)
+     VALUES (?, ?, ?, ?, ?, ?, 'active')`
+  ).run(id, projectId, key, title, input.description?.trim() ?? "", schemaJson);
+  insertVersion(db, id, 1, schemaJson);
+
+  const created = getLlmJsonSchemaByKey(db, key, projectKey);
+  if (!created) {
+    throw new Error("Schema was not created.");
+  }
+  return created;
 }
 
 /**

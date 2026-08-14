@@ -12,6 +12,7 @@ describe("workflow presets", () => {
     expect(presets.some((preset) => preset.presetKey === "onboarding")).toBe(true);
     expect(presets.some((preset) => preset.presetKey === "rollup_parent_status")).toBe(true);
     expect(presets.some((preset) => preset.presetKey === "author_workflow")).toBe(true);
+    expect(presets.some((preset) => preset.presetKey === "create_step")).toBe(true);
   });
 
   it("every pack parses as v2", () => {

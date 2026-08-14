@@ -3,8 +3,10 @@ import { getTagsForEntity } from "@projectplaner/core";
 import {
   getProjectSnapshot,
   getProjectStats,
+  listLlmJsonSchemas,
   listProjects,
   listRelations,
+  type LlmJsonSchemaRecord,
   type ProjectStats,
   type ProjectSummary
 } from "@projectplaner/db";
@@ -20,6 +22,12 @@ export async function loadProjects(): Promise<ProjectSummary[]> {
 
 export async function loadProjectStats(key: string): Promise<ProjectStats | null> {
   return withDb(async (db) => getProjectStats(db, key));
+}
+
+export async function loadLlmJsonSchemas(key: string): Promise<LlmJsonSchemaRecord[]> {
+  return withDb(async (db) =>
+    listLlmJsonSchemas(db, key).filter((schema) => schema.status === "active")
+  );
 }
 
 export type EntityDetailRelation = {

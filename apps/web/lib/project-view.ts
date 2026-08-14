@@ -4,6 +4,7 @@ export const projectViews = [
   "issues",
   "kanban",
   "workflows",
+  "schemas",
   "entity",
   "workflow"
 ] as const;
@@ -16,6 +17,7 @@ export const projectViewLabel: Record<ProjectView, string> = {
   issues: "Issues",
   kanban: "Kanban",
   workflows: "Workflows",
+  schemas: "Schemas",
   entity: "Entity Detail",
   workflow: "Workflow Graph"
 };
@@ -36,6 +38,10 @@ export function chromeSurfaceForView(view: ProjectView): ChromeSurface {
 /** Primary sidebar/header views that share the Workflows nav item. */
 export function isWorkflowsNavActive(view: ProjectView): boolean {
   return view === "workflows" || view === "workflow";
+}
+
+export function isSchemasNavActive(view: ProjectView): boolean {
+  return view === "schemas";
 }
 
 /** Graph canvas route only (Workspace is a separate stats hub). */

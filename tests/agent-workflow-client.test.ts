@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { DEFAULT_WORKFLOW_LLM_SYSTEM_PROMPT } from "@projectplaner/core";
 import { loadConfig } from "../apps/agent/src/config";
 import { isPendingLlm, toPendingLlmSurface } from "../apps/agent/src/client/pending-llm";
 import { WorkflowClient, WorkflowClientError } from "../apps/agent/src/client/workflow-client";
@@ -39,11 +40,17 @@ describe("apps/agent workflow client", () => {
     expect(surface).toEqual({
       runId: "wrun_1",
       nodeId: "llm_propose",
+      systemPrompt: DEFAULT_WORKFLOW_LLM_SYSTEM_PROMPT,
       instructions: "Propose a title for {{title}}",
       reads: { title: "Demo" },
       shapes: { title: "string" },
       outputSchema: ["summary"],
       tools: [],
+      format: undefined,
+      schemaKey: undefined,
+      jsonSchema: undefined,
+      jsonSchemaId: undefined,
+      jsonSchemaVersion: undefined,
       warnings: undefined
     });
     expect(JSON.stringify(surface)).not.toContain("status");

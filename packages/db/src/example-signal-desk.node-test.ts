@@ -59,7 +59,8 @@ describe("Signal Desk example project", () => {
         ...snapshot.features.map((feature) => feature.status),
         ...snapshot.tasks.map((task) => task.status)
       ]);
-      for (const required of ["in_planning", "planned", "in_progress", "done", "canceled"]) {
+      const requiredStatuses = ["in_planning", "planned", "in_progress", "done", "canceled"] as const;
+      for (const required of requiredStatuses) {
         assert.ok(statuses.has(required), `missing status ${required}`);
       }
 

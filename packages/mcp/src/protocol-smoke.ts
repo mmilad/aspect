@@ -10,8 +10,12 @@ import { EXPECTED_MCP_TOOLS, assertExpectedToolNames } from "./tools";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 
-function parseToolText(result: { content?: Array<{ type: string; text?: string }> }): unknown {
-  const text = result.content?.find((part) => part.type === "text")?.text;
+function parseToolText(result: unknown): unknown {
+  const content =
+    result && typeof result === "object" && "content" in result
+      ? (result as { content?: Array<{ type?: string; text?: string }> }).content
+      : undefined;
+  const text = content?.find((part) => part.type === "text")?.text;
   if (!text) {
     throw new Error("Missing text content in tool result.");
   }

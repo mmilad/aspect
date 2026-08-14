@@ -53,7 +53,9 @@ export function toRfEdges(graph: WorkflowGraph): Edge[] {
     targetHandle: encodeHandle("in", edge.targetPin),
     label:
       edge.label ??
-      (edge.targetPin === "continue"
+      (edge.kind === "route" && edge.sourcePin
+        ? edge.sourcePin
+        : edge.targetPin === "continue"
         ? "continue"
         : edge.kind === "route" || edge.kind === "depends_on" || edge.kind === "error"
           ? edge.kind

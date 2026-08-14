@@ -76,7 +76,7 @@ describe("workflow bag shapes", () => {
     );
   });
 
-  it("exposes distinct foreach index keys only on loop body paths", () => {
+  it("exposes distinct foreach index keys only on body paths", () => {
     const stringShape = { kind: "primitive" as const, type: "string" as const };
     const stringArray = { kind: "array" as const, items: stringShape };
     const graph = parseWorkflowGraph({
@@ -118,11 +118,9 @@ describe("workflow bag shapes", () => {
       ],
       edges: [
         { id: "e1", source: "start", target: "missions_each", kind: "next" },
-        { id: "e2", source: "missions_each", target: "checks_each", kind: "route", sourcePin: "loop", targetPin: "in" },
-        { id: "e3", source: "checks_each", target: "body", kind: "route", sourcePin: "loop", targetPin: "in" },
-        { id: "e4", source: "body", target: "checks_each", kind: "next", sourcePin: "then", targetPin: "continue" },
-        { id: "e5", source: "checks_each", target: "missions_each", kind: "route", sourcePin: "completed", targetPin: "continue" },
-        { id: "e6", source: "missions_each", target: "end", kind: "route", sourcePin: "completed", targetPin: "in" }
+        { id: "e2", source: "missions_each", target: "checks_each", kind: "route", sourcePin: "body", targetPin: "in" },
+        { id: "e3", source: "checks_each", target: "body", kind: "route", sourcePin: "body", targetPin: "in" },
+        { id: "e4", source: "missions_each", target: "end", kind: "route", sourcePin: "completed", targetPin: "in" }
       ]
     });
     expect(graph.ok).toBe(true);

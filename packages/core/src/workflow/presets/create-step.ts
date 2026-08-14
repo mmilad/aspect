@@ -8,7 +8,7 @@ const STRING_ARRAY = { kind: "array" as const, items: STRING };
 
 /**
  * Pilot preset for the "create step" workstream.
- * First slice: prove foreach can expose item/index keys and collect item values
+ * First slice: prove foreach can run a scoped body branch and push values
  * back into a renamed parent array.
  */
 export const createStepGraph: WorkflowGraph = {
@@ -98,9 +98,8 @@ export const createStepGraph: WorkflowGraph = {
   edges: [
     { id: "e1", source: "start", target: "init_decisions", kind: "next", sourcePin: "then", targetPin: "in" },
     { id: "e2", source: "init_decisions", target: "each_mission", kind: "next", sourcePin: "then", targetPin: "in" },
-    { id: "e3", source: "each_mission", target: "push_decision", kind: "route", label: "loop", sourcePin: "loop", targetPin: "in" },
-    { id: "e4", source: "push_decision", target: "each_mission", kind: "next", sourcePin: "then", targetPin: "continue" },
-    { id: "e5", source: "each_mission", target: "end", kind: "route", label: "completed", sourcePin: "completed", targetPin: "in" }
+    { id: "e3", source: "each_mission", target: "push_decision", kind: "route", label: "body", sourcePin: "body", targetPin: "in" },
+    { id: "e4", source: "each_mission", target: "end", kind: "route", label: "completed", sourcePin: "completed", targetPin: "in" }
   ]
 };
 
@@ -113,7 +112,7 @@ export const createStepPreset: WorkflowPreset = {
   body: [
     "Bag: missions:string[] required; decisions:string[] starts empty.",
     "Foreach exposes mission:string and missionIndex:number as iteration-local keys.",
-    "Push appends missions[missionIndex] into decisions:string[] to prove loop pins and explicit bag mutation.",
+    "Push appends missions[missionIndex] into decisions:string[] to prove scoped foreach body execution and explicit bag mutation.",
     "This is the first branch of the create-step builder workstream; later branches can add map, switch, LLM, and tool."
   ].join("\n"),
   status: "accepted",

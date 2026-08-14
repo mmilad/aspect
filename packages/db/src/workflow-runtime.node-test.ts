@@ -160,13 +160,10 @@ describe("advanceWorkflowRun ensure_aspect", () => {
 
       const loaded = loadWorkflowGraph(db, flow.entity.id);
       assert.ok(loaded);
-      const loop = loaded.edges.find((edge) => edge.id === "e3");
-      const back = loaded.edges.find((edge) => edge.id === "e4");
-      const completed = loaded.edges.find((edge) => edge.id === "e5");
-      assert.equal(loop?.sourcePin, "loop");
-      assert.equal(loop?.targetPin, "in");
-      assert.equal(back?.sourcePin, "then");
-      assert.equal(back?.targetPin, "continue");
+      const body = loaded.edges.find((edge) => edge.id === "e3");
+      const completed = loaded.edges.find((edge) => edge.id === "e4");
+      assert.equal(body?.sourcePin, "body");
+      assert.equal(body?.targetPin, "in");
       assert.equal(completed?.sourcePin, "completed");
       assert.equal(completed?.targetPin, "in");
     } finally {

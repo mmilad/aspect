@@ -483,6 +483,9 @@ export function resolveNextNodeId(
     if (labeled) {
       return labeled.target;
     }
+    if (routeLabel !== "default") {
+      return null;
+    }
   }
 
   const nexts = edges.filter((edge) => edge.kind === "next" || edge.sourcePin === "then");

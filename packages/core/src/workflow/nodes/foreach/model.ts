@@ -8,7 +8,7 @@ export const foreachNode: WorkflowNodeModel = {
   type: "foreach",
   kind: "control",
   description:
-    "Runs its loop output once for each item. The body must return to continue; completed runs after the final item.",
+    "Runs the body branch once per item, awaits it, then exits through completed.",
   configKey: "foreach",
   defaultData: () => ({
     title: "Foreach",
@@ -25,20 +25,19 @@ export const foreachNode: WorkflowNodeModel = {
     if (!ctx.node.data.foreach?.itemsFrom) {
       ctx.errors.push(`Foreach ${ctx.node.id} requires foreach.itemsFrom.`);
     }
+    const body = ctx.outgoing.filter((edge) => edge.sourcePin === "body" || edge.label === "body");
     const loop = ctx.outgoing.filter((edge) => edge.sourcePin === "loop" || edge.label === "loop");
-    const completed = ctx.outgoing.filter((edge) => edge.sourcePin === "completed" || edge.label === "completed");
-    if (!ctx.node.data.foreach?.body && (loop.length === 0 || completed.length === 0)) {
-      ctx.errors.push(`Foreach ${ctx.node.id} requires loop and completed exec outputs or foreach.body.`);
+    if (!ctx.node.data.foreach?.body && body.length === 0 && loop.length === 0) {
+      ctx.errors.push(`Foreach ${ctx.node.id} requires a body exec output or legacy loop output.`);
     }
   },
-  execInputs: () => ["in", "continue"],
-  execOutputs: () => ["loop", "completed"],
+  execInputs: () => ["in"],
+  execOutputs: () => ["body", "completed"],
   execInputDescriptions: () => ({
-    in: "Start the loop at the first item.",
-    continue: "Return here when one loop body iteration is finished."
+    in: "Start the loop at the first item."
   }),
   execOutputDescriptions: () => ({
-    loop: "Run the loop body for the current item.",
+    body: "Run this branch once for the current item.",
     completed: "Continue here after every item has been processed."
   }),
   dataInputs: (node) => [node.data.foreach?.itemsFrom].filter(Boolean) as string[],

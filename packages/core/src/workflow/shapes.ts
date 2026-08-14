@@ -23,7 +23,10 @@ function outgoingEdges(graph: WorkflowGraph, nodeId: string) {
 
 function isLoopBodyReachable(graph: WorkflowGraph, foreachId: string, targetId: string): boolean {
   const queue = outgoingEdges(graph, foreachId)
-    .filter((edge) => (edge.sourcePin ?? edge.label) === "loop")
+    .filter((edge) => {
+      const pin = edge.sourcePin ?? edge.label;
+      return pin === "body" || pin === "loop";
+    })
     .map((edge) => edge.target);
   const visited = new Set<string>();
 

@@ -155,6 +155,56 @@ async function runSubgraphBody(
   };
 }
 
+async function runScopedBody(
+  ctx: NodeExecuteContext,
+  entryNodeId: string,
+  item: unknown,
+  index: number,
+  itemKey: string,
+  indexKey: string,
+  maxStepsPerItem: number
+): Promise<{ ok: true; bag: WorkflowContextBag } | { ok: false; error: string }> {
+  const WorkflowRun = await loadWorkflowRun();
+  const run = new WorkflowRun({
+    graph: ctx.graph,
+    bag: {
+      ...ctx.bag,
+      cursor: entryNodeId,
+      status: "running",
+      error: undefined,
+      keys: {
+        ...ctx.bag.keys,
+        [itemKey]: item,
+        [indexKey]: index
+      }
+    },
+    adapters: ctx.adapters,
+    entities: ctx.entities,
+    relations: ctx.relations
+  });
+
+  for (let step = 0; step < maxStepsPerItem; step += 1) {
+    const result = await run.step();
+    if (result.kind === "completed") {
+      return { ok: true, bag: result.bag };
+    }
+    if (result.kind === "failed") {
+      return { ok: false, error: result.message ?? `Foreach item ${index} failed.` };
+    }
+    if (result.kind !== "advanced") {
+      return {
+        ok: false,
+        error: `Foreach item ${index} body paused unexpectedly (${result.kind}).`
+      };
+    }
+  }
+
+  return {
+    ok: false,
+    error: `Foreach item ${index} body exceeded maxSteps.`
+  };
+}
+
 export async function executeForeach(ctx: NodeExecuteContext): Promise<WorkflowStepResult> {
   const config = ctx.node.data.foreach;
   if (!config?.itemsFrom) {
@@ -168,11 +218,47 @@ export async function executeForeach(ctx: NodeExecuteContext): Promise<WorkflowS
 
   const itemKey = config.itemKey ?? "item";
   const indexKey = config.indexKey ?? "index";
+  const bodyEdge = outgoingEdges(ctx.graph, ctx.node.id).find(
+    (edge) => (edge.sourcePin ?? edge.label) === "body"
+  );
   const hasLoopPins = outgoingEdges(ctx.graph, ctx.node.id).some(
     (edge) => edge.sourcePin === "loop" || edge.sourcePin === "completed"
   );
 
-  if (hasLoopPins || !config.body) {
+  const failureMode = config.failureMode ?? "fail";
+  const maxStepsPerItem = 50;
+
+  if (bodyEdge) {
+    let bag = ctx.bag;
+    for (let index = 0; index < items.length; index += 1) {
+      ctx.bag = bag;
+      const outcome = await runScopedBody(
+        ctx,
+        bodyEdge.target,
+        items[index],
+        index,
+        itemKey,
+        indexKey,
+        maxStepsPerItem
+      );
+      if (!outcome.ok) {
+        if (failureMode === "continue") {
+          continue;
+        }
+        return ctx.fail(outcome.error);
+      }
+      bag = {
+        ...outcome.bag,
+        cursor: ctx.node.id,
+        status: "running",
+        error: undefined
+      };
+    }
+    ctx.bag = bag;
+    return ctx.advance("completed");
+  }
+
+  if (hasLoopPins && !config.body) {
     const loops = (
       typeof ctx.bag.keys.__loops === "object" && ctx.bag.keys.__loops !== null
         ? ctx.bag.keys.__loops
@@ -208,9 +294,11 @@ export async function executeForeach(ctx: NodeExecuteContext): Promise<WorkflowS
     return ctx.advance("loop");
   }
 
-  const failureMode = config.failureMode ?? "fail";
+  if (!config.body) {
+    return ctx.fail(`Foreach ${ctx.node.id} requires a body edge or foreach.body config.`);
+  }
+
   const collected: unknown[] = [];
-  const maxStepsPerItem = 50;
 
   for (let index = 0; index < items.length; index += 1) {
     const item = items[index];

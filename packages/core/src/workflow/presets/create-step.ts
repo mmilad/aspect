@@ -1,5 +1,5 @@
 import { WORKFLOW_NODE_PLAN_V1_KEY, WORKFLOW_NODE_QA_V1_KEY } from "../llm-json-schemas";
-import { WORKFLOW_SCHEMA_VERSION, type WorkflowEdge, type WorkflowGraph } from "../types";
+import { WORKFLOW_SCHEMA_VERSION, type WorkflowEdge, type WorkflowGraph, type WorkflowNode } from "../types";
 import type { WorkflowPreset } from "./types";
 
 const STRING = { kind: "primitive" as const, type: "string" as const };
@@ -15,6 +15,10 @@ function data(
   targetPin: string
 ): WorkflowEdge {
   return { id, source, target, kind: "data", sourcePin, targetPin };
+}
+
+function knot(id: string, x: number, y: number): WorkflowNode {
+  return { id, type: "reroute", position: { x, y }, data: { title: "Reroute" } };
 }
 
 /**
@@ -43,6 +47,9 @@ export const createStepGraph: WorkflowGraph = {
         }
       }
     },
+    knot("r_step_instructions", 210, 300),
+    knot("r_available_bag_shape", 210, 340),
+    knot("r_allowed_node_types", 210, 380),
     {
       id: "interpret_node_plan",
       type: "llm",
@@ -241,17 +248,23 @@ export const createStepGraph: WorkflowGraph = {
     { id: "e7", source: "qa_branch", target: "end", kind: "route", label: "true", sourcePin: "true", targetPin: "in" },
     { id: "e8", source: "qa_branch", target: "fix_node_plan", kind: "route", label: "false", sourcePin: "false", targetPin: "in" },
     { id: "e9", source: "fix_node_plan", target: "create_node", kind: "next", sourcePin: "then", targetPin: "in" },
-    data("d_start_interp_instr", "start", "stepInstructions", "interpret_node_plan", "stepInstructions"),
-    data("d_start_interp_shape", "start", "availableBagShape", "interpret_node_plan", "availableBagShape"),
-    data("d_start_interp_types", "start", "allowedNodeTypes", "interpret_node_plan", "allowedNodeTypes"),
+    data("d_start_r_instr", "start", "stepInstructions", "r_step_instructions", "value"),
+    data("d_r_instr_interp", "r_step_instructions", "value", "interpret_node_plan", "stepInstructions"),
+    data("d_r_instr_verify", "r_step_instructions", "value", "verify_node", "stepInstructions"),
+    data("d_r_instr_fix", "r_step_instructions", "value", "fix_node_plan", "stepInstructions"),
+    data("d_start_r_shape", "start", "availableBagShape", "r_available_bag_shape", "value"),
+    data("d_r_shape_interp", "r_available_bag_shape", "value", "interpret_node_plan", "availableBagShape"),
+    data("d_r_shape_create", "r_available_bag_shape", "value", "create_node", "availableBagShape"),
+    data("d_r_shape_verify", "r_available_bag_shape", "value", "verify_node", "availableBagShape"),
+    data("d_r_shape_fix", "r_available_bag_shape", "value", "fix_node_plan", "availableBagShape"),
+    data("d_start_r_types", "start", "allowedNodeTypes", "r_allowed_node_types", "value"),
+    data("d_r_types_interp", "r_allowed_node_types", "value", "interpret_node_plan", "allowedNodeTypes"),
+    data("d_r_types_create", "r_allowed_node_types", "value", "create_node", "allowedNodeTypes"),
+    data("d_r_types_verify", "r_allowed_node_types", "value", "verify_node", "allowedNodeTypes"),
+    data("d_r_types_fix", "r_allowed_node_types", "value", "fix_node_plan", "allowedNodeTypes"),
     data("d_interp_create_plan", "interpret_node_plan", "nodePlan", "create_node", "nodePlan"),
     data("d_fix_create_plan", "fix_node_plan", "nodePlan", "create_node", "nodePlan"),
-    data("d_start_create_types", "start", "allowedNodeTypes", "create_node", "allowedNodeTypes"),
-    data("d_start_create_shape", "start", "availableBagShape", "create_node", "availableBagShape"),
     data("d_create_branch_valid", "create_node", "nodePlanValid", "factory_valid_branch", "condition"),
-    data("d_start_verify_instr", "start", "stepInstructions", "verify_node", "stepInstructions"),
-    data("d_start_verify_shape", "start", "availableBagShape", "verify_node", "availableBagShape"),
-    data("d_start_verify_types", "start", "allowedNodeTypes", "verify_node", "allowedNodeTypes"),
     data("d_create_verify_plan", "create_node", "nodePlan", "verify_node", "nodePlan"),
     data("d_create_verify_node", "create_node", "workflowNode", "verify_node", "workflowNode"),
     data("d_create_verify_meta", "create_node", "nodeMeta", "verify_node", "nodeMeta"),
@@ -259,9 +272,6 @@ export const createStepGraph: WorkflowGraph = {
     data("d_create_verify_valid", "create_node", "nodePlanValid", "verify_node", "nodePlanValid"),
     data("d_create_verify_repair", "create_node", "repairInstructions", "verify_node", "repairInstructions"),
     data("d_verify_qa_accepted", "verify_node", "nodeAccepted", "qa_branch", "condition"),
-    data("d_start_fix_instr", "start", "stepInstructions", "fix_node_plan", "stepInstructions"),
-    data("d_start_fix_shape", "start", "availableBagShape", "fix_node_plan", "availableBagShape"),
-    data("d_start_fix_types", "start", "allowedNodeTypes", "fix_node_plan", "allowedNodeTypes"),
     data("d_create_fix_plan", "create_node", "nodePlan", "fix_node_plan", "nodePlan"),
     data("d_create_fix_node", "create_node", "workflowNode", "fix_node_plan", "workflowNode"),
     data("d_create_fix_meta", "create_node", "nodeMeta", "fix_node_plan", "nodeMeta"),
@@ -276,12 +286,13 @@ export const createStepGraph: WorkflowGraph = {
 
 export const createStepPreset: WorkflowPreset = {
   presetKey: "create_step",
-  presetVersion: 4,
+  presetVersion: 5,
   title: "Create step",
   summary:
     "Pin-variable step builder: interpret instructions, create one workflow node, QA it, and return stepDraft.",
   body: [
     "Inputs: stepInstructions:string plus optional availableBagShape and allowedNodeTypes.",
+    "Start data pins fan through reroute knots to interpret, create, verify, and fix.",
     "Output: stepDraft.",
     "Interpret LLM output pin: nodePlan (workflow_node_plan_v1).",
     "Factory output pins: workflowNode, nodeMeta, nodePlanValid, validationErrors, hasValidationErrors, repairInstructions, stepDraft, nodePlan (echo).",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Background,
   ConnectionMode,
@@ -13,12 +13,14 @@ import {
   useNodesState,
   type Connection,
   type OnEdgesChange,
-  type OnNodesChange
+  type OnNodesChange,
+  type ReactFlowInstance
 } from "@xyflow/react";
 import {
   parseWorkflowGraph,
   bagViewAtNode,
   getNodeModel,
+  layoutWorkflowGraph,
   renderWorkflowStory,
   renderWorkflowMermaid,
   warnMissingUpstreamKeys,
@@ -201,6 +203,7 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
   const presetKey = typeof flow.metadata.presetKey === "string" ? flow.metadata.presetKey : null;
   const [presetDirty, setPresetDirty] = useState(flow.metadata.presetDirty === true);
   const { publish, clear } = useWorkflowInspectorPublisher();
+  const rfRef = useRef<ReactFlowInstance<FlowRfNode, FlowRfEdge> | null>(null);
 
   const selected = nodes.find((node) => node.id === selectedId)?.data.workflow ?? null;
   const hasStart = nodes.some((node) => node.data.workflow.type === "start");
@@ -339,6 +342,15 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
     () => fromRf(nodes as FlowRfNode[], edges, version, variables),
     [nodes, edges, version, variables]
   );
+
+  const formatLayout = useCallback(() => {
+    const laid = layoutWorkflowGraph(currentGraph());
+    setNodes(toRfNodes(laid, selectedId));
+    setEdges(toRfEdges(laid));
+    requestAnimationFrame(() => {
+      rfRef.current?.fitView({ padding: 0.18, duration: 200 });
+    });
+  }, [currentGraph, selectedId, setEdges, setNodes]);
 
   const replaceGraph = useCallback(
     (graph: WorkflowGraph) => {
@@ -667,6 +679,7 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
         onToggleStory={() => setStoryOpen((open) => !open)}
         onToggleDiagram={() => setDiagramOpen((open) => !open)}
         onSave={() => void save()}
+        onFormat={formatLayout}
         onRun={() => void startRun()}
         addSlot={
           diagramOpen ? null : (
@@ -705,6 +718,9 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
               nodes={nodes}
               edges={edges}
               variables={variables ?? []}
+              onInit={(instance) => {
+                rfRef.current = instance;
+              }}
               onNodesChange={handleNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
@@ -740,6 +756,7 @@ function WorkflowFlowCanvas({
   nodes,
   edges,
   variables,
+  onInit,
   onNodesChange,
   onEdgesChange,
   onConnect,
@@ -750,6 +767,7 @@ function WorkflowFlowCanvas({
   nodes: FlowRfNode[];
   edges: FlowRfEdge[];
   variables: WorkflowVariable[];
+  onInit?: (instance: ReactFlowInstance<FlowRfNode, FlowRfEdge>) => void;
   onNodesChange: OnNodesChange<FlowRfNode>;
   onEdgesChange: OnEdgesChange<FlowRfEdge>;
   onConnect: (connection: Connection) => void;
@@ -768,6 +786,7 @@ function WorkflowFlowCanvas({
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onInit={onInit}
         isValidConnection={(connection) => isValidWorkflowConnection(connection, { nodes, edges, variables })}
         connectionMode={ConnectionMode.Strict}
         connectionRadius={12}

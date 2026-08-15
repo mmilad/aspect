@@ -18,6 +18,7 @@ interface WorkflowToolbarProps {
   onToggleStory: () => void;
   onToggleDiagram: () => void;
   onSave: () => void;
+  onFormat?: () => void;
   onRun?: () => void;
   addSlot?: React.ReactNode;
 }
@@ -35,6 +36,7 @@ export function WorkflowToolbar({
   onToggleStory,
   onToggleDiagram,
   onSave,
+  onFormat,
   onRun,
   addSlot
 }: WorkflowToolbarProps) {
@@ -64,6 +66,11 @@ export function WorkflowToolbar({
           Diagram
         </GhostButton>
         {addSlot}
+        {onFormat ? (
+          <GhostButton size="xs" onClick={onFormat}>
+            Format
+          </GhostButton>
+        ) : null}
         {onRun ? (
           <GhostButton size="xs" onClick={onRun}>
             Run

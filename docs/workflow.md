@@ -51,6 +51,8 @@ Reroutes are **waypoints on the edge** (`waypoints: [{x,y}]` in flow coordinates
 
 **Data** wires use a real **reroute node** (Unreal-style knot). Double-click a data wire to insert one; drag from the knot to fan the same value out to more inputs. Deleting the knot splices the remaining wires. The runner treats reroutes as pass-through; Story/Mermaid may still show them as tiny nodes.
 
+**Format** (toolbar) runs `layoutWorkflowGraph`: exec spine left-to-right, false/error loops below, data knots after their source. Clears exec waypoints. Save after if you want it persisted.
+
 After changing preset graphs in the repo, refresh the living SQLite seed:
 
 ```bash

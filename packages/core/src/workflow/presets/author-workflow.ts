@@ -92,7 +92,7 @@ export const authorWorkflowGraph: WorkflowGraph = {
             "Outline to compile:",
             "{{outline}}",
             "",
-            "Write key `graphJson` only: the full Workflow Step Graph v2 as a JSON string",
+            "Write key `graphJson` only: the full Workflow Step Graph v4 as a JSON string",
             "(single object with version, nodes, edges). No prose outside the JSON."
           ].join("\n"),
           inputKeys: ["brief", "title", "outline"],
@@ -120,11 +120,11 @@ export const authorWorkflowPreset: WorkflowPreset = {
   presetVersion: 3,
   title: "Author workflow (outline → JSON)",
   summary:
-    "Two LLM steps: write a text outline, then compile it to Workflow Step Graph v2 JSON.",
+    "Two LLM steps: write a text outline, then compile it to Workflow Step Graph v4 JSON.",
   body: [
     "Bag: brief (required), title, reason optional.",
     "Step 1 writes `outline` (plain text / numbered pseudo steps).",
-    "Step 2 writes `graphJson` (JSON string of { version, nodes, edges }).",
+    "Step 2 writes `graphJson` (JSON string of { version, variables, nodes, edges }).",
     "Port contracts live on nodes; inputBindings/writeBindings are identity by default.",
     "Each LLM step has systemPrompt (role rules) + task instructions (bag templates).",
     "Run via run_workflow key=author_workflow; on pending_llm resume with llmWrites.",

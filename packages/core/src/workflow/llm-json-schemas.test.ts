@@ -54,6 +54,7 @@ describe("workflow_ir_v1 JSON Schema preset", () => {
       };
     }).fragment;
     expect(fragment.properties.nodes.items.properties.type.enum).toContain("foreach");
+    expect(fragment.properties.nodes.items.properties.type.enum).toContain("math");
     expect(fragment.properties.nodes.items.properties.type.enum).toContain("push");
   });
 
@@ -64,6 +65,7 @@ describe("workflow_ir_v1 JSON Schema preset", () => {
       config: { type: string };
     };
     expect(properties.nodeType.enum).toContain("foreach");
+    expect(properties.nodeType.enum).toContain("math");
     expect(properties.nodeType.enum).toContain("push");
     expect(properties.nodeType.enum).toContain("create_workflow_node");
     expect(properties.config.type).toBe("object");

@@ -21,15 +21,19 @@ export function buildWorkflowOutlineSystemPrompt(): string {
 /** System rules for LLM turn 2: compile outline → graph JSON. */
 export function buildWorkflowCompileSystemPrompt(): string {
   return [
-    "You compile a text outline into Projectplaner Workflow Step Graph v2 JSON.",
-    "Return ONLY valid JSON for { version: 3, nodes, edges } — no markdown fences, no prose.",
+    "You compile a text outline into Projectplaner Workflow Step Graph v4 JSON.",
+    "Return ONLY valid JSON for { version: 4, variables, nodes, edges } — no markdown fences, no prose.",
+    "Use Unreal-style pin-frame graphs: declare function inputs/returns in variables, connect data with data edges, and connect execution with next/route/error edges.",
+    "Variables need name, role (input|output|local), shape, and optional required. Start output pins mirror input variables; End input pins mirror output variables.",
+    "Data edges must use kind:data with sourcePin and targetPin. Exec edges must use sourcePin:then and targetPin:in unless routing.",
     "Control node types: start, end, error_end, branch, switch, fork, join, foreach, gate, wait, subworkflow.",
-    "Work node types: tool, llm, context, transform, map, write.",
+    "Work node types: tool, llm, context, transform, map, math, write, push, create_workflow_node.",
     "Exactly one start node and at least one end or error_end node.",
     "Each node needs id, type, position {x,y}, data.title.",
-    "Each edge needs id, source, target, kind (next|route|depends_on|error), optional label.",
+    "Each edge needs id, source, target, kind (next|route|depends_on|error|data), sourcePin, and targetPin.",
     "Declare reads[] and writes[] on nodes that touch the context bag.",
-    "Prefer deterministic context/transform/map/tool/write; use llm only for judgment.",
+    "Prefer deterministic context/transform/map/math/tool/write; use llm only for judgment.",
+    "For arithmetic, use math nodes with data.math { operation:add|subtract|multiply|divide, operand:number }, inputs.value:number, and outputContracts.result:number.",
     "LLM nodes must include data.llm.instructions and outputSchema matching writes.",
     "Lay nodes left-to-right with ~200px x spacing.",
     "Follow the provided outline; do not invent unrelated goals."
@@ -64,7 +68,7 @@ export function buildWorkflowCompileUserPrompt(input: WorkflowAuthorBrief & { ou
     "Outline:",
     input.outline.trim(),
     "",
-    "Compile the outline into a compact Workflow Step Graph v2 JSON object."
+    "Compile the outline into a compact Workflow Step Graph v4 JSON object."
   ]
     .filter(Boolean)
     .join("\n");

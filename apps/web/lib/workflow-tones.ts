@@ -22,6 +22,7 @@ export const workflowStepToneByType: Record<WorkflowNodeType, string> = {
   context: "border-cyan-600 bg-cyan-50 text-cyan-950",
   transform: "border-teal-600 bg-teal-50 text-teal-950",
   map: "border-lime-600 bg-lime-50 text-lime-950",
+  math: "border-green-600 bg-green-50 text-green-950",
   write: "border-emerald-600 bg-emerald-50 text-emerald-950",
   push: "border-emerald-700 bg-emerald-50 text-emerald-950",
   create_workflow_node: "border-sky-700 bg-sky-50 text-sky-950",

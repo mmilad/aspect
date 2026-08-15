@@ -5,7 +5,7 @@ import { createContextBag, parseWorkflowGraph } from "../schema";
 import { authorWorkflowGraph, authorWorkflowPreset } from "./author-workflow";
 
 describe("author_workflow preset", () => {
-  it("parses as v2 with outline then compile LLM nodes", () => {
+  it("parses as v4 with outline then compile LLM nodes", () => {
     const parsed = parseWorkflowGraph(authorWorkflowGraph);
     expect(parsed.ok).toBe(true);
     expect(authorWorkflowPreset.presetKey).toBe("author_workflow");
@@ -22,7 +22,7 @@ describe("author_workflow preset", () => {
     expect(outline?.data.llm?.instructions).toContain("{{brief}}");
     expect(outline?.data.llm?.instructions).not.toContain("Do NOT output JSON");
     const compile = authorWorkflowGraph.nodes.find((n) => n.id === "compile");
-    expect(compile?.data.llm?.systemPrompt).toContain("Workflow Step Graph v2");
+    expect(compile?.data.llm?.systemPrompt).toContain("Workflow Step Graph v4");
     expect(compile?.data.llm?.instructions).toContain("{{outline}}");
   });
 

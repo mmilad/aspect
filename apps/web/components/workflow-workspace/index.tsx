@@ -105,6 +105,8 @@ function defaultDataForType(type: WorkflowNodeType): WorkflowNodeData {
           ]
         }
       };
+    case "math":
+      return getNodeModel("math").defaultData();
     case "join":
       return { title, join: { mode: "all", remaining: "cancel_remaining", merge: { strategy: "object_per_arm" } } };
     case "foreach":
@@ -177,7 +179,7 @@ function applyVariablesToRfNodes(nodes: FlowRfNode[], variables: WorkflowVariabl
 }
 
 function isScaffoldGraph(nodes: Array<{ type: string }>): boolean {
-  const work = new Set(["tool", "llm", "context", "transform", "map", "write"]);
+  const work = new Set(["tool", "llm", "context", "transform", "map", "math", "write"]);
   return !nodes.some((node) => work.has(node.type));
 }
 

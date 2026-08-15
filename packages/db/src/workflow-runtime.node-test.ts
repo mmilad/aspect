@@ -159,12 +159,12 @@ describe("advanceWorkflowRun create_step", () => {
       assert.ok(loaded);
       assert.ok(loaded.variables?.some((variable) => variable.name === "stepInstructions"));
       const toLlm = loaded.edges.find((edge) => edge.id === "e1");
-      const dataWire = loaded.edges.find((edge) => edge.id === "d_start_interp_instr");
+      const dataWire = loaded.edges.find((edge) => edge.id === "d_start_r_instr");
       assert.equal(toLlm?.sourcePin, "then");
       assert.equal(toLlm?.targetPin, "in");
       assert.equal(dataWire?.kind, "data");
       assert.equal(dataWire?.sourcePin, "stepInstructions");
-      assert.equal(dataWire?.targetPin, "stepInstructions");
+      assert.equal(dataWire?.targetPin, "value");
     } finally {
       db.close();
       fs.rmSync(dir, { recursive: true, force: true });

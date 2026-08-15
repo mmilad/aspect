@@ -10,7 +10,7 @@ export type LlmJsonSchemaPreset = {
   schema: Record<string, unknown>;
 };
 
-/** Slim step list: LLM emits this; a generator compiles to Workflow Step Graph v2. */
+/** Slim step list: LLM emits this; a generator compiles to Workflow Step Graph v4. */
 export const WORKFLOW_IR_V1_KEY = "workflow_ir_v1";
 export const WORKFLOW_NODE_PLAN_V1_KEY = "workflow_node_plan_v1";
 export const WORKFLOW_NODE_QA_V1_KEY = "workflow_node_qa_v1";
@@ -87,6 +87,7 @@ export const WORKFLOW_STEP_DRAFT_V1_SCHEMA: Record<string, unknown> = {
                   "context",
                   "transform",
                   "map",
+                  "math",
                   "write",
                   "push",
                   "subworkflow",
@@ -156,6 +157,7 @@ export const WORKFLOW_NODE_PLAN_V1_SCHEMA: Record<string, unknown> = {
         "context",
         "transform",
         "map",
+        "math",
         "write",
         "push",
         "create_workflow_node"
@@ -214,7 +216,7 @@ export const LLM_JSON_SCHEMA_PRESETS: LlmJsonSchemaPreset[] = [
     key: WORKFLOW_IR_V1_KEY,
     title: "Workflow IR v1",
     description:
-      "Slim step list for a generator that compiles to Workflow Step Graph v2. LLM emits this JSON; a function fills ids, positions, and edges.",
+      "Slim step list for a generator that compiles to Workflow Step Graph v4. LLM emits this JSON; a function fills ids, positions, and edges.",
     schema: WORKFLOW_IR_V1_SCHEMA
   },
   {

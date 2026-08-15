@@ -26,6 +26,8 @@ export type {
   WorkflowLoadContextAuto,
   WorkflowMapConfig,
   WorkflowMapField,
+  WorkflowMathConfig,
+  WorkflowMathOperation,
   WorkflowNode,
   WorkflowNodeData,
   WorkflowNodeKind,

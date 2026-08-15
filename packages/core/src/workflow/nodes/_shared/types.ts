@@ -21,6 +21,7 @@ export const workflowWorkNodeTypes = [
   "context",
   "transform",
   "map",
+  "math",
   "write",
   "push",
   "create_workflow_node"
@@ -231,6 +232,13 @@ export interface WorkflowMapConfig {
   fields: WorkflowMapField[];
 }
 
+export type WorkflowMathOperation = "add" | "subtract" | "multiply" | "divide";
+
+export interface WorkflowMathConfig {
+  operation: WorkflowMathOperation;
+  operand: number;
+}
+
 export interface WorkflowPushConfig {
   target: string;
   valueFrom: string;
@@ -302,6 +310,7 @@ export interface WorkflowNodeData {
   join?: WorkflowJoinConfig;
   foreach?: WorkflowForeachConfig;
   map?: WorkflowMapConfig;
+  math?: WorkflowMathConfig;
   wait?: WorkflowWaitConfig;
   subworkflow?: WorkflowSubworkflowConfig;
   push?: WorkflowPushConfig;

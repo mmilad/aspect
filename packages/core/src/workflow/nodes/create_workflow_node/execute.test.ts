@@ -130,6 +130,8 @@ function configForType(type: WorkflowNodeType): Record<string, unknown> {
       return {};
     case "map":
       return { from: "items", as: "mapped", fields: [{ from: "title", as: "title" }] };
+    case "math":
+      return { operation: "add", operand: 1 };
     case "write":
       return { action: "rollup_parent_status" };
     case "push":

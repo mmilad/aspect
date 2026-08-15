@@ -199,6 +199,135 @@ describe("foreach execution", () => {
     });
   });
 
+  it("create_step preserves foreach node pin contracts and bag bindings", async () => {
+    const INSTRUCTION = {
+      kind: "object" as const,
+      fields: {
+        message: STRING,
+        decision: STRING
+      }
+    };
+    const INSTRUCTION_ARRAY = { kind: "array" as const, items: INSTRUCTION };
+
+    const run = new WorkflowRun({
+      graph: parsed(createStepGraph),
+      bag: {
+        workflowId: "create_step",
+        cursor: "start",
+        goal: "create step",
+        keys: {
+          stepInstructions:
+            "Take the messages list and return a list of instructions that hold message and decision.",
+          availableBagShape: { messages: "string[]", instructions: "Instruction[]" },
+          allowedNodeTypes: ["foreach"]
+        },
+        status: "running"
+      }
+    });
+
+    let step = await run.step();
+    expect(step.kind).toBe("advanced");
+    step = await run.step();
+    expect(step.kind).toBe("pending_llm");
+
+    step = await run.step({
+      llmWrites: {
+        nodePlan: {
+          nodeType: "foreach",
+          title: "Each message",
+          purpose:
+            "Iterate over each incoming message so a later body node can produce an instruction.",
+          reads: ["messages"],
+          writes: ["instructions"],
+          inputs: {
+            messages: { required: true, shape: STRING_ARRAY }
+          },
+          outputContracts: {
+            message: { required: true, shape: STRING },
+            messageIndex: { required: true, shape: NUMBER },
+            instructions: { required: true, shape: INSTRUCTION_ARRAY }
+          },
+          inputBindings: {
+            messages: "messages"
+          },
+          writeBindings: {
+            instructions: "instructions"
+          },
+          config: {
+            itemsFrom: "messages",
+            itemKey: "message",
+            indexKey: "messageIndex",
+            collect: {
+              from: "instruction",
+              as: "instructions"
+            },
+            failureMode: "fail"
+          }
+        }
+      }
+    });
+    expect(step.kind).toBe("advanced");
+    step = await run.step();
+    expect(step.kind).toBe("advanced");
+    expect(pin(step.bag, "create_node", "nodePlanValid")).toBe(true);
+
+    step = await run.step();
+    expect(step.kind).toBe("advanced");
+    step = await run.step();
+    expect(step.kind).toBe("pending_llm");
+
+    step = await run.step({
+      llmWrites: {
+        nodeAccepted: true,
+        qaReason: "The foreach node reads messages, exposes message pins, and declares instructions as its collected output.",
+        repairInstructions: "",
+        improvements: []
+      }
+    });
+    expect(step.kind).toBe("advanced");
+    step = await run.step();
+    expect(step.kind).toBe("advanced");
+    step = await run.step();
+    expect(step.kind).toBe("completed");
+
+    expect(step.bag.keys.stepDraft).toMatchObject({
+      nodes: [
+        {
+          type: "foreach",
+          data: {
+            reads: ["messages"],
+            writes: ["instructions"],
+            inputs: {
+              messages: { required: true, shape: STRING_ARRAY }
+            },
+            outputContracts: {
+              message: { required: true, shape: STRING },
+              messageIndex: { required: true, shape: NUMBER },
+              instructions: { required: true, shape: INSTRUCTION_ARRAY }
+            },
+            inputBindings: {
+              messages: "messages"
+            },
+            writeBindings: {
+              instructions: "instructions"
+            },
+            foreach: {
+              itemsFrom: "messages",
+              itemKey: "message",
+              indexKey: "messageIndex",
+              collect: {
+                from: "instruction",
+                as: "instructions"
+              },
+              failureMode: "fail"
+            }
+          }
+        }
+      ],
+      validation: { ok: true, errors: [] }
+    });
+  });
+
   it("create_step routes invalid factory output into a dedicated fix step", async () => {
     const run = new WorkflowRun({
       graph: parsed(createStepGraph),

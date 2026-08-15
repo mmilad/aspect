@@ -7,19 +7,34 @@ import {
 } from "../contracts";
 import {
   applyBagWrites,
+  cloneContextBag,
+  copyEndOutputs,
   findNode,
   findStartNode,
   getNodeWrites,
-  outgoingByKind
+  initFrameFromRunInputs,
+  outgoingByKind,
+  usesPinFrame,
+  writeOutputPins
 } from "../graph/schema";
 import type { WorkflowContextBag, WorkflowGraph } from "../graph/types";
 import { resolveLlmOutputContracts } from "../llm-outputs";
 import { getNodeModel } from "../nodes/registry";
+import type { WorkflowNode } from "../nodes/_shared/types";
 import { mapPortValuesToBag } from "../ports";
 import { validateValueAgainstShape } from "../shapes";
 import type { WorkflowAdapters } from "./adapters";
 import { advanceCursor, fail } from "./helpers";
 import type { NodeExecuteContext, WorkflowStepResult } from "./types";
+import { resolveDataInput } from "../graph/frame";
+
+function pinOutputPorts(node: WorkflowNode): string[] {
+  const model = getNodeModel(node.type);
+  if (model.dataOutputs) {
+    return model.dataOutputs(node);
+  }
+  return Object.keys(node.data.outputContracts ?? {});
+}
 
 export class WorkflowRun {
   private _bag: WorkflowContextBag;
@@ -66,7 +81,11 @@ export class WorkflowRun {
     llmWrites?: Record<string, unknown>;
     userRoute?: string;
   }): Promise<WorkflowStepResult> {
-    let bag = { ...this._bag, keys: { ...this._bag.keys } };
+    let bag = cloneContextBag(this._bag);
+
+    if (usesPinFrame(this.graph) && !bag.frame) {
+      bag = { ...bag, frame: initFrameFromRunInputs(this.graph, bag) };
+    }
 
     if (!bag.cursor) {
       const start = findStartNode(this.graph);
@@ -92,14 +111,26 @@ export class WorkflowRun {
       return result;
     }
 
+    if (node.type === "get") {
+      const result = fail(bag, cursor, `Get ${node.id} is not an executable step.`);
+      this._bag = result.bag;
+      return result;
+    }
+
     if (node.type === "end" || node.type === "error_end") {
+      const completedBag =
+        node.type === "end" && usesPinFrame(this.graph) ? copyEndOutputs(this.graph, bag, node) : bag;
       const result: WorkflowStepResult = {
         kind: "completed",
         bag: {
-          ...bag,
+          ...completedBag,
           cursor: null,
           status: node.type === "error_end" ? "failed" : "completed",
-          error: node.type === "error_end" ? "Workflow ended in error." : undefined
+          error: node.type === "error_end" ? "Workflow ended in error." : undefined,
+          keys: {
+            ...completedBag.keys,
+            ...(completedBag.frame?.outputs ?? {})
+          }
         },
         nodeId: node.id,
         message: node.type === "error_end" ? "Workflow ended in error." : "Workflow completed."
@@ -130,15 +161,16 @@ export class WorkflowRun {
           return result;
         }
       }
-      const bagWrites = mapPortValuesToBag(node, opts.llmWrites);
-      const applied = applyBagWrites(bag, Object.keys(bagWrites), bagWrites);
+      const applied = usesPinFrame(this.graph)
+        ? { ok: true as const, bag: writeOutputPins(this.graph, bag, node, opts.llmWrites) }
+        : applyBagWrites(bag, Object.keys(mapPortValuesToBag(node, opts.llmWrites)), mapPortValuesToBag(node, opts.llmWrites));
       if (!applied.ok) {
         const result = this.contractFailure(bag, node.id, applied.error);
         this._bag = result.bag;
         return result;
       }
       if (shouldStrictValidateOutputs(node)) {
-        const outCheck = validateNodeOutputs(node, applied.bag);
+        const outCheck = validateNodeOutputs(node, applied.bag, this.graph);
         if (!outCheck.ok) {
           const result = this.contractFailure(applied.bag, node.id, outCheck.error);
           this._bag = result.bag;
@@ -162,7 +194,7 @@ export class WorkflowRun {
     }
 
     if (shouldStrictValidateInputs(node)) {
-      const inCheck = validateNodeInputs(node, bag);
+      const inCheck = validateNodeInputs(node, bag, this.graph);
       if (!inCheck.ok) {
         const result = this.contractFailure(bag, node.id, inCheck.error);
         this._bag = result.bag;
@@ -178,6 +210,7 @@ export class WorkflowRun {
     }
 
     const self = this;
+    const pinGraph = usesPinFrame(this.graph);
     const ctx: NodeExecuteContext = {
       graph: this.graph,
       node,
@@ -194,6 +227,31 @@ export class WorkflowRun {
         return advanceCursor(self.graph, ctx.bag, node.id, routeLabel);
       },
       applyWrites(values: Record<string, unknown>) {
+        if (pinGraph) {
+          const declared = pinOutputPorts(node);
+          for (const key of Object.keys(values)) {
+            if (declared.length > 0 && !declared.includes(key)) {
+              return { ok: false, error: `Undeclared write key: ${key}` };
+            }
+          }
+          for (const key of declared) {
+            const required = node.data.outputContracts?.[key]?.required !== false;
+            if (required && !(key in values)) {
+              return { ok: false, error: `Missing declared write key: ${key}` };
+            }
+          }
+          ctx.bag = writeOutputPins(self.graph, ctx.bag, node, values);
+          if (node.type === "start" && ctx.bag.frame) {
+            ctx.bag = {
+              ...ctx.bag,
+              frame: {
+                ...ctx.bag.frame,
+                inputs: { ...ctx.bag.frame.inputs, ...values }
+              }
+            };
+          }
+          return { ok: true, bag: ctx.bag };
+        }
         const applied = applyBagWrites(ctx.bag, getNodeWrites(node), values);
         if (applied.ok) {
           ctx.bag = applied.bag;
@@ -201,16 +259,19 @@ export class WorkflowRun {
         return applied;
       },
       read(key: string) {
+        if (pinGraph) {
+          return resolveDataInput(self.graph, ctx.bag, node, key);
+        }
         return ctx.bag.keys[key];
       },
       getWrites() {
-        return getNodeWrites(node);
+        return pinGraph ? pinOutputPorts(node) : getNodeWrites(node);
       }
     };
 
     const result = await model.execute(ctx);
     if (result.kind === "advanced" && shouldStrictValidateOutputs(node)) {
-      const outCheck = validateNodeOutputs(node, result.bag);
+      const outCheck = validateNodeOutputs(node, result.bag, this.graph);
       if (!outCheck.ok) {
         const failed = this.contractFailure(result.bag, node.id, outCheck.error);
         this._bag = failed.bag;

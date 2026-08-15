@@ -1,6 +1,8 @@
 import { resolveWorkflowLlmSystemPrompt } from "../../llm-defaults";
 import { resolveLlmNodeFormat } from "../../llm-format";
 import { resolveLlmOutputContracts } from "../../llm-outputs";
+import { usesPinFrame } from "../../graph/variables";
+import { resolveDataInput } from "../../graph/frame";
 import {
   pickBagByInputPorts,
   resolveInputBindings,
@@ -37,7 +39,7 @@ export async function executeLlm(ctx: NodeExecuteContext): Promise<WorkflowStepR
     }
   }
 
-  // Port ids (templates + pending_llm.reads are port-keyed).
+  const pinGraph = usesPinFrame(ctx.graph);
   const portIds =
     llm.inputKeys && llm.inputKeys.length > 0
       ? llm.inputKeys
@@ -45,11 +47,17 @@ export async function executeLlm(ctx: NodeExecuteContext): Promise<WorkflowStepR
         ? Object.keys(ctx.node.data.inputs ?? {})
         : (ctx.node.data.reads ?? []);
 
-  const inputBindings = resolveInputBindings(ctx.node);
-  const bagKeysForSlim = portIds.map((portId) => inputBindings[portId] ?? portId);
-  const portReads = pickBagByInputPorts(ctx.node, ctx.bag.keys, portIds);
-  // Template fill: expose both port ids and bag keys so {{title}} works either way.
-  const templateKeys: Record<string, unknown> = { ...ctx.bag.keys, ...portReads };
+  const portReads: Record<string, unknown> = {};
+  for (const portId of portIds) {
+    const value = pinGraph ? resolveDataInput(ctx.graph, ctx.bag, ctx.node, portId) : ctx.read(portId);
+    if (value !== undefined) {
+      portReads[portId] = value;
+    }
+  }
+
+  const inputBindings = pinGraph ? Object.fromEntries(portIds.map((portId) => [portId, portId])) : resolveInputBindings(ctx.node);
+  const bagKeysForSlim = pinGraph ? portIds : portIds.map((portId) => inputBindings[portId] ?? portId);
+  const templateKeys: Record<string, unknown> = pinGraph ? { ...portReads } : { ...ctx.bag.keys, ...pickBagByInputPorts(ctx.node, ctx.bag.keys, portIds) };
   const shapesByBagKey = slimShapesForReads(ctx.graph, ctx.node.id, bagKeysForSlim).keys;
   const shapes: Record<string, string> = {};
   for (const portId of portIds) {
@@ -58,7 +66,9 @@ export async function executeLlm(ctx: NodeExecuteContext): Promise<WorkflowStepR
   }
   const templateOpts = {
     keys: templateKeys,
-    allowedKeys: [...new Set([...portIds, ...derivedReads(ctx.node), ...Object.keys(ctx.bag.keys)])],
+    allowedKeys: pinGraph
+      ? portIds
+      : [...new Set([...portIds, ...derivedReads(ctx.node), ...Object.keys(ctx.bag.keys)])],
     shapes: { ...shapesByBagKey, ...shapes }
   };
   const renderedSystem = renderBagTemplate(resolveWorkflowLlmSystemPrompt(llm.systemPrompt), templateOpts);

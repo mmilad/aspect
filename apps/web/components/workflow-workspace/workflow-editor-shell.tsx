@@ -57,6 +57,9 @@ function WorkflowRightSidebar({
         <WorkflowStepInspector
           selected={session.selected}
           bagView={session.bagView}
+          pinMode={session.pinMode}
+          variables={session.variables}
+          onUpdateVariables={session.onUpdateVariables}
           projectKey={snapshot.project.key}
           onUpdateData={session.onUpdateData}
           onDelete={session.onDelete}

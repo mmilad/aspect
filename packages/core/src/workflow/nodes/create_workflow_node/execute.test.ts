@@ -136,6 +136,9 @@ function configForType(type: WorkflowNodeType): Record<string, unknown> {
       return { target: "items", valueFrom: "item" };
     case "create_workflow_node":
       return { planFrom: "nodePlan" };
+    case "get":
+    case "set":
+      return { variable: "scratch" };
     default:
       return {};
   }

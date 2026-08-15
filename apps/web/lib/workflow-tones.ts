@@ -1,6 +1,7 @@
 import type { WorkflowNodeType } from "@projectplaner/core";
 import {
   workflowControlNodeTypes,
+  workflowVariableNodeTypes,
   workflowWorkNodeTypes
 } from "@projectplaner/core";
 
@@ -23,10 +24,13 @@ export const workflowStepToneByType: Record<WorkflowNodeType, string> = {
   map: "border-lime-600 bg-lime-50 text-lime-950",
   write: "border-emerald-600 bg-emerald-50 text-emerald-950",
   push: "border-emerald-700 bg-emerald-50 text-emerald-950",
-  create_workflow_node: "border-sky-700 bg-sky-50 text-sky-950"
+  create_workflow_node: "border-sky-700 bg-sky-50 text-sky-950",
+  get: "border-pink-600 bg-pink-50 text-pink-950",
+  set: "border-pink-700 bg-pink-100 text-pink-950"
 };
 
 export const workflowPaletteGroups: Array<{ label: string; types: readonly WorkflowNodeType[] }> = [
   { label: "Control", types: workflowControlNodeTypes },
-  { label: "Work", types: workflowWorkNodeTypes }
+  { label: "Work", types: workflowWorkNodeTypes },
+  { label: "Variables", types: workflowVariableNodeTypes }
 ];

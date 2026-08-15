@@ -16,10 +16,15 @@ import { LlmJsonSchemaPicker } from "./llm-json-schema-picker";
 import { PropPicker, WorkflowBagPanel } from "../../workflow-workspace/workflow-bag-panel";
 import { BagPortsEditor } from "./bag-ports-editor";
 import { StartRunInputsEditor } from "./start-run-inputs-editor";
+import { WorkflowVariablesPanel } from "./workflow-variables-panel";
+import type { WorkflowVariable } from "@projectplaner/core";
 
 export interface WorkflowStepInspectorProps {
   selected: WorkflowNode | null;
   bagView: Record<string, BagShape>;
+  pinMode?: boolean;
+  variables?: WorkflowVariable[];
+  onUpdateVariables?: (next: WorkflowVariable[]) => void;
   projectKey?: string;
   onUpdateData: (patch: Partial<WorkflowNodeData>) => void;
   onDelete: () => void;
@@ -454,6 +459,9 @@ function NodeMeta({
 export function WorkflowStepInspector({
   selected,
   bagView,
+  pinMode = false,
+  variables = [],
+  onUpdateVariables,
   projectKey = "PLAN",
   onUpdateData,
   onDelete
@@ -463,15 +471,27 @@ export function WorkflowStepInspector({
       ? [selected.data.foreach?.itemKey ?? "item", selected.data.foreach?.indexKey ?? "index"]
       : [];
   const fields = selected ? (getNodeModel(selected.type).inspectorFields ?? []) : [];
+  const visibleFields = fields.filter((field) => {
+    if (!pinMode) {
+      return field.kind !== "bagPorts";
+    }
+    return field.kind !== "bagPorts" && field.kind !== "bagKey" && field.kind !== "startRunInputs";
+  });
 
   return (
     <div className="space-y-3 p-3">
       <div>
-        <WorkflowBagPanel view={bagView} highlightKeys={highlight} />
+        {pinMode && onUpdateVariables ? (
+          <WorkflowVariablesPanel variables={variables} onChange={onUpdateVariables} />
+        ) : (
+          <WorkflowBagPanel view={bagView} highlightKeys={highlight} />
+        )}
       </div>
       {!selected ? (
         <p className="text-sm text-muted-foreground">
-          Select a step to edit title, bag bindings, control config, and execution policy.
+          {pinMode
+            ? "Select a step to edit title, pins, and node config."
+            : "Select a step to edit title, bag bindings, control config, and execution policy."}
         </p>
       ) : (
         <div className="space-y-3">
@@ -486,13 +506,11 @@ export function WorkflowStepInspector({
           <FormLabel label="Title">
             <TextInput value={selected.data.title} onChange={(event) => onUpdateData({ title: event.target.value })} />
           </FormLabel>
-          {selected.type === "start" ? null : (
+          {selected.type === "start" || pinMode ? null : (
             <BagPortsEditor selected={selected} bagView={bagView} onUpdateData={onUpdateData} />
           )}
           <SwitchCasesEditor selected={selected} onUpdateData={onUpdateData} />
-          {fields
-            .filter((field) => field.kind !== "bagPorts")
-            .map((field) => renderField(field, selected, bagView, onUpdateData, projectKey))}
+          {visibleFields.map((field) => renderField(field, selected, bagView, onUpdateData, projectKey))}
           {selected.type !== "start" ? (
             <GhostButton size="xs" tone="danger" onClick={onDelete}>
               Delete node

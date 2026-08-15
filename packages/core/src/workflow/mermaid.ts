@@ -93,6 +93,9 @@ export function renderWorkflowMermaid(graph: WorkflowGraph, options: WorkflowMer
   // Edges: next / route / error / depends_on (skip unknown), stable by id
   const edges = [...graph.edges].sort((a, b) => a.id.localeCompare(b.id));
   for (const edge of edges) {
+    if (edge.kind === "data") {
+      continue;
+    }
     if (!findNode(graph, edge.source) || !findNode(graph, edge.target)) {
       continue;
     }

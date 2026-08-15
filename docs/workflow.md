@@ -2,49 +2,52 @@
 
 Executable step graphs live as **Flow** entities. Core owns schema + runner; db persists runs and seeds presets; web edits graphs; agents start/resume via MCP or HTTP.
 
-## Presets (seeded)
+Schema version **4**: pin-and-variable graphs (`graph.variables` present). Mutation packs still run as **legacy bag graphs** (no `variables` array) until a later convert.
 
-Examples:
+## Presets (seeded)
 
 | Key | Purpose |
 |-----|---------|
-| `ensure_aspect` | Search then reuse-or-create Aspect (LLM pause) |
 | `create_*` / `update_*` / `delete_*` | Aspect/Feature/Task CRUD (`delete_*` = archive) |
-| `next_work` | Pick eligible task |
-| `onboarding` | Session onboarding pack |
 | `rollup_parent_status` | Derive parent process status and recurse |
-| `author_workflow` | Two LLM steps: text `outline` → `graphJson` (Workflow Step Graph v2) |
+| `create_step` | Pin-variable proof graph: interpret instructions → create one node → QA |
 
 Prefer `run_workflow` over raw `create_entity` / `update_entity` when a matching mutation preset is seeded.
 
-### Authoring (`author_workflow` + Generate)
+**Parked (not seeded):** `ensure_aspect`, `author_workflow`, `next_work`, `onboarding`. Graphs remain in-repo; `listWorkflowPresets()` used by `ensureWorkflowPresets` omits them.
 
-- **Preset** `author_workflow`: Start → Outline as text → Compile to JSON → End. Bag writes `outline` (plain text) then `graphJson` (JSON string). Both are visible in Story / bag inspector when you run the flow.
-- **UI Generate** (Describe): when `PROJECTPLANER_LLM_*` is set, uses the same two-turn path (`outline` then compile) and returns `{ graph, outline, graphJson, source: "llm_two_turn" }`. Without LLM, deterministic scaffold only.
+### Authoring UI Generate
+
+- **UI Generate** (Describe): when `PROJECTPLANER_LLM_*` is set, uses a two-turn path (`outline` then compile) and returns `{ graph, outline, graphJson, source: "llm_two_turn" }`. Without LLM, deterministic scaffold only.
 - Typed LLM writes: `outputContracts` / `pending_llm.outputs` carry `BagShape`; resume validates `llmWrites` against those shapes.
 
-## Bag ports vs bindings
+## Variables and data pins
 
-Port **contracts** (types) are authored in presets/code for work nodes. The UI only **binds** bag keys onto those ports.
+Authoring is **Start inputs, End outputs, named locals (Get/Set), and data wires**. Authors do not bind ambient bag keys. The runner keeps an internal pin/local frame.
 
-**Exception — Start:** Start has no upstream. Its `outputContracts` / `writes` are the **workflow run inputs** (name, shape, required). Authors edit them in the inspector. Graphs allow **exactly one** Start (scaffolded; hidden from Add when present; non-deletable).
+`graph.variables` (v4):
 
-| Layer | Fields | Who edits |
-|-------|--------|-----------|
-| Port contracts | `inputs` / `outputContracts` (port id → required + `BagShape`) | Presets / code — not the inspector (**Start** may edit `outputContracts` as run inputs) |
-| Bindings | `inputBindings` / `writeBindings` (port id → bag key) | Inspector (PropPicker / write section) |
-| Derived legacy | `reads` / `writes` | Synced from binding values on parse/save |
+| Role | Unreal analogue | Pins |
+|------|-----------------|------|
+| `input` | Function inputs | **Start** data outputs |
+| `output` | Return values | **End** data inputs (wire in to return) |
+| `local` | My Blueprint locals | **Get** (pure, data out) / **Set** (exec in/out + data in `value`) |
 
-- **Inputs (UI):** one row per declared input port; pick which upstream **bag key** feeds it.
-- **Writes (UI):** bind declared **output ports** to bag keys (default bag key = port id). Writes register keys for downstream. `+` adds an unbound output; remove clears registration.
-- **Compat:** omitted bindings ⇒ **identity** (port id = bag key). Old graphs keep running.
-- **No separate “update bag” node** — write bindings are the bag write API.
-- **Shapes** use `BagShape`, including `union` (e.g. `string\|null` via `nullable()`).
-- **`required: false`** = key may be **absent**. **`null` inside a union** = key may be **present** with null.
-- **Runtime (strict for work nodes):** validate each input port against its bound bag key; validate write-bound outputs after successful writes / LLM resume. Control nodes only when they declare `inputs`.
-- **LLM:** `inputKeys` / `outputSchema` / `llmWrites` are **port ids**; the runner resolves to bag keys via bindings.
-- **Nullability:** branch/gate only when upstream is `T\|null` and downstream input rejects null. If the consumer accepts `T\|null`, wire directly.
-- Editor warnings (`warnShapeMismatches`) flag nullable→non-null mismatches (“add a null check or widen the input”).
+MCP/HTTP `bag` is the **input variable map** (same JSON field). No `goal` unless declared as an input.
+
+Work/control **data pins** come from `inputs` / `outputContracts` (port contracts). Exec stays `in:{pin}` / `out:{pin}`; data uses `data:in:{port}` / `data:out:{port}`. Edges with `kind: "data"` are skipped on the exec walk. Get is not an exec target.
+
+Shapes color data wires: string/pink, bool/red, number/green, object/blue, array/cyan, any/gray.
+
+**LLM:** templates and `pending_llm.reads` are **incoming pin ids**. `llmWrites` keys are **output pin ids**; resume stores them on that node’s output pins.
+
+**Legacy bag graphs** (no `variables`): identity `inputBindings` / `writeBindings` still apply. Mutation presets stay on this path.
+
+## Exec wires and reroutes
+
+`next` / `route` / `error` edges are the **execution track** (what runs next). The editor draws them as one thick exec spline; branch True/False labels stay on pins. `depends_on` stays a dashed join edge.
+
+Reroutes are **waypoints on the edge** (`waypoints: [{x,y}]` in flow coordinates), not workflow nodes. Double-click an exec wire to add a knob; drag to move; Delete/Backspace removes a selected knob. The runner, Story, and Mermaid ignore waypoints. Data wires reuse the same waypoint UI as a thin colored spline.
 
 After changing preset graphs in the repo, refresh the living SQLite seed:
 
@@ -55,10 +58,10 @@ pnpm plan presets-ensure --force
 
 ## Runtime
 
-- Steps: start → context / map / branch / write / llm / … → end.
+- Steps: start → work/control along **exec** edges → end. Data edges feed pins; they do not change the cursor.
 - **Write** actions include `create_entity`, `update_entity`, `rollup_parent_status`.
 - **LLM** nodes pause as `pending_llm`. Resume with `{ runId, llmWrites }` (Cursor, Codex, or `apps/agent`).
-- Instructions may use bag templates (`{{title}}`, `{{@reads}}`, `{{@shapes}}`); the runner fills them before returning `pending_llm`.
+- Instructions may use pin templates (`{{stepInstructions}}`, `{{@reads}}`, `{{@shapes}}`); the runner fills them before returning `pending_llm`.
 - LLM nodes have optional `systemPrompt` (chat system) and `instructions` (chat user / task). Blank or missing `systemPrompt` uses `DEFAULT_WORKFLOW_LLM_SYSTEM_PROMPT` at run. Both fields are template-filled and returned on `pending_llm`.
 
 ## Dev reseeding
@@ -85,4 +88,4 @@ Code: `packages/core/src/workflow/`, `packages/db/src/workflow-runtime.ts`, `pac
 
 ## Diagram view (read-only)
 
-In the flow editor toolbar, **Diagram** replaces the React Flow canvas with a Mermaid flowchart of the current graph (branch → diamond, start/end → stadium). Palette and inspector hide while open. Use **Copy source** to paste into docs. Converter: `renderWorkflowMermaid` in `@projectplaner/core`.
+In the flow editor toolbar, **Diagram** replaces the React Flow canvas with a Mermaid flowchart of the current graph (branch → diamond, start/end → stadium). Palette and inspector hide while open. Use **Copy source** to paste into docs. Converter: `renderWorkflowMermaid` in `@projectplaner/core`. Data edges are omitted from Mermaid.

@@ -50,6 +50,7 @@ export {
   workflowLlmFormats,
   workflowNodeTypes,
   workflowRetryOnValues,
+  workflowVariableNodeTypes,
   workflowWorkNodeTypes
 } from "./nodes/_shared/types";
 
@@ -59,7 +60,10 @@ export type {
   WorkflowGraph,
   WorkflowParseError,
   WorkflowParseOutcome,
-  WorkflowParseResult
+  WorkflowParseResult,
+  WorkflowRunFrame,
+  WorkflowVariable,
+  WorkflowVariableRole
 } from "./graph/types";
 
 export type { NodeTopologyContext, WorkflowNodeModel } from "./nodes/_shared/model";

@@ -12,6 +12,8 @@ import { joinNode } from "./join/model";
 import { llmNode } from "./llm/model";
 import { mapNode } from "./map/model";
 import { pushNode } from "./push/model";
+import { getNode } from "./get/model";
+import { setNode } from "./set/model";
 import { startNode } from "./start/model";
 import { subworkflowNode } from "./subworkflow/model";
 import { switchNode } from "./switch/model";
@@ -39,7 +41,9 @@ export const workflowNodeModels: Record<WorkflowNodeType, WorkflowNodeModel> = {
   transform: transformNode,
   map: mapNode,
   write: writeNode,
-  push: pushNode
+  push: pushNode,
+  get: getNode,
+  set: setNode
 };
 
 export function getNodeModel(type: WorkflowNodeType): WorkflowNodeModel {
@@ -49,5 +53,6 @@ export function getNodeModel(type: WorkflowNodeType): WorkflowNodeModel {
 export {
   workflowControlNodeTypes,
   workflowNodeTypes,
+  workflowVariableNodeTypes,
   workflowWorkNodeTypes
 } from "./_shared/types";

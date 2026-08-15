@@ -1,9 +1,11 @@
-import { resolveRouteNextNodeId } from "../../graph/schema";
+import { resolveRouteNextNodeId, usesPinFrame } from "../../graph/schema";
+import { resolveDataInput } from "../../graph/frame";
 import type { NodeExecuteContext, WorkflowStepResult } from "../../runtime/types";
 
 export async function executeBranch(ctx: NodeExecuteContext): Promise<WorkflowStepResult> {
-  const on = ctx.node.data.branch?.on ?? "route";
-  const value = ctx.read(on);
+  const value = usesPinFrame(ctx.graph)
+    ? resolveDataInput(ctx.graph, ctx.bag, ctx.node, "condition")
+    : ctx.read(ctx.node.data.branch?.on ?? "route");
   const label = value === undefined || value === null ? "default" : String(value);
   const nextId = resolveRouteNextNodeId(ctx.graph, ctx.node.id, label);
   if (!nextId) {

@@ -36,6 +36,7 @@ export type {
   WorkflowSubworkflowConfig,
   WorkflowSwitchConfig,
   WorkflowToolConfig,
+  WorkflowVariableNodeType,
   WorkflowWaitConfig,
   WorkflowWorkNodeType,
   WorkflowWriteConfig
@@ -49,6 +50,7 @@ export {
   workflowLlmFormats,
   workflowNodeTypes,
   workflowRetryOnValues,
+  workflowVariableNodeTypes,
   workflowWorkNodeTypes
 } from "./_shared/types";
 

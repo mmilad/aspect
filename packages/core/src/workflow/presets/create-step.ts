@@ -1,6 +1,5 @@
 import { WORKFLOW_NODE_PLAN_V1_KEY, WORKFLOW_NODE_QA_V1_KEY } from "../llm-json-schemas";
-import { WORKFLOW_SCHEMA_VERSION, type WorkflowGraph } from "../types";
-import { identityBindings } from "./bindings";
+import { WORKFLOW_SCHEMA_VERSION, type WorkflowEdge, type WorkflowGraph } from "../types";
 import type { WorkflowPreset } from "./types";
 
 const STRING = { kind: "primitive" as const, type: "string" as const };
@@ -8,13 +7,28 @@ const BOOLEAN = { kind: "primitive" as const, type: "boolean" as const };
 const STRING_ARRAY = { kind: "array" as const, items: STRING };
 const JSON_SHAPE = { kind: "any" as const };
 
+function data(
+  id: string,
+  source: string,
+  sourcePin: string,
+  target: string,
+  targetPin: string
+): WorkflowEdge {
+  return { id, source, target, kind: "data", sourcePin, targetPin };
+}
+
 /**
- * Generic step-builder preset for the "create workflow" workstream.
- * It interprets instructions into one node plan, materializes one workflow
- * node deterministically, verifies it, and uses a dedicated repair step when QA fails.
+ * Pin-and-variable proof graph: Start inputs → interpret → create → branch → verify → end,
+ * with Fix looping nodePlan pin-to-pin.
  */
 export const createStepGraph: WorkflowGraph = {
   version: WORKFLOW_SCHEMA_VERSION,
+  variables: [
+    { name: "stepInstructions", role: "input", shape: STRING, required: true },
+    { name: "availableBagShape", role: "input", shape: JSON_SHAPE, required: false },
+    { name: "allowedNodeTypes", role: "input", shape: JSON_SHAPE, required: false },
+    { name: "stepDraft", role: "output", shape: JSON_SHAPE, required: true }
+  ],
   nodes: [
     {
       id: "start",
@@ -22,16 +36,6 @@ export const createStepGraph: WorkflowGraph = {
       position: { x: 40, y: 220 },
       data: {
         title: "Start",
-        writes: [
-          "stepInstructions",
-          "availableBagShape",
-          "allowedNodeTypes"
-        ],
-        writeBindings: identityBindings([
-          "stepInstructions",
-          "availableBagShape",
-          "allowedNodeTypes"
-        ]),
         outputContracts: {
           stepInstructions: { required: true, shape: STRING },
           availableBagShape: { required: false, shape: JSON_SHAPE },
@@ -45,23 +49,11 @@ export const createStepGraph: WorkflowGraph = {
       position: { x: 340, y: 220 },
       data: {
         title: "Interpret node plan",
-        reads: [
-          "stepInstructions",
-          "availableBagShape",
-          "allowedNodeTypes"
-        ],
         inputs: {
           stepInstructions: { required: true, shape: STRING },
           availableBagShape: { required: false, shape: JSON_SHAPE },
           allowedNodeTypes: { required: false, shape: JSON_SHAPE }
         },
-        inputBindings: identityBindings([
-          "stepInstructions",
-          "availableBagShape",
-          "allowedNodeTypes"
-        ]),
-        writes: ["nodePlan"],
-        writeBindings: identityBindings(["nodePlan"]),
         outputContracts: {
           nodePlan: { required: true, shape: JSON_SHAPE }
         },
@@ -89,32 +81,13 @@ export const createStepGraph: WorkflowGraph = {
       position: { x: 680, y: 220 },
       data: {
         title: "Create workflow node",
-        reads: ["nodePlan"],
         inputs: {
           nodePlan: { required: true, shape: JSON_SHAPE },
           allowedNodeTypes: { required: false, shape: JSON_SHAPE },
           availableBagShape: { required: false, shape: JSON_SHAPE }
         },
-        inputBindings: identityBindings(["nodePlan", "allowedNodeTypes", "availableBagShape"]),
-        writes: [
-          "workflowNode",
-          "nodeMeta",
-          "validationErrors",
-          "nodePlanValid",
-          "hasValidationErrors",
-          "repairInstructions",
-          "stepDraft"
-        ],
-        writeBindings: identityBindings([
-          "workflowNode",
-          "nodeMeta",
-          "validationErrors",
-          "nodePlanValid",
-          "hasValidationErrors",
-          "repairInstructions",
-          "stepDraft"
-        ]),
         outputContracts: {
+          nodePlan: { required: false, shape: JSON_SHAPE },
           workflowNode: { required: false, shape: JSON_SHAPE },
           nodeMeta: { required: true, shape: JSON_SHAPE },
           validationErrors: { required: true, shape: JSON_SHAPE },
@@ -143,12 +116,9 @@ export const createStepGraph: WorkflowGraph = {
       position: { x: 1060, y: 220 },
       data: {
         title: "Factory valid?",
-        reads: ["nodePlanValid"],
         inputs: {
-          nodePlanValid: { required: true, shape: BOOLEAN }
-        },
-        inputBindings: identityBindings(["nodePlanValid"]),
-        branch: { on: "nodePlanValid" }
+          condition: { required: true, shape: BOOLEAN }
+        }
       }
     },
     {
@@ -157,17 +127,6 @@ export const createStepGraph: WorkflowGraph = {
       position: { x: 1390, y: 220 },
       data: {
         title: "Verify node",
-        reads: [
-          "stepInstructions",
-          "availableBagShape",
-          "allowedNodeTypes",
-          "nodePlan",
-          "workflowNode",
-          "nodeMeta",
-          "validationErrors",
-          "nodePlanValid",
-          "repairInstructions"
-        ],
         inputs: {
           stepInstructions: { required: true, shape: STRING },
           availableBagShape: { required: false, shape: JSON_SHAPE },
@@ -179,24 +138,6 @@ export const createStepGraph: WorkflowGraph = {
           nodePlanValid: { required: true, shape: BOOLEAN },
           repairInstructions: { required: true, shape: STRING }
         },
-        inputBindings: identityBindings([
-          "stepInstructions",
-          "availableBagShape",
-          "allowedNodeTypes",
-          "nodePlan",
-          "workflowNode",
-          "nodeMeta",
-          "validationErrors",
-          "nodePlanValid",
-          "repairInstructions"
-        ]),
-        writes: ["nodeAccepted", "qaReason", "repairInstructions", "improvements"],
-        writeBindings: identityBindings([
-          "nodeAccepted",
-          "qaReason",
-          "repairInstructions",
-          "improvements"
-        ]),
         outputContracts: {
           nodeAccepted: { required: true, shape: BOOLEAN },
           qaReason: { required: true, shape: STRING },
@@ -230,12 +171,9 @@ export const createStepGraph: WorkflowGraph = {
       position: { x: 1720, y: 220 },
       data: {
         title: "QA accepted?",
-        reads: ["nodeAccepted"],
         inputs: {
-          nodeAccepted: { required: true, shape: BOOLEAN }
-        },
-        inputBindings: identityBindings(["nodeAccepted"]),
-        branch: { on: "nodeAccepted" }
+          condition: { required: true, shape: BOOLEAN }
+        }
       }
     },
     {
@@ -244,18 +182,6 @@ export const createStepGraph: WorkflowGraph = {
       position: { x: 1060, y: 500 },
       data: {
         title: "Fix node plan",
-        reads: [
-          "stepInstructions",
-          "availableBagShape",
-          "allowedNodeTypes",
-          "nodePlan",
-          "workflowNode",
-          "nodeMeta",
-          "validationErrors",
-          "qaReason",
-          "repairInstructions",
-          "improvements"
-        ],
         inputs: {
           stepInstructions: { required: true, shape: STRING },
           availableBagShape: { required: false, shape: JSON_SHAPE },
@@ -268,20 +194,6 @@ export const createStepGraph: WorkflowGraph = {
           repairInstructions: { required: true, shape: STRING },
           improvements: { required: false, shape: STRING_ARRAY }
         },
-        inputBindings: identityBindings([
-          "stepInstructions",
-          "availableBagShape",
-          "allowedNodeTypes",
-          "nodePlan",
-          "workflowNode",
-          "nodeMeta",
-          "validationErrors",
-          "qaReason",
-          "repairInstructions",
-          "improvements"
-        ]),
-        writes: ["nodePlan"],
-        writeBindings: identityBindings(["nodePlan"]),
         outputContracts: {
           nodePlan: { required: true, shape: JSON_SHAPE }
         },
@@ -311,7 +223,12 @@ export const createStepGraph: WorkflowGraph = {
       id: "end",
       type: "end",
       position: { x: 2030, y: 220 },
-      data: { title: "End" }
+      data: {
+        title: "End",
+        inputs: {
+          stepDraft: { required: true, shape: JSON_SHAPE }
+        }
+      }
     }
   ],
   edges: [
@@ -323,21 +240,52 @@ export const createStepGraph: WorkflowGraph = {
     { id: "e6", source: "verify_node", target: "qa_branch", kind: "next", sourcePin: "then", targetPin: "in" },
     { id: "e7", source: "qa_branch", target: "end", kind: "route", label: "true", sourcePin: "true", targetPin: "in" },
     { id: "e8", source: "qa_branch", target: "fix_node_plan", kind: "route", label: "false", sourcePin: "false", targetPin: "in" },
-    { id: "e9", source: "fix_node_plan", target: "create_node", kind: "next", sourcePin: "then", targetPin: "in" }
+    { id: "e9", source: "fix_node_plan", target: "create_node", kind: "next", sourcePin: "then", targetPin: "in" },
+    data("d_start_interp_instr", "start", "stepInstructions", "interpret_node_plan", "stepInstructions"),
+    data("d_start_interp_shape", "start", "availableBagShape", "interpret_node_plan", "availableBagShape"),
+    data("d_start_interp_types", "start", "allowedNodeTypes", "interpret_node_plan", "allowedNodeTypes"),
+    data("d_interp_create_plan", "interpret_node_plan", "nodePlan", "create_node", "nodePlan"),
+    data("d_fix_create_plan", "fix_node_plan", "nodePlan", "create_node", "nodePlan"),
+    data("d_start_create_types", "start", "allowedNodeTypes", "create_node", "allowedNodeTypes"),
+    data("d_start_create_shape", "start", "availableBagShape", "create_node", "availableBagShape"),
+    data("d_create_branch_valid", "create_node", "nodePlanValid", "factory_valid_branch", "condition"),
+    data("d_start_verify_instr", "start", "stepInstructions", "verify_node", "stepInstructions"),
+    data("d_start_verify_shape", "start", "availableBagShape", "verify_node", "availableBagShape"),
+    data("d_start_verify_types", "start", "allowedNodeTypes", "verify_node", "allowedNodeTypes"),
+    data("d_create_verify_plan", "create_node", "nodePlan", "verify_node", "nodePlan"),
+    data("d_create_verify_node", "create_node", "workflowNode", "verify_node", "workflowNode"),
+    data("d_create_verify_meta", "create_node", "nodeMeta", "verify_node", "nodeMeta"),
+    data("d_create_verify_errors", "create_node", "validationErrors", "verify_node", "validationErrors"),
+    data("d_create_verify_valid", "create_node", "nodePlanValid", "verify_node", "nodePlanValid"),
+    data("d_create_verify_repair", "create_node", "repairInstructions", "verify_node", "repairInstructions"),
+    data("d_verify_qa_accepted", "verify_node", "nodeAccepted", "qa_branch", "condition"),
+    data("d_start_fix_instr", "start", "stepInstructions", "fix_node_plan", "stepInstructions"),
+    data("d_start_fix_shape", "start", "availableBagShape", "fix_node_plan", "availableBagShape"),
+    data("d_start_fix_types", "start", "allowedNodeTypes", "fix_node_plan", "allowedNodeTypes"),
+    data("d_create_fix_plan", "create_node", "nodePlan", "fix_node_plan", "nodePlan"),
+    data("d_create_fix_node", "create_node", "workflowNode", "fix_node_plan", "workflowNode"),
+    data("d_create_fix_meta", "create_node", "nodeMeta", "fix_node_plan", "nodeMeta"),
+    data("d_create_fix_errors", "create_node", "validationErrors", "fix_node_plan", "validationErrors"),
+    data("d_create_fix_repair", "create_node", "repairInstructions", "fix_node_plan", "repairInstructions"),
+    data("d_verify_fix_reason", "verify_node", "qaReason", "fix_node_plan", "qaReason"),
+    data("d_verify_fix_repair", "verify_node", "repairInstructions", "fix_node_plan", "repairInstructions"),
+    data("d_verify_fix_improvements", "verify_node", "improvements", "fix_node_plan", "improvements"),
+    data("d_create_end_draft", "create_node", "stepDraft", "end", "stepDraft")
   ]
 };
 
 export const createStepPreset: WorkflowPreset = {
   presetKey: "create_step",
-  presetVersion: 3,
+  presetVersion: 4,
   title: "Create step",
   summary:
-    "Generic workflow step builder: interpret instructions, create one workflow node, QA it, and return stepDraft JSON.",
+    "Pin-variable step builder: interpret instructions, create one workflow node, QA it, and return stepDraft.",
   body: [
     "Inputs: stepInstructions:string plus optional availableBagShape and allowedNodeTypes.",
-    "Interpret LLM output: nodePlan JSON matching workflow_node_plan_v1.",
-    "Factory output: workflowNode, nodeMeta, nodePlanValid, validationErrors, hasValidationErrors, repairInstructions, stepDraft.",
-    "Verifier LLM output: nodeAccepted:boolean, qaReason, repairInstructions, improvements.",
+    "Output: stepDraft.",
+    "Interpret LLM output pin: nodePlan (workflow_node_plan_v1).",
+    "Factory output pins: workflowNode, nodeMeta, nodePlanValid, validationErrors, hasValidationErrors, repairInstructions, stepDraft, nodePlan (echo).",
+    "Verifier LLM output pins: nodeAccepted, qaReason, repairInstructions, improvements.",
     "Rejected output routes into a dedicated fix-node-plan LLM, then re-runs deterministic creation and verification."
   ].join("\n"),
   status: "accepted",

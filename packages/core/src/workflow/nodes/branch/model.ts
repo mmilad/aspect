@@ -12,9 +12,10 @@ export const branchNode: WorkflowNodeModel = {
   parseConfig: parseBranchNodeConfig,
   execute: executeBranch,
   inspectorFields: branchInspectorFields,
+  execInputs: () => ["in"],
   execOutputs: () => ["true", "false"],
-  dataInputs: (node) => [node.data.branch?.on ?? "route"],
-  canvasFields: (node) => [{ label: "on", value: node.data.branch?.on ?? "route" }],
+  dataInputs: () => ["condition"],
+  canvasFields: (node) => [{ label: "on", value: node.data.branch?.on ?? "condition" }],
   validateTopology: (ctx) => {
     const routes = ctx.outgoing.filter((edge) => edge.kind === "route" || edge.sourcePin);
     if (routes.length < 2) {

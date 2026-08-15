@@ -225,4 +225,55 @@ describe("workflow graph v3", () => {
     const warnings = warnMissingUpstreamKeys(exampleWorkflowGraph);
     expect(Array.isArray(warnings)).toBe(true);
   });
+
+  it("keeps valid exec waypoints and drops invalid ones", () => {
+    const result = parseWorkflowGraph({
+      version: 3,
+      nodes: [
+        { id: "start", type: "start", position: { x: 0, y: 0 }, data: { title: "Start", writes: ["goal"] } },
+        { id: "end", type: "end", position: { x: 240, y: 0 }, data: { title: "End" } }
+      ],
+      edges: [
+        {
+          id: "e1",
+          source: "start",
+          target: "end",
+          kind: "next",
+          sourcePin: "then",
+          targetPin: "in",
+          waypoints: [{ x: 120, y: 40 }, { x: "bad" }, { x: 140, y: 80 }, null]
+        }
+      ]
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.graph.edges[0]?.waypoints).toEqual([
+        { x: 120, y: 40 },
+        { x: 140, y: 80 }
+      ]);
+    }
+  });
+
+  it("omits waypoints when the payload is not an array", () => {
+    const result = parseWorkflowGraph({
+      version: 3,
+      nodes: [
+        { id: "start", type: "start", position: { x: 0, y: 0 }, data: { title: "Start", writes: ["goal"] } },
+        { id: "end", type: "end", position: { x: 240, y: 0 }, data: { title: "End" } }
+      ],
+      edges: [
+        {
+          id: "e1",
+          source: "start",
+          target: "end",
+          kind: "next",
+          waypoints: { x: 1, y: 2 }
+        }
+      ]
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.graph.edges[0]?.waypoints).toBeUndefined();
+    }
+  });
 });

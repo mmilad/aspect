@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { createContextBag, createStepGraph, ensureAspectPreset, parseWorkflowGraph } from "@projectplaner/core";
+import { createContextBag, createStepGraph, parseWorkflowGraph } from "@projectplaner/core";
 import {
   advanceWorkflowRun,
   createDatabase,
@@ -14,8 +14,8 @@ import {
   saveWorkflowGraph
 } from "./index";
 
-describe("advanceWorkflowRun ensure_aspect", () => {
-  it("pauses on LLM then completes reuse path", async () => {
+describe("advanceWorkflowRun create_step", () => {
+  it("pauses on LLM then completes pin path", async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "projectplaner-wf-runtime-"));
     const dbPath = path.join(dir, "test.db");
     const db = createDatabase(dbPath);
@@ -27,26 +27,17 @@ describe("advanceWorkflowRun ensure_aspect", () => {
         ""
       );
 
-      await createEntity(db, {
-        projectKey: "PLAN",
-        type: "aspect",
-        title: "Should author executable workflow step graphs",
-        summary: "Executable workflow diagrams.",
-        status: "done",
-        slug: "should-author-executable-workflow-step-graphs"
-      });
-
-      const seeded = await ensureWorkflowPresets(db, { projectKey: "PLAN", only: ["ensure_aspect"] });
-      assert.ok(seeded.seeded.includes("ensure_aspect") || seeded.skipped.includes("ensure_aspect"));
+      const seeded = await ensureWorkflowPresets(db, { projectKey: "PLAN", only: ["create_step"] });
+      assert.ok(seeded.seeded.includes("create_step") || seeded.skipped.includes("create_step"));
 
       const flowRow = db
         .prepare(
           `SELECT id, project_id FROM entities
-           WHERE type = 'flow' AND json_extract(metadata_json, '$.presetKey') = 'ensure_aspect'`
+           WHERE type = 'flow' AND json_extract(metadata_json, '$.presetKey') = 'create_step'`
         )
         .get() as { id: string; project_id: string };
 
-      const parsed = parseWorkflowGraph(ensureAspectPreset.graph);
+      const parsed = parseWorkflowGraph(createStepGraph);
       assert.equal(parsed.ok, true);
       if (!parsed.ok) {
         return;
@@ -59,11 +50,10 @@ describe("advanceWorkflowRun ensure_aspect", () => {
 
       const bag = createContextBag({
         workflowId: flowRow.id,
-        goal: "Ensure Aspect",
+        goal: "Create step",
         startNodeId: "start",
         keys: {
-          title: "Should author branching workflow diagrams with LLM steps",
-          reason: "Runtime reuse path test."
+          stepInstructions: "Create an LLM writer node."
         }
       });
 
@@ -77,25 +67,33 @@ describe("advanceWorkflowRun ensure_aspect", () => {
       const paused = await advanceWorkflowRun(db, { runId: run.id });
       assert.equal(paused.step.kind, "pending_llm");
       assert.equal(paused.run.status, "pending_llm");
+      assert.equal(paused.step.nodeId, "interpret_node_plan");
 
-      const existingId = (
-        db
-          .prepare(`SELECT id FROM entities WHERE slug = ?`)
-          .get("should-author-executable-workflow-step-graphs") as { id: string }
-      ).id;
+      const plan = {
+        nodeType: "llm",
+        title: "Writer",
+        config: { instructions: "Return JSON." }
+      };
+      const afterFactory = await advanceWorkflowRun(db, {
+        runId: run.id,
+        llmWrites: { nodePlan: plan }
+      });
+      assert.equal(afterFactory.step.kind, "pending_llm");
+      assert.equal(afterFactory.step.nodeId, "verify_node");
 
       const done = await advanceWorkflowRun(db, {
         runId: run.id,
         llmWrites: {
-          aspectId: existingId,
-          createNew: false,
-          confidence: 0.95
+          nodeAccepted: true,
+          qaReason: "ok",
+          repairInstructions: "",
+          improvements: []
         }
       });
 
       assert.equal(done.step.kind, "completed");
       assert.equal(done.run.status, "completed");
-      assert.equal(done.step.bag.keys.aspectId, existingId);
+      assert.ok(done.step.bag.keys.stepDraft);
     } finally {
       db.close();
       fs.rmSync(dir, { recursive: true, force: true });
@@ -113,17 +111,16 @@ describe("advanceWorkflowRun ensure_aspect", () => {
         "Plan",
         ""
       );
-      await ensureWorkflowPresets(db, { projectKey: "PLAN", only: ["ensure_aspect"] });
+      await ensureWorkflowPresets(db, { projectKey: "PLAN", only: ["create_step"] });
 
       const { runWorkflow } = await import("./workflow-runtime");
       const started = await runWorkflow(db, {
-        key: "ensure_aspect",
+        key: "create_step",
         bag: {
-          title: "Should discover and run workflow presets from MCP",
-          reason: "Key lookup smoke."
+          stepInstructions: "Create an LLM writer node."
         }
       });
-      assert.equal(started.flow.metadata.presetKey, "ensure_aspect");
+      assert.equal(started.flow.metadata.presetKey, "create_step");
       assert.equal(started.step.kind, "pending_llm");
     } finally {
       db.close();
@@ -131,7 +128,7 @@ describe("advanceWorkflowRun ensure_aspect", () => {
     }
   });
 
-  it("persists v3 exec pins when saving and loading workflow graphs", async () => {
+  it("persists data edges and variables when saving and loading workflow graphs", async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "projectplaner-wf-pins-"));
     const dbPath = path.join(dir, "test.db");
     const db = createDatabase(dbPath);
@@ -160,12 +157,80 @@ describe("advanceWorkflowRun ensure_aspect", () => {
 
       const loaded = loadWorkflowGraph(db, flow.entity.id);
       assert.ok(loaded);
+      assert.ok(loaded.variables?.some((variable) => variable.name === "stepInstructions"));
       const toLlm = loaded.edges.find((edge) => edge.id === "e1");
-      const toEnd = loaded.edges.find((edge) => edge.id === "e2");
+      const dataWire = loaded.edges.find((edge) => edge.id === "d_start_interp_instr");
       assert.equal(toLlm?.sourcePin, "then");
       assert.equal(toLlm?.targetPin, "in");
-      assert.equal(toEnd?.sourcePin, "then");
-      assert.equal(toEnd?.targetPin, "in");
+      assert.equal(dataWire?.kind, "data");
+      assert.equal(dataWire?.sourcePin, "stepInstructions");
+      assert.equal(dataWire?.targetPin, "stepInstructions");
+    } finally {
+      db.close();
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("persists exec waypoints when saving and loading workflow graphs", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "projectplaner-wf-waypoints-"));
+    const dbPath = path.join(dir, "test.db");
+    const db = createDatabase(dbPath);
+    try {
+      db.prepare(`INSERT INTO projects (id, key, title, description) VALUES (?, ?, ?, ?)`).run(
+        "project_test",
+        "PLAN",
+        "Plan",
+        ""
+      );
+
+      const flow = await createEntity(db, {
+        projectKey: "PLAN",
+        type: "flow",
+        title: "Waypoint persistence",
+        summary: "Save/reload exec reroute knobs.",
+        status: "planned",
+        slug: "waypoint-persistence"
+      });
+
+      const parsed = parseWorkflowGraph({
+        version: 3,
+        nodes: [
+          { id: "start", type: "start", position: { x: 0, y: 0 }, data: { title: "Start", writes: ["goal"] } },
+          { id: "end", type: "end", position: { x: 240, y: 0 }, data: { title: "End" } }
+        ],
+        edges: [
+          {
+            id: "e1",
+            source: "start",
+            target: "end",
+            kind: "next",
+            sourcePin: "then",
+            targetPin: "in",
+            waypoints: [
+              { x: 80, y: 48 },
+              { x: 160, y: -20 }
+            ]
+          }
+        ]
+      });
+      assert.equal(parsed.ok, true);
+      if (!parsed.ok) {
+        return;
+      }
+
+      saveWorkflowGraph(db, {
+        workflowId: flow.entity.id,
+        projectId: "project_test",
+        graph: parsed.graph
+      });
+
+      const loaded = loadWorkflowGraph(db, flow.entity.id);
+      assert.ok(loaded);
+      const edge = loaded.edges.find((item) => item.id === "e1");
+      assert.deepEqual(edge?.waypoints, [
+        { x: 80, y: 48 },
+        { x: 160, y: -20 }
+      ]);
     } finally {
       db.close();
       fs.rmSync(dir, { recursive: true, force: true });

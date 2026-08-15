@@ -26,21 +26,20 @@ export { nextWorkPreset } from "./next-work";
 export { onboardingPreset } from "./onboarding";
 export { rollupParentStatusGraph, rollupParentStatusPreset } from "./rollup-parent-status";
 
-/** All shipped workflow packs (seed-once into SQLite). */
+/** Seeded packs: mutation/rollup plus the pin-variable proof graph. */
 export function listWorkflowPresets(): WorkflowPreset[] {
-  return [
-    ensureAspectPreset,
-    ...listCrudPresets(),
-    nextWorkPreset,
-    onboardingPreset,
-    rollupParentStatusPreset,
-    authorWorkflowPreset,
-    createStepPreset
-  ];
+  return [...listCrudPresets(), rollupParentStatusPreset, createStepPreset];
+}
+
+/** Authoring packs kept in-repo but not seeded. */
+export function listParkedWorkflowPresets(): WorkflowPreset[] {
+  return [ensureAspectPreset, nextWorkPreset, onboardingPreset, authorWorkflowPreset];
 }
 
 export function getWorkflowPreset(presetKey: string): WorkflowPreset | undefined {
-  return listWorkflowPresets().find((preset) => preset.presetKey === presetKey);
+  return [...listWorkflowPresets(), ...listParkedWorkflowPresets()].find(
+    (preset) => preset.presetKey === presetKey
+  );
 }
 
 /** Resolve create/update/delete preset key when a pack exists in the catalog. */

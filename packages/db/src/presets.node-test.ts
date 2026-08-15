@@ -37,19 +37,22 @@ describe("ensureWorkflowPresets", () => {
     "seeds once then skips",
     withTempDb(async (db) => {
       const first = await ensureWorkflowPresets(db, { projectKey: "PLAN" });
-      assert.ok(first.seeded.includes("ensure_aspect"));
+      assert.ok(first.seeded.includes("create_step"));
+      assert.ok(first.seeded.includes("create_task"));
       assert.deepEqual(first.skipped, []);
+      assert.equal(first.seeded.includes("ensure_aspect"), false);
 
       const second = await ensureWorkflowPresets(db, { projectKey: "PLAN" });
       assert.deepEqual(second.seeded, []);
-      assert.ok(second.skipped.includes("ensure_aspect"));
+      assert.ok(second.skipped.includes("create_step"));
 
       const flows = await listEntities(db, { projectKey: "PLAN", type: "flow" });
-      const presetFlows = flows.filter((flow) => flow.metadata.presetKey === "ensure_aspect");
+      const presetFlows = flows.filter((flow) => flow.metadata.presetKey === "create_step");
       assert.equal(presetFlows.length, 1);
       const graph = loadWorkflowGraph(db, presetFlows[0]!.id);
       assert.ok(graph);
       assert.ok(graph.nodes.length > 3);
+      assert.ok(graph.variables?.some((variable) => variable.name === "stepInstructions"));
     })
   );
 
@@ -58,29 +61,29 @@ describe("ensureWorkflowPresets", () => {
     withTempDb(async (db) => {
       await ensureWorkflowPresets(db, { projectKey: "PLAN" });
       const before = (await listEntities(db, { projectKey: "PLAN", type: "flow" })).find(
-        (flow) => flow.metadata.presetKey === "ensure_aspect"
+        (flow) => flow.metadata.presetKey === "create_step"
       );
       assert.ok(before);
 
       await updateEntity(db, {
         id: before.id,
         patch: {
-          title: "Mutated Ensure Aspect",
+          title: "Mutated Create Step",
           metadata: { ...before.metadata, presetDirty: true }
         }
       });
 
       const force = await ensureWorkflowPresets(db, { projectKey: "PLAN", force: true });
-      assert.ok(force.reseeded.includes("ensure_aspect"));
+      assert.ok(force.reseeded.includes("create_step"));
       assert.deepEqual(force.seeded, []);
       assert.ok(force.warnings.some((warning) => warning.includes("dirty")));
 
       const after = (await listEntities(db, { projectKey: "PLAN", type: "flow" })).filter(
-        (flow) => flow.metadata.presetKey === "ensure_aspect"
+        (flow) => flow.metadata.presetKey === "create_step"
       );
       assert.equal(after.length, 1);
       assert.equal(after[0]!.id, before.id);
-      assert.equal(after[0]!.title, "Ensure Aspect");
+      assert.equal(after[0]!.title, "Create step");
       assert.equal(after[0]!.metadata.presetDirty, false);
       const graph = loadWorkflowGraph(db, after[0]!.id);
       assert.ok(graph);
@@ -103,7 +106,7 @@ describe("ensureWorkflowPresets", () => {
       await ensureWorkflowPresets(db, { projectKey: "PLAN", force: true });
       const flows = await listEntities(db, { projectKey: "PLAN", type: "flow" });
       assert.ok(flows.some((flow) => flow.title === "User workflow"));
-      assert.equal(flows.filter((flow) => flow.metadata.presetKey === "ensure_aspect").length, 1);
+      assert.equal(flows.filter((flow) => flow.metadata.presetKey === "create_step").length, 1);
     })
   );
 });

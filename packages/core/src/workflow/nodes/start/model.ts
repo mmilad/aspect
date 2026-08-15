@@ -35,6 +35,9 @@ export const startNode: WorkflowNodeModel = {
     }
     return out;
   },
+  execInputs: () => [],
+  execOutputs: () => ["then"],
+  dataOutputs: (node) => Object.keys(node.data.outputContracts ?? {}),
   inspectorFields: startInspectorFields,
   validateTopology: ({ node, incoming, errors }) => {
     if (incoming.length > 0) {

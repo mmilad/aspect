@@ -1,9 +1,11 @@
 import {
   listWorkflowPresets,
   parseWorkflowGraph,
+  WORKFLOW_SCHEMA_VERSION,
   type EnsureWorkflowPresetsOptions,
   type EnsureWorkflowPresetsResult,
   type JsonRecord,
+  type WorkflowGraph,
   type WorkflowPreset
 } from "@projectplaner/core";
 import type { DatabaseSync } from "node:sqlite";
@@ -108,7 +110,16 @@ function presetMetadata(preset: WorkflowPreset, dirty = false): JsonRecord {
     presetKey: preset.presetKey,
     presetVersion: preset.presetVersion,
     presetDirty: dirty,
-    schemaVersion: 3
+    schemaVersion: WORKFLOW_SCHEMA_VERSION
+  };
+}
+
+function graphSnapshot(graph: WorkflowGraph): JsonRecord {
+  return {
+    version: graph.version,
+    nodes: graph.nodes,
+    edges: graph.edges,
+    ...(graph.variables ? { variables: graph.variables } : {})
   };
 }
 
@@ -165,11 +176,7 @@ export async function ensureWorkflowPresets(
 
       const metadata = {
         ...presetMetadata(preset, false),
-        graph: {
-          version: parsed.graph.version,
-          nodes: parsed.graph.nodes,
-          edges: parsed.graph.edges
-        }
+        graph: graphSnapshot(parsed.graph)
       };
       await updateEntity(db, {
         id: created.entity.id,
@@ -207,11 +214,7 @@ export async function ensureWorkflowPresets(
         metadata: {
           ...existing.metadata,
           ...presetMetadata(preset, false),
-          graph: {
-            version: parsed.graph.version,
-            nodes: parsed.graph.nodes,
-            edges: parsed.graph.edges
-          }
+          graph: graphSnapshot(parsed.graph)
         }
       }
     });

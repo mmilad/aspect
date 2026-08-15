@@ -15,6 +15,7 @@ export {
   outgoingEdges,
   parseContextBag,
   parseEdge,
+  parseWaypoints,
   parseWorkflowGraph,
   pickBagKeys,
   readContextBag,
@@ -25,7 +26,20 @@ export {
   validateTopology,
   warnMissingUpstreamKeys,
   writeContextBag,
-  writeWorkflowGraph
+  writeWorkflowGraph,
+  usesPinFrame,
+  parseVariables,
+  syncVariablePorts,
+  pinKey,
+  findVariable,
+  variablesOfRole,
+  cloneContextBag,
+  copyEndOutputs,
+  emptyFrame,
+  ensureFrame,
+  initFrameFromRunInputs,
+  resolveDataInput,
+  writeOutputPins
 } from "./graph/schema";
 
 export {

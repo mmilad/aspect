@@ -26,19 +26,26 @@ export const workflowWorkNodeTypes = [
   "create_workflow_node"
 ] as const;
 
+export const workflowVariableNodeTypes = ["get", "set"] as const;
+
 /** Canonical palette (filter is accepted on parse and rewritten to transform). */
-export const workflowNodeTypes = [...workflowControlNodeTypes, ...workflowWorkNodeTypes] as const;
+export const workflowNodeTypes = [
+  ...workflowControlNodeTypes,
+  ...workflowWorkNodeTypes,
+  ...workflowVariableNodeTypes
+] as const;
 
 export type WorkflowControlNodeType = (typeof workflowControlNodeTypes)[number];
 export type WorkflowWorkNodeType = (typeof workflowWorkNodeTypes)[number];
+export type WorkflowVariableNodeType = (typeof workflowVariableNodeTypes)[number];
 export type WorkflowNodeType = (typeof workflowNodeTypes)[number];
 
-export type WorkflowNodeKind = "control" | "work";
+export type WorkflowNodeKind = "control" | "work" | "variable";
 
 /** Legacy v1 type still accepted by the parser. */
 export type WorkflowLegacyNodeType = "filter";
 
-export const workflowEdgeKinds = ["next", "route", "depends_on", "error"] as const;
+export const workflowEdgeKinds = ["next", "route", "depends_on", "error", "data"] as const;
 export type WorkflowEdgeKind = (typeof workflowEdgeKinds)[number];
 
 export const workflowRetryOnValues = [
@@ -295,6 +302,8 @@ export interface WorkflowNodeData {
   push?: WorkflowPushConfig;
   createWorkflowNode?: WorkflowCreateWorkflowNodeConfig;
   executionPolicy?: WorkflowExecutionPolicy;
+  /** Get/Set: graph variable name. */
+  variable?: string;
   [key: string]: unknown;
 }
 
@@ -321,4 +330,4 @@ export type TopologyEdgeMaps = {
   outgoing: Map<string, TopologyEdgeRef[]>;
 };
 
-export const WORKFLOW_SCHEMA_VERSION = 3;
+export const WORKFLOW_SCHEMA_VERSION = 4;

@@ -177,6 +177,7 @@ export type ParsedBaseNodeData = {
   inputBindings?: Record<string, string>;
   writeBindings?: Record<string, string>;
   executionPolicy?: WorkflowExecutionPolicy;
+  variable?: string;
 };
 
 export function parseBaseNodeData(
@@ -215,7 +216,8 @@ export function parseBaseNodeData(
     outputContracts: parseBagKeyContracts(raw.outputContracts, nodeId, "outputContracts", errors),
     inputBindings: asStringMap(raw.inputBindings),
     writeBindings: asStringMap(raw.writeBindings),
-    executionPolicy: parseExecutionPolicy(raw.executionPolicy, nodeId, errors)
+    executionPolicy: parseExecutionPolicy(raw.executionPolicy, nodeId, errors),
+    variable: typeof raw.variable === "string" && raw.variable.trim() ? raw.variable.trim() : undefined
   };
 }
 
@@ -234,7 +236,8 @@ export function pickNodeData(
     outputContracts: base.outputContracts,
     inputBindings: base.inputBindings,
     writeBindings: base.writeBindings,
-    executionPolicy: base.executionPolicy
+    executionPolicy: base.executionPolicy,
+    ...(base.variable ? { variable: base.variable } : {})
   };
   if (configKey && configKey in configPartial) {
     (data as Record<string, unknown>)[configKey] = configPartial[configKey];

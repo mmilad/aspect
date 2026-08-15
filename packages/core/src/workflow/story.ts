@@ -190,7 +190,9 @@ function walk(
   lines.push(`${indent(level)}- ${describeNode(node)}`);
 
   const nexts = nextEdges(graph, nodeId);
-  const allOut = outgoingEdges(graph, nodeId).filter((edge) => edge.kind !== "depends_on" && edge.kind !== "error");
+  const allOut = outgoingEdges(graph, nodeId).filter(
+    (edge) => edge.kind !== "depends_on" && edge.kind !== "error" && edge.kind !== "data"
+  );
   const follow = nexts.length > 0 ? nexts : allOut.filter((edge) => edge.kind === "next");
 
   if (node.type === "fork") {

@@ -35,3 +35,19 @@ textarea {
 .react-flow__node {
   border-radius: 8px;
 }
+
+.react-flow__handle.workflow-exec-handle {
+  width: 10px;
+  height: 10px;
+  background: #fafaf9;
+  border: 1px solid #44403c;
+  border-radius: 0;
+  clip-path: polygon(0% 0%, 100% 50%, 0% 100%);
+}
+
+.react-flow__handle.workflow-data-handle {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid #44403c;
+}

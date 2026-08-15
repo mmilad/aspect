@@ -10,6 +10,10 @@ const NUMBER = { kind: "primitive" as const, type: "number" as const };
 const STRING_ARRAY = { kind: "array" as const, items: STRING };
 const NUMBER_ARRAY = { kind: "array" as const, items: NUMBER };
 
+function pin(bag: { frame?: { pins?: Record<string, unknown> } }, nodeId: string, port: string): unknown {
+  return bag.frame?.pins?.[`${nodeId}::${port}`];
+}
+
 function parsed(raw: unknown): WorkflowGraph {
   const result = parseWorkflowGraph(raw);
   expect(result.ok).toBe(true);
@@ -119,7 +123,7 @@ describe("foreach execution", () => {
 
   it("create_step preset interprets instructions into a node plan and returns a stepDraft", async () => {
     const run = new WorkflowRun({
-      graph: createStepGraph,
+      graph: parsed(createStepGraph),
       bag: {
         workflowId: "create_step",
         cursor: "start",
@@ -160,7 +164,7 @@ describe("foreach execution", () => {
     step = await run.step();
     expect(step.kind).toBe("advanced");
     expect(step.nodeId).toBe("factory_valid_branch");
-    expect(step.bag.keys.nodePlanValid).toBe(true);
+    expect(pin(step.bag, "create_node", "nodePlanValid")).toBe(true);
     step = await run.step();
     expect(step.kind).toBe("advanced");
     expect(step.nodeId).toBe("verify_node");
@@ -197,7 +201,7 @@ describe("foreach execution", () => {
 
   it("create_step routes invalid factory output into a dedicated fix step", async () => {
     const run = new WorkflowRun({
-      graph: createStepGraph,
+      graph: parsed(createStepGraph),
       bag: {
         workflowId: "create_step",
         cursor: "start",
@@ -229,9 +233,9 @@ describe("foreach execution", () => {
     step = await run.step();
     expect(step.kind).toBe("advanced");
     expect(step.nodeId).toBe("factory_valid_branch");
-    expect(step.bag.keys.nodePlanValid).toBe(false);
-    expect(step.bag.keys.hasValidationErrors).toBe(true);
-    expect(step.bag.keys.repairInstructions).toContain("foreach.itemsFrom");
+    expect(pin(step.bag, "create_node", "nodePlanValid")).toBe(false);
+    expect(pin(step.bag, "create_node", "hasValidationErrors")).toBe(true);
+    expect(String(pin(step.bag, "create_node", "repairInstructions"))).toContain("foreach.itemsFrom");
 
     step = await run.step();
     expect(step.kind).toBe("advanced");
@@ -260,7 +264,7 @@ describe("foreach execution", () => {
     step = await run.step();
     expect(step.kind).toBe("advanced");
     expect(step.nodeId).toBe("factory_valid_branch");
-    expect(step.bag.keys.nodePlanValid).toBe(true);
+    expect(pin(step.bag, "create_node", "nodePlanValid")).toBe(true);
     step = await run.step();
     expect(step.kind).toBe("advanced");
     expect(step.nodeId).toBe("verify_node");
@@ -271,7 +275,7 @@ describe("foreach execution", () => {
 
   it("create_step routes rejected QA into the same dedicated fix step", async () => {
     const run = new WorkflowRun({
-      graph: createStepGraph,
+      graph: parsed(createStepGraph),
       bag: {
         workflowId: "create_step",
         cursor: "start",

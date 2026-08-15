@@ -16,11 +16,13 @@ import {
 } from "../nodes/_shared/types";
 import { getNodeModel } from "../nodes/registry";
 import { derivedWrites, normalizeNodePorts } from "../ports";
+import { parseVariables, syncVariablePorts, usesPinFrame } from "./variables";
 import type {
   WorkflowContextBag,
   WorkflowEdge,
   WorkflowGraph,
-  WorkflowParseOutcome
+  WorkflowParseOutcome,
+  WorkflowRunFrame
 } from "./types";
 
 const WORKFLOW_EDGE_KIND_SET = new Set<string>(workflowEdgeKinds);
@@ -59,19 +61,7 @@ function parseNode(raw: unknown, errors: string[]): WorkflowNode | null {
   const model = getNodeModel(type);
   const rawData = isRecord(raw.data) ? raw.data : {};
   const configPartial = model.parseConfig(rawData, raw.id, errors);
-  let data = pickNodeData(base, configPartial, model.configKey);
-
-  // Auto-include map.as in writeBindings/writes when map config is present.
-  if (data.map?.as) {
-    const as = data.map.as;
-    const writeBindings = { ...(data.writeBindings ?? {}) };
-    if (!Object.values(writeBindings).includes(as) && !(as in writeBindings)) {
-      writeBindings[as] = as;
-    }
-    data = { ...data, writeBindings };
-  }
-
-  data = normalizeNodePorts(data);
+  const data = pickNodeData(base, configPartial, model.configKey);
 
   return {
     id: raw.id,
@@ -96,6 +86,18 @@ export function inferEdgeKind(
   return "next";
 }
 
+/** Drop invalid waypoint payloads; omit the field when nothing usable remains. */
+export function parseWaypoints(raw: unknown): Array<{ x: number; y: number }> | undefined {
+  if (!Array.isArray(raw)) {
+    return undefined;
+  }
+  const points = raw.filter(
+    (point): point is { x: number; y: number } =>
+      isPosition(point) && Number.isFinite(point.x) && Number.isFinite(point.y)
+  );
+  return points.length > 0 ? points.map((point) => ({ x: point.x, y: point.y })) : undefined;
+}
+
 export function parseEdge(
   raw: unknown,
   errors: string[],
@@ -116,6 +118,24 @@ export function parseEdge(
 
   const sourceType = nodeTypeById.get(raw.source);
   const kind = inferEdgeKind(raw, sourceType);
+  const waypoints = parseWaypoints(raw.waypoints);
+  const sourcePin =
+    typeof raw.sourcePin === "string"
+      ? raw.sourcePin
+      : kind === "route" && typeof raw.label === "string"
+        ? raw.label
+        : kind === "error"
+          ? "error"
+          : kind === "depends_on"
+            ? "depends_on"
+            : kind === "data"
+              ? undefined
+              : "then";
+  const targetPin =
+    typeof raw.targetPin === "string" ? raw.targetPin : kind === "data" ? undefined : "in";
+  if (kind === "data" && (!sourcePin || !targetPin)) {
+    errors.push(`Edge ${raw.id} data edges require sourcePin and targetPin.`);
+  }
 
   return {
     id: raw.id,
@@ -123,17 +143,9 @@ export function parseEdge(
     target: raw.target,
     kind,
     label: typeof raw.label === "string" ? raw.label : undefined,
-    sourcePin:
-      typeof raw.sourcePin === "string"
-        ? raw.sourcePin
-        : kind === "route" && typeof raw.label === "string"
-          ? raw.label
-          : kind === "error"
-            ? "error"
-            : kind === "depends_on"
-              ? "depends_on"
-              : "then",
-    targetPin: typeof raw.targetPin === "string" ? raw.targetPin : "in"
+    sourcePin,
+    targetPin,
+    ...(waypoints ? { waypoints } : {})
   };
 }
 
@@ -212,6 +224,17 @@ export function validateTopology(graph: WorkflowGraph, errors: string[]): void {
         errors.push(`Edge ${edge.id} route source must be switch, branch, gate, or foreach.`);
       }
     }
+    if (edge.kind === "data") {
+      const target = nodeById.get(edge.target);
+      if (target?.type === "get") {
+        errors.push(`Edge ${edge.id}: get nodes do not accept data inputs.`);
+      }
+    } else {
+      const target = nodeById.get(edge.target);
+      if (target?.type === "get") {
+        errors.push(`Edge ${edge.id}: get cannot be an exec target.`);
+      }
+    }
     if (edge.targetPin === "continue") {
       const target = nodeById.get(edge.target);
       if (target && target.type !== "foreach") {
@@ -233,7 +256,7 @@ export function validateTopology(graph: WorkflowGraph, errors: string[]): void {
       }
       visited.add(id);
       for (const edge of outgoing.get(id) ?? []) {
-        if (edge.kind !== "depends_on" && edge.kind !== "error") {
+        if (edge.kind !== "depends_on" && edge.kind !== "error" && edge.kind !== "data") {
           queue.push(edge.target);
         }
       }
@@ -323,13 +346,32 @@ export function parseWorkflowGraph(raw: unknown): WorkflowParseOutcome {
     errors.push("Workflow edge ids must be unique.");
   }
 
+  const variables = parseVariables(raw.variables, errors);
   const graph: WorkflowGraph = {
     version: WORKFLOW_SCHEMA_VERSION,
     nodes,
-    edges
+    edges,
+    ...(variables ? { variables } : {})
   };
 
   rewriteLegacyBooleanSwitches(graph);
+
+  if (usesPinFrame(graph)) {
+    syncVariablePorts(graph);
+  } else {
+    graph.nodes = graph.nodes.map((node) => {
+      let data = node.data;
+      if (data.map?.as) {
+        const as = data.map.as;
+        const writeBindings = { ...(data.writeBindings ?? {}) };
+        if (!Object.values(writeBindings).includes(as) && !(as in writeBindings)) {
+          writeBindings[as] = as;
+        }
+        data = { ...data, writeBindings };
+      }
+      return { ...node, data: normalizeNodePorts(data) };
+    });
+  }
 
   validateTopology(graph, errors);
 
@@ -351,7 +393,8 @@ export function writeWorkflowGraph(metadata: JsonRecord, graph: WorkflowGraph): 
     graph: {
       version: WORKFLOW_SCHEMA_VERSION,
       nodes: graph.nodes,
-      edges: graph.edges
+      edges: graph.edges,
+      ...(graph.variables ? { variables: graph.variables } : {})
     }
   };
 }
@@ -374,6 +417,28 @@ export function createContextBag(input: {
   };
 }
 
+function parseFrame(raw: unknown): WorkflowRunFrame | undefined {
+  if (!isRecord(raw)) {
+    return undefined;
+  }
+  if (!isRecord(raw.inputs) || !isRecord(raw.outputs) || !isRecord(raw.locals) || !isRecord(raw.pins)) {
+    return undefined;
+  }
+  const pinSeq = isRecord(raw.pinSeq)
+    ? Object.fromEntries(
+        Object.entries(raw.pinSeq).filter(([, value]) => typeof value === "number") as Array<[string, number]>
+      )
+    : undefined;
+  return {
+    inputs: { ...raw.inputs },
+    outputs: { ...raw.outputs },
+    locals: { ...raw.locals },
+    pins: { ...raw.pins },
+    ...(pinSeq ? { pinSeq } : {}),
+    ...(typeof raw.seq === "number" ? { seq: raw.seq } : {})
+  };
+}
+
 export function parseContextBag(raw: unknown): WorkflowContextBag | null {
   if (!isRecord(raw)) {
     return null;
@@ -387,6 +452,8 @@ export function parseContextBag(raw: unknown): WorkflowContextBag | null {
   if (!isRecord(raw.keys)) {
     return null;
   }
+
+  const frame = parseFrame(raw.frame);
 
   return {
     workflowId: raw.workflowId,
@@ -404,7 +471,8 @@ export function parseContextBag(raw: unknown): WorkflowContextBag | null {
         ? raw.status
         : undefined,
     error: typeof raw.error === "string" ? raw.error : undefined,
-    frontier: asStringArray(raw.frontier)
+    frontier: asStringArray(raw.frontier),
+    ...(frame ? { frame } : {})
   };
 }
 
@@ -423,7 +491,8 @@ export function writeContextBag(metadata: JsonRecord, bag: WorkflowContextBag): 
       ...(bag.runId ? { runId: bag.runId } : {}),
       ...(bag.status ? { status: bag.status } : {}),
       ...(bag.error ? { error: bag.error } : {}),
-      ...(bag.frontier ? { frontier: bag.frontier } : {})
+      ...(bag.frontier ? { frontier: bag.frontier } : {}),
+      ...(bag.frame ? { frame: bag.frame } : {})
     }
   };
 }
@@ -524,7 +593,7 @@ export function resolveNextNodeId(
   if (labeledNext) {
     return labeledNext.target;
   }
-  return nexts[0]?.target ?? edges.find((edge) => edge.kind !== "depends_on" && edge.kind !== "error")?.target ?? null;
+  return nexts[0]?.target ?? edges.find((edge) => edge.kind !== "depends_on" && edge.kind !== "error" && edge.kind !== "data")?.target ?? null;
 }
 
 /**
@@ -556,6 +625,9 @@ export function resolveRouteNextNodeId(
 
 /** Soft editor warning: required reads with no upstream declared write. */
 export function warnMissingUpstreamKeys(graph: WorkflowGraph): string[] {
+  if (usesPinFrame(graph)) {
+    return [];
+  }
   const written = new Set<string>();
   const warnings: string[] = [];
   const start = findStartNode(graph);
@@ -596,23 +668,17 @@ export function warnMissingUpstreamKeys(graph: WorkflowGraph): string[] {
 export function emptyWorkflowGraph(): WorkflowGraph {
   return {
     version: WORKFLOW_SCHEMA_VERSION,
+    variables: [],
     nodes: [
       {
         id: "start",
         type: "start",
         position: { x: 80, y: 120 },
-        data: {
-          title: "Start",
-          writes: ["goal"],
-          writeBindings: { goal: "goal" },
-          outputContracts: {
-            goal: { required: false, shape: { kind: "primitive", type: "string" } }
-          }
-        }
+        data: { title: "Start" }
       },
       { id: "end", type: "end", position: { x: 420, y: 120 }, data: { title: "End" } }
     ],
-    edges: [{ id: "e_start_end", source: "start", target: "end", kind: "next" }]
+    edges: [{ id: "e_start_end", source: "start", target: "end", kind: "next", sourcePin: "then", targetPin: "in" }]
   };
 }
 
@@ -847,3 +913,24 @@ export const newTaskWorkflowGraph: WorkflowGraph = {
     }
   ]
 };
+
+export {
+  parseVariables,
+  syncVariablePorts,
+  usesPinFrame,
+  pinKey,
+  findVariable,
+  variablesOfRole
+} from "./variables";
+export {
+  cloneBagWithFrame,
+  cloneContextBag,
+  copyEndOutputs,
+  emptyFrame,
+  ensureFrame,
+  initFrameFromRunInputs,
+  resolveDataInput,
+  writeOutputPins
+} from "./frame";
+export type { WorkflowRunFrame, WorkflowVariable, WorkflowVariableRole } from "./types";
+

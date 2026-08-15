@@ -1,4 +1,5 @@
 import {
+  parseWaypoints,
   parseWorkflowGraph,
   WORKFLOW_SCHEMA_VERSION,
   type JsonRecord,
@@ -156,16 +157,36 @@ export function loadWorkflowGraph(db: DatabaseSync, workflowId: string): Workflo
     kind: row.kind as WorkflowEdgeKind,
     label: row.label ?? undefined,
     ...(() => {
-      const config = parseJson<{ sourcePin?: unknown; targetPin?: unknown }>(row.config_json, {});
+      const config = parseJson<{ sourcePin?: unknown; targetPin?: unknown; waypoints?: unknown }>(
+        row.config_json,
+        {}
+      );
+      const waypoints = parseWaypoints(config.waypoints);
       return {
         sourcePin: typeof config.sourcePin === "string" ? config.sourcePin : undefined,
-        targetPin: typeof config.targetPin === "string" ? config.targetPin : undefined
+        targetPin: typeof config.targetPin === "string" ? config.targetPin : undefined,
+        ...(waypoints ? { waypoints } : {})
       };
     })()
   }));
 
-  const parsed = parseWorkflowGraph({ version: WORKFLOW_SCHEMA_VERSION, nodes, edges });
-  return parsed.ok ? parsed.graph : { version: WORKFLOW_SCHEMA_VERSION, nodes, edges };
+  const def = db
+    .prepare(`SELECT metadata_json FROM workflow_defs WHERE workflow_id = ?`)
+    .get(workflowId) as { metadata_json: string } | undefined;
+  const meta = def ? parseJson<JsonRecord>(def.metadata_json, {}) : {};
+  const variables = Array.isArray((meta.graph as { variables?: unknown } | undefined)?.variables)
+    ? (meta.graph as { variables: unknown }).variables
+    : Array.isArray(meta.variables)
+      ? meta.variables
+      : undefined;
+
+  const parsed = parseWorkflowGraph({
+    version: WORKFLOW_SCHEMA_VERSION,
+    nodes,
+    edges,
+    ...(variables ? { variables } : {})
+  });
+  return parsed.ok ? parsed.graph : { version: WORKFLOW_SCHEMA_VERSION, nodes, edges, ...(variables ? { variables: variables as WorkflowGraph["variables"] } : {}) };
 }
 
 export function saveWorkflowGraph(
@@ -221,17 +242,36 @@ export function saveWorkflowGraph(
           edge.target,
           edge.kind,
           edge.label ?? null,
-          compactJson({ sourcePin: edge.sourcePin, targetPin: edge.targetPin })
+          compactJson({
+            sourcePin: edge.sourcePin,
+            targetPin: edge.targetPin,
+            ...(edge.waypoints && edge.waypoints.length > 0 ? { waypoints: edge.waypoints } : {})
+          })
         ]
       );
     }
 
+    const defRow = db
+      .prepare(`SELECT metadata_json FROM workflow_defs WHERE workflow_id = ?`)
+      .get(input.workflowId) as { metadata_json: string } | undefined;
+    const existingMeta = defRow ? parseJson<JsonRecord>(defRow.metadata_json, {}) : {};
     run(
       db,
       `UPDATE workflow_defs
-       SET schema_version = ?, updated_at = CURRENT_TIMESTAMP
+       SET schema_version = ?, metadata_json = ?, updated_at = CURRENT_TIMESTAMP
        WHERE workflow_id = ?`,
-      [WORKFLOW_SCHEMA_VERSION, input.workflowId]
+      [
+        WORKFLOW_SCHEMA_VERSION,
+        compactJson({
+          ...existingMeta,
+          variables: graph.variables ?? null,
+          graph: {
+            version: graph.version,
+            ...(graph.variables ? { variables: graph.variables } : {})
+          }
+        }),
+        input.workflowId
+      ]
     );
     db.exec("COMMIT");
   } catch (error) {

@@ -238,6 +238,10 @@ export async function executeCreateWorkflowNode(
 
   const parsedPlan = parseNodePlan(ctx.read(config.planFrom));
   const values: Record<string, unknown> = {};
+  const planFrom = config.planFrom;
+  if (ctx.getWrites().includes(planFrom)) {
+    values[planFrom] = parsedPlan.ok ? parsedPlan.plan : ctx.read(planFrom);
+  }
 
   if (!parsedPlan.ok) {
     values[outputKey] = null;

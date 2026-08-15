@@ -8,15 +8,15 @@ import {
 import { ensureAspectPreset, listWorkflowPresets } from "./index";
 
 describe("workflow presets", () => {
-  it("lists ensure_aspect and CRUD skeletons", () => {
+  it("lists mutation packs and create_step, parks authoring presets", () => {
     const presets = listWorkflowPresets();
-    expect(presets.some((preset) => preset.presetKey === "ensure_aspect")).toBe(true);
+    expect(presets.some((preset) => preset.presetKey === "ensure_aspect")).toBe(false);
+    expect(presets.some((preset) => preset.presetKey === "next_work")).toBe(false);
+    expect(presets.some((preset) => preset.presetKey === "onboarding")).toBe(false);
+    expect(presets.some((preset) => preset.presetKey === "author_workflow")).toBe(false);
     expect(presets.some((preset) => preset.presetKey === "create_task")).toBe(true);
     expect(presets.some((preset) => preset.presetKey === "delete_aspect")).toBe(true);
-    expect(presets.some((preset) => preset.presetKey === "next_work")).toBe(true);
-    expect(presets.some((preset) => preset.presetKey === "onboarding")).toBe(true);
     expect(presets.some((preset) => preset.presetKey === "rollup_parent_status")).toBe(true);
-    expect(presets.some((preset) => preset.presetKey === "author_workflow")).toBe(true);
     expect(presets.some((preset) => preset.presetKey === "create_step")).toBe(true);
   });
 

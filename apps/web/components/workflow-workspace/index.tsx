@@ -1,15 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Background,
   Controls,
   MiniMap,
+  MarkerType,
   ReactFlow,
   addEdge,
   useEdgesState,
   useNodesState,
-  type Connection
+  type Connection,
+  type OnEdgesChange,
+  type OnNodesChange
 } from "@xyflow/react";
 import {
   parseWorkflowGraph,
@@ -25,17 +28,25 @@ import {
   type WorkflowGraph,
   type WorkflowNode,
   type WorkflowNodeData,
-  type WorkflowNodeType
+  type WorkflowNodeType,
+  type WorkflowVariable
 } from "@projectplaner/core";
 import {
   defaultEdgeKindForConnection,
+  decodeHandle,
   fromRf,
+  isDataHandle,
+  isValidConnection,
   loadInitialGraph,
+  rfEdgeTypeForKind,
+  styleForEdgeKind,
   toRfEdges,
   toRfNodes,
+  type FlowRfEdge,
   type FlowRfNode
 } from "./rf-adapters";
 import { workflowRfNodeTypes } from "./workflow-step-node";
+import { workflowRfEdgeTypes, WorkflowWaypointProvider, useWaypointSelection } from "./workflow-exec-edge";
 import { WorkflowToolbar } from "./workflow-toolbar";
 import { WorkflowStoryPanel } from "./workflow-story-panel";
 import { WorkflowDiagramPanel } from "./workflow-diagram-panel";
@@ -119,9 +130,42 @@ function defaultDataForType(type: WorkflowNodeType): WorkflowNodeData {
       return { title, branch: { on: "flag" } };
     case "start":
       return getNodeModel("start").defaultData();
+    case "get":
+      return { title: "Get", variable: "" };
+    case "set":
+      return { title: "Set", variable: "", inputs: { value: { required: true } } };
     default:
       return { title };
   }
+}
+
+function applyVariablesToRfNodes(nodes: FlowRfNode[], variables: WorkflowVariable[]): FlowRfNode[] {
+  const inputs = Object.fromEntries(
+    variables
+      .filter((variable) => variable.role === "input")
+      .map((variable) => [variable.name, { required: variable.required, shape: variable.shape }])
+  );
+  const outputs = Object.fromEntries(
+    variables
+      .filter((variable) => variable.role === "output")
+      .map((variable) => [variable.name, { required: variable.required, shape: variable.shape }])
+  );
+  return nodes.map((node) => {
+    const workflow = node.data.workflow;
+    if (workflow.type === "start") {
+      return {
+        ...node,
+        data: { workflow: { ...workflow, data: { ...workflow.data, outputContracts: inputs } } }
+      };
+    }
+    if (workflow.type === "end") {
+      return {
+        ...node,
+        data: { workflow: { ...workflow, data: { ...workflow.data, inputs: outputs } } }
+      };
+    }
+    return node;
+  });
 }
 
 function isScaffoldGraph(nodes: Array<{ type: string }>): boolean {
@@ -132,8 +176,10 @@ function isScaffoldGraph(nodes: Array<{ type: string }>): boolean {
 export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) {
   const initial = useMemo(() => loadInitialGraph(flow.metadata), [flow.metadata]);
   const [version, setVersion] = useState(initial.version || WORKFLOW_SCHEMA_VERSION);
-  const [nodes, setNodes, onNodesChange] = useNodesState(toRfNodes(initial, null));
-  const [edges, setEdges, onEdgesChange] = useEdgesState(toRfEdges(initial));
+  const [nodes, setNodes, onNodesChange] = useNodesState<FlowRfNode>(toRfNodes(initial, null));
+  const [edges, setEdges, onEdgesChange] = useEdgesState<FlowRfEdge>(toRfEdges(initial));
+  const [variables, setVariables] = useState<WorkflowVariable[] | undefined>(initial.variables);
+  const pinMode = Array.isArray(variables);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -153,31 +199,31 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
   const selected = nodes.find((node) => node.id === selectedId)?.data.workflow ?? null;
   const hasStart = nodes.some((node) => node.data.workflow.type === "start");
   const bagView = useMemo(() => {
-    const graph = fromRf(nodes as FlowRfNode[], edges, version);
+    const graph = fromRf(nodes as FlowRfNode[], edges, version, variables);
     const parsed = parseWorkflowGraph(graph);
     const g = parsed.ok ? parsed.graph : graph;
     if (!selectedId) {
       return bagViewAtNode(g, findStartId(g) ?? "start");
     }
     return bagViewAtNode(g, selectedId);
-  }, [nodes, edges, version, selectedId]);
+  }, [nodes, edges, version, selectedId, variables]);
 
   const storyText = useMemo(() => {
-    const graph = fromRf(nodes as FlowRfNode[], edges, version);
+    const graph = fromRf(nodes as FlowRfNode[], edges, version, variables);
     const parsed = parseWorkflowGraph(graph);
     const g = parsed.ok ? parsed.graph : graph;
     return renderWorkflowStory(g, {
       title: flow.title,
       description: brief.trim() || flow.summary || undefined
     });
-  }, [nodes, edges, version, flow.title, flow.summary, brief]);
+  }, [nodes, edges, version, flow.title, flow.summary, brief, variables]);
 
   const mermaidSource = useMemo(() => {
-    const graph = fromRf(nodes as FlowRfNode[], edges, version);
+    const graph = fromRf(nodes as FlowRfNode[], edges, version, variables);
     const parsed = parseWorkflowGraph(graph);
     const g = parsed.ok ? parsed.graph : graph;
     return renderWorkflowMermaid(g, { title: flow.title });
-  }, [nodes, edges, version, flow.title]);
+  }, [nodes, edges, version, flow.title, variables]);
 
   function findStartId(graph: WorkflowGraph): string | undefined {
     return graph.nodes.find((node) => node.type === "start")?.id;
@@ -196,6 +242,7 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
           setVersion(payload.graph.version);
           setNodes(toRfNodes(payload.graph, null));
           setEdges(toRfEdges(payload.graph));
+          setVariables(payload.graph.variables);
         }
       } catch {
         // Keep metadata fallback.
@@ -219,21 +266,38 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
 
   const onConnect = useCallback(
     (connection: Connection) => {
+      const dataWire = isDataHandle(connection.sourceHandle) && isDataHandle(connection.targetHandle);
       const sourceNode = nodes.find((node) => node.id === connection.source);
       const targetNode = nodes.find((node) => node.id === connection.target);
-      const kind = defaultEdgeKindForConnection(
-        sourceNode?.data.workflow.type,
-        targetNode?.data.workflow.type,
-        connectKind
+      const kind: WorkflowEdgeKind = dataWire
+        ? "data"
+        : defaultEdgeKindForConnection(
+            sourceNode?.data.workflow.type,
+            targetNode?.data.workflow.type,
+            connectKind
+          );
+      const sourcePin = decodeHandle(
+        connection.sourceHandle,
+        kind === "route" ? "default" : kind === "data" ? "" : "then"
       );
-      const sourcePin = connection.sourceHandle?.split(":", 2)[1] ?? (kind === "route" ? "default" : "then");
-      const targetPin = connection.targetHandle?.split(":", 2)[1] ?? "in";
+      const targetPin = decodeHandle(connection.targetHandle, kind === "data" ? "" : "in");
+      const kindStyle = styleForEdgeKind(kind);
       setEdges((current) =>
         addEdge(
           {
             ...connection,
             id: `e_${connection.source}_${connection.target}_${current.length + 1}`,
+            type: rfEdgeTypeForKind(kind),
             data: { kind },
+            markerEnd:
+              kind !== "data" && rfEdgeTypeForKind(kind) === "exec"
+                ? {
+                    type: MarkerType.ArrowClosed,
+                    color: kind === "error" ? "#9f1239" : "#57534e",
+                    width: 14,
+                    height: 14
+                  }
+                : undefined,
             label:
               kind === "route"
                 ? sourcePin
@@ -242,14 +306,7 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
                   : kind === "depends_on"
                     ? "depends_on"
                     : undefined,
-            style:
-              kind === "depends_on"
-                ? { stroke: "#0369a1", strokeWidth: 1.5, strokeDasharray: "6 4" }
-                : kind === "route"
-                  ? { stroke: "#7c3aed", strokeWidth: 1.75 }
-                  : kind === "error"
-                    ? { stroke: "#e11d48", strokeWidth: 1.75 }
-                    : { stroke: "#3f3f46", strokeWidth: 1.5 },
+            ...kindStyle,
             sourceHandle: connection.sourceHandle,
             targetHandle: connection.targetHandle
           },
@@ -261,8 +318,8 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
   );
 
   const currentGraph = useCallback(
-    () => fromRf(nodes as FlowRfNode[], edges, version),
-    [nodes, edges, version]
+    () => fromRf(nodes as FlowRfNode[], edges, version, variables),
+    [nodes, edges, version, variables]
   );
 
   const replaceGraph = useCallback(
@@ -270,12 +327,21 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
       setVersion(graph.version);
       setNodes(toRfNodes(graph, null));
       setEdges(toRfEdges(graph));
+      setVariables(graph.variables);
       setSelectedId(null);
       setErrors([]);
       setWarnings([...warnMissingUpstreamKeys(graph), ...warnShapeMismatches(graph)]);
       setStatus(null);
     },
     [setNodes, setEdges]
+  );
+
+  const updateVariables = useCallback(
+    (next: WorkflowVariable[]) => {
+      setVariables(next);
+      setNodes((current) => applyVariablesToRfNodes(current, next));
+    },
+    [setNodes]
   );
 
   const updateSelectedData = useCallback(
@@ -515,6 +581,9 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
       diagramOpen,
       selected,
       bagView,
+      pinMode,
+      variables: variables ?? [],
+      onUpdateVariables: updateVariables,
       onUpdateData: updateSelectedData,
       onDelete: deleteSelected,
       authorOpen,
@@ -529,6 +598,9 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
     diagramOpen,
     selected,
     bagView,
+    pinMode,
+    variables,
+    updateVariables,
     updateSelectedData,
     deleteSelected,
     authorOpen,
@@ -591,43 +663,95 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
         </div>
       ) : (
         <div className="relative min-h-0 min-w-0 flex-1">
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            nodeTypes={workflowRfNodeTypes}
-            fitView
-            onNodeClick={(_, node) => syncSelection(node.id)}
-            onPaneClick={() => {
-              syncSelection(null);
-              setContextMenu(null);
-            }}
-            onPaneContextMenu={(event) => {
-              event.preventDefault();
-              setContextMenu({ x: event.clientX, y: event.clientY });
-            }}
-            onNodeContextMenu={(event) => {
-              event.preventDefault();
-              setContextMenu({ x: event.clientX, y: event.clientY });
-            }}
-            deleteKeyCode={["Backspace", "Delete"]}
-          >
-            <Background gap={18} size={1} />
-            <Controls />
-            <MiniMap pannable zoomable />
-          </ReactFlow>
-          <WorkflowCanvasContextMenu
-            position={contextMenu}
-            connectKind={connectKind}
-            onConnectKindChange={setConnectKind}
-            onAddNode={addNode}
-            onClose={() => setContextMenu(null)}
-            hasStart={hasStart}
-          />
+          <WorkflowWaypointProvider>
+            <WorkflowFlowCanvas
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              onSelectNode={(id) => {
+                syncSelection(id);
+                if (!id) {
+                  setContextMenu(null);
+                }
+              }}
+              onPaneContextMenu={(event) => {
+                event.preventDefault();
+                setContextMenu({ x: event.clientX, y: event.clientY });
+              }}
+              contextMenu={
+                <WorkflowCanvasContextMenu
+                  position={contextMenu}
+                  connectKind={connectKind}
+                  onConnectKindChange={setConnectKind}
+                  onAddNode={addNode}
+                  onClose={() => setContextMenu(null)}
+                  hasStart={hasStart}
+                />
+              }
+            />
+          </WorkflowWaypointProvider>
         </div>
       )}
     </div>
+  );
+}
+
+function WorkflowFlowCanvas({
+  nodes,
+  edges,
+  onNodesChange,
+  onEdgesChange,
+  onConnect,
+  onSelectNode,
+  onPaneContextMenu,
+  contextMenu
+}: {
+  nodes: FlowRfNode[];
+  edges: FlowRfEdge[];
+  onNodesChange: OnNodesChange<FlowRfNode>;
+  onEdgesChange: OnEdgesChange<FlowRfEdge>;
+  onConnect: (connection: Connection) => void;
+  onSelectNode: (id: string | null) => void;
+  onPaneContextMenu: (event: React.MouseEvent | MouseEvent) => void;
+  contextMenu: ReactNode;
+}) {
+  const { selected, select } = useWaypointSelection();
+
+  return (
+    <>
+      <ReactFlow<FlowRfNode, FlowRfEdge>
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
+        isValidConnection={isValidConnection}
+        nodeTypes={workflowRfNodeTypes}
+        edgeTypes={workflowRfEdgeTypes}
+        fitView
+        onNodeClick={(_, node) => {
+          select(null);
+          onSelectNode(node.id);
+        }}
+        onPaneClick={() => {
+          select(null);
+          onSelectNode(null);
+        }}
+        onPaneContextMenu={onPaneContextMenu}
+        onNodeContextMenu={(event) => {
+          event.preventDefault();
+          onPaneContextMenu(event);
+        }}
+        deleteKeyCode={selected ? undefined : ["Backspace", "Delete"]}
+        connectionLineStyle={{ stroke: "#57534e", strokeWidth: 3 }}
+      >
+        <Background gap={18} size={1} />
+        <Controls />
+        <MiniMap pannable zoomable />
+      </ReactFlow>
+      {contextMenu}
+    </>
   );
 }

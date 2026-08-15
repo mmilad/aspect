@@ -7,5 +7,7 @@ export const errorEndNode: WorkflowNodeModel = {
   kind: "control",
   defaultData: () => ({ title: "Error End" }),
   parseConfig: parseErrorEndConfig,
-  execute: executeErrorEnd
+  execute: executeErrorEnd,
+  execInputs: () => ["in"],
+  execOutputs: () => []
 };

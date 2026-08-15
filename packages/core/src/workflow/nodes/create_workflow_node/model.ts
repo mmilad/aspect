@@ -53,6 +53,7 @@ export const createWorkflowNodeNode: WorkflowNodeModel = {
     node.data.createWorkflowNode?.availableBagShapeFrom
   ].filter(Boolean) as string[],
   dataOutputs: (node) => [
+    node.data.createWorkflowNode?.planFrom ?? "nodePlan",
     node.data.createWorkflowNode?.outputKey ?? "workflowNode",
     node.data.createWorkflowNode?.metaKey ?? "nodeMeta",
     node.data.createWorkflowNode?.errorsKey ?? "validationErrors",

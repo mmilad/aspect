@@ -7,5 +7,8 @@ export const endNode: WorkflowNodeModel = {
   kind: "control",
   defaultData: () => ({ title: "End" }),
   parseConfig: parseEndConfig,
-  execute: executeEnd
+  execute: executeEnd,
+  execInputs: () => ["in"],
+  execOutputs: () => [],
+  dataInputs: (node) => Object.keys(node.data.inputs ?? {})
 };

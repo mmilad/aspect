@@ -1,5 +1,7 @@
-import type { WorkflowContextBag } from "./graph/types";
+import type { WorkflowContextBag, WorkflowGraph } from "./graph/types";
 import type { WorkflowBagKeyContract, WorkflowNode, WorkflowNodeType } from "./nodes/_shared/types";
+import { pinKey, usesPinFrame } from "./graph/variables";
+import { resolveDataInput } from "./graph/frame";
 import {
   derivedWrites,
   resolveInputBindings,
@@ -40,20 +42,31 @@ export function inputPortKeys(node: WorkflowNode): string[] {
 
 export function validateNodeInputs(
   node: WorkflowNode,
-  bag: WorkflowContextBag
+  bag: WorkflowContextBag,
+  graph?: WorkflowGraph
 ): { ok: true } | { ok: false; error: string } {
-  const inputBindings = resolveInputBindings(node);
+  const pinGraph = graph && usesPinFrame(graph);
+  const inputBindings = pinGraph ? {} : resolveInputBindings(node);
   for (const portId of inputPortKeys(node)) {
     const contract = node.data.inputs?.[portId] ?? {
       required: true,
       shape: { kind: "unknown" as const }
     };
-    const bagKey = inputBindings[portId] ?? portId;
-    const value = bag.keys[bagKey];
-    const present = bagKey in bag.keys && value !== undefined;
+    const value = pinGraph
+      ? resolveDataInput(graph, bag, node, portId)
+      : bag.keys[inputBindings[portId] ?? portId];
+    const bagKey = pinGraph ? portId : (inputBindings[portId] ?? portId);
+    const present = pinGraph
+      ? value !== undefined
+      : bagKey in bag.keys && value !== undefined;
     if (!present) {
       if (isRequired(contract)) {
-        return { ok: false, error: `Missing required input '${portId}' (bag key '${bagKey}')` };
+        return {
+          ok: false,
+          error: pinGraph
+            ? `Missing required input '${portId}'`
+            : `Missing required input '${portId}' (bag key '${bagKey}')`
+        };
       }
       continue;
     }
@@ -64,7 +77,9 @@ export function validateNodeInputs(
     if (!check.ok) {
       return {
         ok: false,
-        error: `Input '${portId}' (bag '${bagKey}') failed shape check: ${check.error}`
+        error: pinGraph
+          ? `Input '${portId}' failed shape check: ${check.error}`
+          : `Input '${portId}' (bag '${bagKey}') failed shape check: ${check.error}`
       };
     }
   }
@@ -77,8 +92,36 @@ export function validateNodeInputs(
  */
 export function validateNodeOutputs(
   node: WorkflowNode,
-  bag: WorkflowContextBag
+  bag: WorkflowContextBag,
+  graph?: WorkflowGraph
 ): { ok: true } | { ok: false; error: string } {
+  const pinGraph = graph && usesPinFrame(graph);
+  if (pinGraph) {
+    const ports = Object.keys(node.data.outputContracts ?? {});
+    for (const portId of ports) {
+      const contract = node.data.outputContracts?.[portId] ?? {
+        required: true,
+        shape: { kind: "unknown" as const }
+      };
+      const value = bag.frame?.pins[pinKey(node.id, portId)];
+      const present = value !== undefined;
+      if (!present) {
+        if (isRequired(contract)) {
+          return { ok: false, error: `Missing required output '${portId}'` };
+        }
+        continue;
+      }
+      if (!contract.shape) {
+        continue;
+      }
+      const check = validateValueAgainstShape(value, contract.shape);
+      if (!check.ok) {
+        return { ok: false, error: `Output '${portId}' failed shape check: ${check.error}` };
+      }
+    }
+    return { ok: true };
+  }
+
   const writeBindings = resolveWriteBindings(node);
   const ports = Object.keys(writeBindings);
   if (ports.length === 0) {

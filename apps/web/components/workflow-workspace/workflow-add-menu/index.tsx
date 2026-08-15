@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   workflowControlNodeTypes,
+  workflowVariableNodeTypes,
   workflowWorkNodeTypes,
   type WorkflowEdgeKind,
   type WorkflowNodeType
@@ -53,6 +54,7 @@ export function WorkflowAddMenuBody({
       </div>
       <Section label="Control" types={controlTypes} onAdd={add} />
       <Section label="Work" types={workflowWorkNodeTypes} onAdd={add} />
+      <Section label="Variables" types={workflowVariableNodeTypes} onAdd={add} />
     </div>
   );
 }

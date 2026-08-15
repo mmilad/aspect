@@ -17,9 +17,12 @@ export function parseCreateWorkflowNodeConfig(
     errors.push(`Node ${nodeId} createWorkflowNode.planFrom is required.`);
   }
   for (const key of [
+    "allowedNodeTypesFrom",
+    "availableBagShapeFrom",
     "outputKey",
     "metaKey",
     "errorsKey",
+    "validKey",
     "hasErrorsKey",
     "repairInstructionsKey",
     "stepDraftKey"
@@ -34,9 +37,14 @@ export function parseCreateWorkflowNodeConfig(
   }
   return {
     planFrom: raw.planFrom,
+    allowedNodeTypesFrom:
+      typeof raw.allowedNodeTypesFrom === "string" ? raw.allowedNodeTypesFrom : undefined,
+    availableBagShapeFrom:
+      typeof raw.availableBagShapeFrom === "string" ? raw.availableBagShapeFrom : undefined,
     outputKey: typeof raw.outputKey === "string" ? raw.outputKey : undefined,
     metaKey: typeof raw.metaKey === "string" ? raw.metaKey : undefined,
     errorsKey: typeof raw.errorsKey === "string" ? raw.errorsKey : undefined,
+    validKey: typeof raw.validKey === "string" ? raw.validKey : undefined,
     hasErrorsKey: typeof raw.hasErrorsKey === "string" ? raw.hasErrorsKey : undefined,
     repairInstructionsKey:
       typeof raw.repairInstructionsKey === "string" ? raw.repairInstructionsKey : undefined,

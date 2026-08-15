@@ -20,14 +20,18 @@ export const createWorkflowNodeNode: WorkflowNodeModel = {
       "workflowNode",
       "nodeMeta",
       "validationErrors",
+      "nodePlanValid",
       "hasValidationErrors",
       "repairInstructions"
     ],
     createWorkflowNode: {
       planFrom: "nodePlan",
+      allowedNodeTypesFrom: "allowedNodeTypes",
+      availableBagShapeFrom: "availableBagShape",
       outputKey: "workflowNode",
       metaKey: "nodeMeta",
       errorsKey: "validationErrors",
+      validKey: "nodePlanValid",
       hasErrorsKey: "hasValidationErrors",
       repairInstructionsKey: "repairInstructions"
     },
@@ -35,6 +39,7 @@ export const createWorkflowNodeNode: WorkflowNodeModel = {
       workflowNode: { required: false, shape: JSON_SHAPE },
       nodeMeta: { required: true, shape: JSON_SHAPE },
       validationErrors: { required: true, shape: JSON_SHAPE },
+      nodePlanValid: { required: true, shape: BOOLEAN },
       hasValidationErrors: { required: true, shape: BOOLEAN },
       repairInstructions: { required: true, shape: STRING }
     }
@@ -42,11 +47,16 @@ export const createWorkflowNodeNode: WorkflowNodeModel = {
   parseConfig: parseCreateWorkflowNodeNodeConfig,
   execute: executeCreateWorkflowNode,
   inspectorFields: createWorkflowNodeInspectorFields,
-  dataInputs: (node) => [node.data.createWorkflowNode?.planFrom ?? "nodePlan"],
+  dataInputs: (node) => [
+    node.data.createWorkflowNode?.planFrom ?? "nodePlan",
+    node.data.createWorkflowNode?.allowedNodeTypesFrom,
+    node.data.createWorkflowNode?.availableBagShapeFrom
+  ].filter(Boolean) as string[],
   dataOutputs: (node) => [
     node.data.createWorkflowNode?.outputKey ?? "workflowNode",
     node.data.createWorkflowNode?.metaKey ?? "nodeMeta",
     node.data.createWorkflowNode?.errorsKey ?? "validationErrors",
+    node.data.createWorkflowNode?.validKey ?? "nodePlanValid",
     node.data.createWorkflowNode?.hasErrorsKey ?? "hasValidationErrors",
     node.data.createWorkflowNode?.repairInstructionsKey ?? "repairInstructions",
     node.data.createWorkflowNode?.stepDraftKey

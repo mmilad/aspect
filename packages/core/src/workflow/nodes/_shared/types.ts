@@ -226,9 +226,12 @@ export interface WorkflowPushConfig {
 
 export interface WorkflowCreateWorkflowNodeConfig {
   planFrom: string;
+  allowedNodeTypesFrom?: string;
+  availableBagShapeFrom?: string;
   outputKey?: string;
   metaKey?: string;
   errorsKey?: string;
+  validKey?: string;
   hasErrorsKey?: string;
   repairInstructionsKey?: string;
   stepDraftKey?: string;

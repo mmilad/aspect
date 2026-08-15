@@ -159,6 +159,10 @@ describe("foreach execution", () => {
     expect(step.kind).toBe("advanced");
     step = await run.step();
     expect(step.kind).toBe("advanced");
+    expect(step.nodeId).toBe("factory_valid_branch");
+    expect(step.bag.keys.nodePlanValid).toBe(true);
+    step = await run.step();
+    expect(step.kind).toBe("advanced");
     expect(step.nodeId).toBe("verify_node");
     step = await run.step();
     expect(step.kind).toBe("pending_llm");
@@ -191,7 +195,7 @@ describe("foreach execution", () => {
     });
   });
 
-  it("create_step routes rejected QA into a dedicated fix step", async () => {
+  it("create_step routes invalid factory output into a dedicated fix step", async () => {
     const run = new WorkflowRun({
       graph: createStepGraph,
       bag: {
@@ -224,22 +228,11 @@ describe("foreach execution", () => {
     expect(step.kind).toBe("advanced");
     step = await run.step();
     expect(step.kind).toBe("advanced");
-    expect(step.nodeId).toBe("verify_node");
-    step = await run.step();
-    expect(step.kind).toBe("pending_llm");
-    expect(step.nodeId).toBe("verify_node");
+    expect(step.nodeId).toBe("factory_valid_branch");
+    expect(step.bag.keys.nodePlanValid).toBe(false);
     expect(step.bag.keys.hasValidationErrors).toBe(true);
     expect(step.bag.keys.repairInstructions).toContain("foreach.itemsFrom");
 
-    step = await run.step({
-      llmWrites: {
-        nodeAccepted: false,
-        qaReason: "The foreach config is missing itemsFrom.",
-        repairInstructions: "Set foreach.itemsFrom to missions and expose missionIndex.",
-        improvements: ["Add itemKey mission.", "Add indexKey missionIndex."]
-      }
-    });
-    expect(step.kind).toBe("advanced");
     step = await run.step();
     expect(step.kind).toBe("advanced");
     expect(step.nodeId).toBe("fix_node_plan");
@@ -266,10 +259,77 @@ describe("foreach execution", () => {
     expect(step.kind).toBe("advanced");
     step = await run.step();
     expect(step.kind).toBe("advanced");
+    expect(step.nodeId).toBe("factory_valid_branch");
+    expect(step.bag.keys.nodePlanValid).toBe(true);
+    step = await run.step();
+    expect(step.kind).toBe("advanced");
     expect(step.nodeId).toBe("verify_node");
     step = await run.step();
     expect(step.kind).toBe("pending_llm");
     expect(step.nodeId).toBe("verify_node");
+  });
+
+  it("create_step routes rejected QA into the same dedicated fix step", async () => {
+    const run = new WorkflowRun({
+      graph: createStepGraph,
+      bag: {
+        workflowId: "create_step",
+        cursor: "start",
+        goal: "create step",
+        keys: {
+          stepInstructions: "Create workflow node type foreach for the missions list.",
+          availableBagShape: { missions: "string[]" },
+          allowedNodeTypes: ["foreach"]
+        },
+        status: "running"
+      }
+    });
+
+    let step = await run.step();
+    expect(step.kind).toBe("advanced");
+    step = await run.step();
+    expect(step.kind).toBe("pending_llm");
+
+    step = await run.step({
+      llmWrites: {
+        nodePlan: {
+          nodeType: "foreach",
+          title: "Each mission",
+          config: {
+            itemsFrom: "missions",
+            itemKey: "mission",
+            indexKey: "missionIndex"
+          }
+        }
+      }
+    });
+    expect(step.kind).toBe("advanced");
+    step = await run.step();
+    expect(step.kind).toBe("advanced");
+    expect(step.nodeId).toBe("factory_valid_branch");
+    step = await run.step();
+    expect(step.kind).toBe("advanced");
+    expect(step.nodeId).toBe("verify_node");
+    step = await run.step();
+    expect(step.kind).toBe("pending_llm");
+    expect(step.nodeId).toBe("verify_node");
+
+    step = await run.step({
+      llmWrites: {
+        nodeAccepted: false,
+        qaReason: "The node is structurally valid but does not write decisions.",
+        repairInstructions: "Choose a node plan that better satisfies the requested output.",
+        improvements: ["Consider a push node after this loop in a later fragment assembly step."]
+      }
+    });
+    expect(step.kind).toBe("advanced");
+    step = await run.step();
+    expect(step.kind).toBe("advanced");
+    expect(step.nodeId).toBe("fix_node_plan");
+    step = await run.step();
+    expect(step.kind).toBe("pending_llm");
+    expect(step.nodeId).toBe("fix_node_plan");
+    expect(step.llm?.reads.qaReason).toContain("structurally valid");
   });
 
   it("awaits a scoped body chain for every item", async () => {

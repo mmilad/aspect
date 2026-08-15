@@ -27,9 +27,11 @@ function factoryGraph(): WorkflowGraph {
         position: { x: 0, y: 0 },
         data: {
           title: "Start",
-          writes: ["nodePlan"],
+          writes: ["nodePlan", "allowedNodeTypes", "availableBagShape"],
           outputContracts: {
-            nodePlan: { required: true, shape: JSON_SHAPE }
+            nodePlan: { required: true, shape: JSON_SHAPE },
+            allowedNodeTypes: { required: false, shape: JSON_SHAPE },
+            availableBagShape: { required: false, shape: JSON_SHAPE }
           }
         }
       },
@@ -41,12 +43,15 @@ function factoryGraph(): WorkflowGraph {
           title: "Create workflow node",
           reads: ["nodePlan"],
           inputs: {
-            nodePlan: { required: true, shape: JSON_SHAPE }
+            nodePlan: { required: true, shape: JSON_SHAPE },
+            allowedNodeTypes: { required: false, shape: JSON_SHAPE },
+            availableBagShape: { required: false, shape: JSON_SHAPE }
           },
           writes: [
             "workflowNode",
             "nodeMeta",
             "validationErrors",
+            "nodePlanValid",
             "hasValidationErrors",
             "repairInstructions",
             "stepDraft"
@@ -55,15 +60,19 @@ function factoryGraph(): WorkflowGraph {
             workflowNode: { required: false, shape: JSON_SHAPE },
             nodeMeta: { required: true, shape: JSON_SHAPE },
             validationErrors: { required: true, shape: JSON_SHAPE },
+            nodePlanValid: { required: true, shape: BOOLEAN },
             hasValidationErrors: { required: true, shape: BOOLEAN },
             repairInstructions: { required: true, shape: STRING },
             stepDraft: { required: true, shape: JSON_SHAPE }
           },
           createWorkflowNode: {
             planFrom: "nodePlan",
+            allowedNodeTypesFrom: "allowedNodeTypes",
+            availableBagShapeFrom: "availableBagShape",
             outputKey: "workflowNode",
             metaKey: "nodeMeta",
             errorsKey: "validationErrors",
+            validKey: "nodePlanValid",
             hasErrorsKey: "hasValidationErrors",
             repairInstructionsKey: "repairInstructions",
             stepDraftKey: "stepDraft"
@@ -79,14 +88,17 @@ function factoryGraph(): WorkflowGraph {
   });
 }
 
-async function runFactory(nodePlan: unknown) {
+async function runFactory(
+  nodePlan: unknown,
+  keys: Record<string, unknown> = {}
+) {
   const run = new WorkflowRun({
     graph: factoryGraph(),
     bag: {
       workflowId: "factory_test",
       cursor: "start",
       goal: "create node",
-      keys: { nodePlan },
+      keys: { nodePlan, ...keys },
       status: "running"
     }
   });
@@ -144,6 +156,7 @@ describe("create_workflow_node execution", () => {
     });
 
     expect(keys.hasValidationErrors).toBe(false);
+    expect(keys.nodePlanValid).toBe(true);
     expect(keys.validationErrors).toEqual([]);
     expect(keys.workflowNode).toMatchObject({
       id: "each_mission",
@@ -183,6 +196,7 @@ describe("create_workflow_node execution", () => {
     });
 
     expect(keys.hasValidationErrors).toBe(false);
+    expect(keys.nodePlanValid).toBe(true);
     expect(keys.workflowNode).toMatchObject({
       id: "push_decision",
       type: "push",
@@ -213,6 +227,7 @@ describe("create_workflow_node execution", () => {
       });
 
       expect(keys.hasValidationErrors, `${nodeType} should be creatable`).toBe(false);
+      expect(keys.nodePlanValid, `${nodeType} should be valid`).toBe(true);
       expect(keys.workflowNode).toMatchObject({
         type: nodeType,
         data: { title: `${nodeType} node` }
@@ -228,6 +243,7 @@ describe("create_workflow_node execution", () => {
     });
 
     expect(keys.workflowNode).toBeNull();
+    expect(keys.nodePlanValid).toBe(false);
     expect(keys.hasValidationErrors).toBe(true);
     expect(keys.validationErrors).toEqual(["Unknown workflow node type: magic."]);
     expect(keys.repairInstructions).toContain("Unknown workflow node type");
@@ -245,8 +261,43 @@ describe("create_workflow_node execution", () => {
     });
 
     expect(keys.workflowNode).toBeNull();
+    expect(keys.nodePlanValid).toBe(false);
     expect(keys.hasValidationErrors).toBe(true);
     expect(keys.validationErrors).toEqual(["Node broken_loop foreach.itemsFrom is required."]);
     expect(keys.repairInstructions).toContain("foreach.itemsFrom is required");
+  });
+
+  it("rejects a node type outside allowedNodeTypes", async () => {
+    const keys = await runFactory(
+      {
+        nodeType: "push",
+        title: "Push decision",
+        config: { target: "decisions", valueFrom: "mission" }
+      },
+      { allowedNodeTypes: ["foreach"] }
+    );
+
+    expect(keys.workflowNode).toBeNull();
+    expect(keys.nodePlanValid).toBe(false);
+    expect(keys.validationErrors).toEqual(["nodePlan.nodeType 'push' is not allowed."]);
+  });
+
+  it("rejects config references outside the available bag shape", async () => {
+    const keys = await runFactory(
+      {
+        nodeType: "foreach",
+        title: "Each mission",
+        reads: ["missionz"],
+        config: { itemsFrom: "missionz", itemKey: "mission", indexKey: "missionIndex" }
+      },
+      { availableBagShape: { missions: "string[]" } }
+    );
+
+    expect(keys.workflowNode).toBeNull();
+    expect(keys.nodePlanValid).toBe(false);
+    expect(keys.validationErrors).toEqual([
+      "nodePlan.reads references unavailable bag key 'missionz'.",
+      "nodePlan.config.foreach.itemsFrom references unavailable bag key 'missionz'."
+    ]);
   });
 });

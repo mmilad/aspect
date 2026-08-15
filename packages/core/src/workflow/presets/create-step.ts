@@ -91,13 +91,16 @@ export const createStepGraph: WorkflowGraph = {
         title: "Create workflow node",
         reads: ["nodePlan"],
         inputs: {
-          nodePlan: { required: true, shape: JSON_SHAPE }
+          nodePlan: { required: true, shape: JSON_SHAPE },
+          allowedNodeTypes: { required: false, shape: JSON_SHAPE },
+          availableBagShape: { required: false, shape: JSON_SHAPE }
         },
-        inputBindings: identityBindings(["nodePlan"]),
+        inputBindings: identityBindings(["nodePlan", "allowedNodeTypes", "availableBagShape"]),
         writes: [
           "workflowNode",
           "nodeMeta",
           "validationErrors",
+          "nodePlanValid",
           "hasValidationErrors",
           "repairInstructions",
           "stepDraft"
@@ -106,6 +109,7 @@ export const createStepGraph: WorkflowGraph = {
           "workflowNode",
           "nodeMeta",
           "validationErrors",
+          "nodePlanValid",
           "hasValidationErrors",
           "repairInstructions",
           "stepDraft"
@@ -114,15 +118,19 @@ export const createStepGraph: WorkflowGraph = {
           workflowNode: { required: false, shape: JSON_SHAPE },
           nodeMeta: { required: true, shape: JSON_SHAPE },
           validationErrors: { required: true, shape: JSON_SHAPE },
+          nodePlanValid: { required: true, shape: BOOLEAN },
           hasValidationErrors: { required: true, shape: BOOLEAN },
           repairInstructions: { required: true, shape: STRING },
           stepDraft: { required: true, shape: JSON_SHAPE }
         },
         createWorkflowNode: {
           planFrom: "nodePlan",
+          allowedNodeTypesFrom: "allowedNodeTypes",
+          availableBagShapeFrom: "availableBagShape",
           outputKey: "workflowNode",
           metaKey: "nodeMeta",
           errorsKey: "validationErrors",
+          validKey: "nodePlanValid",
           hasErrorsKey: "hasValidationErrors",
           repairInstructionsKey: "repairInstructions",
           stepDraftKey: "stepDraft"
@@ -130,9 +138,23 @@ export const createStepGraph: WorkflowGraph = {
       }
     },
     {
+      id: "factory_valid_branch",
+      type: "branch",
+      position: { x: 1060, y: 220 },
+      data: {
+        title: "Factory valid?",
+        reads: ["nodePlanValid"],
+        inputs: {
+          nodePlanValid: { required: true, shape: BOOLEAN }
+        },
+        inputBindings: identityBindings(["nodePlanValid"]),
+        branch: { on: "nodePlanValid" }
+      }
+    },
+    {
       id: "verify_node",
       type: "llm",
-      position: { x: 1060, y: 220 },
+      position: { x: 1390, y: 220 },
       data: {
         title: "Verify node",
         reads: [
@@ -143,7 +165,7 @@ export const createStepGraph: WorkflowGraph = {
           "workflowNode",
           "nodeMeta",
           "validationErrors",
-          "hasValidationErrors",
+          "nodePlanValid",
           "repairInstructions"
         ],
         inputs: {
@@ -154,7 +176,7 @@ export const createStepGraph: WorkflowGraph = {
           workflowNode: { required: false, shape: JSON_SHAPE },
           nodeMeta: { required: true, shape: JSON_SHAPE },
           validationErrors: { required: true, shape: JSON_SHAPE },
-          hasValidationErrors: { required: true, shape: BOOLEAN },
+          nodePlanValid: { required: true, shape: BOOLEAN },
           repairInstructions: { required: true, shape: STRING }
         },
         inputBindings: identityBindings([
@@ -165,7 +187,7 @@ export const createStepGraph: WorkflowGraph = {
           "workflowNode",
           "nodeMeta",
           "validationErrors",
-          "hasValidationErrors",
+          "nodePlanValid",
           "repairInstructions"
         ]),
         writes: ["nodeAccepted", "qaReason", "repairInstructions", "improvements"],
@@ -188,7 +210,7 @@ export const createStepGraph: WorkflowGraph = {
             "Verify whether the materialized workflow node satisfies the original step instructions.",
             "Return workflow_node_qa_v1 fields: nodeAccepted, qaReason, repairInstructions, improvements.",
             "Accept only when the node type, config, reads, writes, and visible metadata match the requested intent.",
-            "If hasValidationErrors is true, nodeAccepted must be false and repairInstructions must explain how to fix the node plan.",
+            "If nodePlanValid is false, nodeAccepted must be false and repairInstructions must explain how to fix the node plan.",
             "Do not create or edit workflow nodes. Only judge the provided node and describe repairs if needed.",
             "Step instructions: {{stepInstructions}}",
             "Available bag shape: {{availableBagShape}}",
@@ -205,7 +227,7 @@ export const createStepGraph: WorkflowGraph = {
     {
       id: "qa_branch",
       type: "branch",
-      position: { x: 1390, y: 220 },
+      position: { x: 1720, y: 220 },
       data: {
         title: "QA accepted?",
         reads: ["nodeAccepted"],
@@ -219,7 +241,7 @@ export const createStepGraph: WorkflowGraph = {
     {
       id: "fix_node_plan",
       type: "llm",
-      position: { x: 1060, y: 480 },
+      position: { x: 1060, y: 500 },
       data: {
         title: "Fix node plan",
         reads: [
@@ -240,11 +262,11 @@ export const createStepGraph: WorkflowGraph = {
           allowedNodeTypes: { required: false, shape: JSON_SHAPE },
           nodePlan: { required: true, shape: JSON_SHAPE },
           workflowNode: { required: false, shape: JSON_SHAPE },
-          nodeMeta: { required: true, shape: JSON_SHAPE },
+          nodeMeta: { required: false, shape: JSON_SHAPE },
           validationErrors: { required: true, shape: JSON_SHAPE },
-          qaReason: { required: true, shape: STRING },
+          qaReason: { required: false, shape: STRING },
           repairInstructions: { required: true, shape: STRING },
-          improvements: { required: true, shape: STRING_ARRAY }
+          improvements: { required: false, shape: STRING_ARRAY }
         },
         inputBindings: identityBindings([
           "stepInstructions",
@@ -288,18 +310,20 @@ export const createStepGraph: WorkflowGraph = {
     {
       id: "end",
       type: "end",
-      position: { x: 1700, y: 220 },
+      position: { x: 2030, y: 220 },
       data: { title: "End" }
     }
   ],
   edges: [
     { id: "e1", source: "start", target: "interpret_node_plan", kind: "next", sourcePin: "then", targetPin: "in" },
     { id: "e2", source: "interpret_node_plan", target: "create_node", kind: "next", sourcePin: "then", targetPin: "in" },
-    { id: "e3", source: "create_node", target: "verify_node", kind: "next", sourcePin: "then", targetPin: "in" },
-    { id: "e4", source: "verify_node", target: "qa_branch", kind: "next", sourcePin: "then", targetPin: "in" },
-    { id: "e5", source: "qa_branch", target: "end", kind: "route", label: "true", sourcePin: "true", targetPin: "in" },
-    { id: "e6", source: "qa_branch", target: "fix_node_plan", kind: "route", label: "false", sourcePin: "false", targetPin: "in" },
-    { id: "e7", source: "fix_node_plan", target: "create_node", kind: "next", sourcePin: "then", targetPin: "in" }
+    { id: "e3", source: "create_node", target: "factory_valid_branch", kind: "next", sourcePin: "then", targetPin: "in" },
+    { id: "e4", source: "factory_valid_branch", target: "verify_node", kind: "route", label: "true", sourcePin: "true", targetPin: "in" },
+    { id: "e5", source: "factory_valid_branch", target: "fix_node_plan", kind: "route", label: "false", sourcePin: "false", targetPin: "in" },
+    { id: "e6", source: "verify_node", target: "qa_branch", kind: "next", sourcePin: "then", targetPin: "in" },
+    { id: "e7", source: "qa_branch", target: "end", kind: "route", label: "true", sourcePin: "true", targetPin: "in" },
+    { id: "e8", source: "qa_branch", target: "fix_node_plan", kind: "route", label: "false", sourcePin: "false", targetPin: "in" },
+    { id: "e9", source: "fix_node_plan", target: "create_node", kind: "next", sourcePin: "then", targetPin: "in" }
   ]
 };
 
@@ -312,7 +336,7 @@ export const createStepPreset: WorkflowPreset = {
   body: [
     "Inputs: stepInstructions:string plus optional availableBagShape and allowedNodeTypes.",
     "Interpret LLM output: nodePlan JSON matching workflow_node_plan_v1.",
-    "Factory output: workflowNode, nodeMeta, validationErrors, hasValidationErrors, repairInstructions, stepDraft.",
+    "Factory output: workflowNode, nodeMeta, nodePlanValid, validationErrors, hasValidationErrors, repairInstructions, stepDraft.",
     "Verifier LLM output: nodeAccepted:boolean, qaReason, repairInstructions, improvements.",
     "Rejected output routes into a dedicated fix-node-plan LLM, then re-runs deterministic creation and verification."
   ].join("\n"),

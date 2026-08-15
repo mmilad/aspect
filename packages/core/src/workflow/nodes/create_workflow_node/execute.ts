@@ -25,6 +25,87 @@ function asStringArray(value: unknown): string[] | undefined {
     : undefined;
 }
 
+function availableBagKeys(value: unknown): Set<string> | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const keys = isRecord(value.keys) ? Object.keys(value.keys) : Object.keys(value);
+  return new Set(keys);
+}
+
+function pathRoot(path: string): string {
+  return path.split(/[.[\]]/, 1)[0] ?? path;
+}
+
+function validatePlanSemantics(input: {
+  plan: NodePlan;
+  allowedNodeTypes: unknown;
+  availableBagShape: unknown;
+}): string[] {
+  const errors: string[] = [];
+  const allowed = asStringArray(input.allowedNodeTypes);
+  if (input.allowedNodeTypes !== undefined && input.allowedNodeTypes !== null && !allowed) {
+    errors.push("allowedNodeTypes must be string[] when provided.");
+  }
+  if (allowed && !allowed.includes(input.plan.nodeType)) {
+    errors.push(`nodePlan.nodeType '${input.plan.nodeType}' is not allowed.`);
+  }
+
+  const available = availableBagKeys(input.availableBagShape);
+  if (!available) {
+    return errors;
+  }
+
+  for (const read of input.plan.reads ?? []) {
+    if (!available.has(pathRoot(read))) {
+      errors.push(`nodePlan.reads references unavailable bag key '${read}'.`);
+    }
+  }
+  for (const [port, key] of Object.entries(input.plan.inputBindings ?? {})) {
+    if (!available.has(pathRoot(key))) {
+      errors.push(`nodePlan.inputBindings.${port} references unavailable bag key '${key}'.`);
+    }
+  }
+
+  const config = input.plan.config ?? {};
+  if (input.plan.nodeType === "foreach") {
+    const rawItemsFrom = config.foreach && isRecord(config.foreach)
+      ? config.foreach.itemsFrom
+      : config.itemsFrom;
+    if (typeof rawItemsFrom === "string" && !available.has(pathRoot(rawItemsFrom))) {
+      errors.push(`nodePlan.config.foreach.itemsFrom references unavailable bag key '${rawItemsFrom}'.`);
+    }
+  }
+  if (input.plan.nodeType === "push") {
+    const rawPush = config.push && isRecord(config.push) ? config.push : config;
+    const target = rawPush.target;
+    const valueFrom = rawPush.valueFrom;
+    if (typeof target === "string" && !available.has(pathRoot(target))) {
+      errors.push(`nodePlan.config.push.target references unavailable bag key '${target}'.`);
+    }
+    if (typeof valueFrom === "string" && !available.has(pathRoot(valueFrom))) {
+      errors.push(`nodePlan.config.push.valueFrom references unavailable bag key '${valueFrom}'.`);
+    }
+  }
+  if (input.plan.nodeType === "branch" || input.plan.nodeType === "switch") {
+    const configKey = input.plan.nodeType;
+    const rawControl = config[configKey] && isRecord(config[configKey]) ? config[configKey] : config;
+    const on = rawControl.on;
+    if (typeof on === "string" && !available.has(pathRoot(on))) {
+      errors.push(`nodePlan.config.${configKey}.on references unavailable bag key '${on}'.`);
+    }
+  }
+  if (input.plan.nodeType === "map") {
+    const rawMap = config.map && isRecord(config.map) ? config.map : config;
+    const from = rawMap.from;
+    if (typeof from === "string" && !available.has(pathRoot(from))) {
+      errors.push(`nodePlan.config.map.from references unavailable bag key '${from}'.`);
+    }
+  }
+
+  return errors;
+}
+
 function sanitizeId(value: string): string {
   return value
     .trim()
@@ -150,6 +231,7 @@ export async function executeCreateWorkflowNode(
   const outputKey = config.outputKey ?? "workflowNode";
   const metaKey = config.metaKey ?? "nodeMeta";
   const errorsKey = config.errorsKey ?? "validationErrors";
+  const validKey = config.validKey ?? "nodePlanValid";
   const hasErrorsKey = config.hasErrorsKey ?? "hasValidationErrors";
   const repairKey = config.repairInstructionsKey ?? "repairInstructions";
   const stepDraftKey = config.stepDraftKey;
@@ -161,6 +243,7 @@ export async function executeCreateWorkflowNode(
     values[outputKey] = null;
     values[metaKey] = {};
     values[errorsKey] = parsedPlan.errors;
+    values[validKey] = false;
     values[hasErrorsKey] = true;
     values[repairKey] = repairInstructions(parsedPlan.errors);
     if (stepDraftKey) {
@@ -173,11 +256,34 @@ export async function executeCreateWorkflowNode(
     return applied.ok ? ctx.advance() : ctx.fail(applied.error);
   }
 
+  const semanticErrors = validatePlanSemantics({
+    plan: parsedPlan.plan,
+    allowedNodeTypes: config.allowedNodeTypesFrom ? ctx.read(config.allowedNodeTypesFrom) : undefined,
+    availableBagShape: config.availableBagShapeFrom ? ctx.read(config.availableBagShapeFrom) : undefined
+  });
+  if (semanticErrors.length > 0) {
+    values[outputKey] = null;
+    values[metaKey] = {};
+    values[errorsKey] = semanticErrors;
+    values[validKey] = false;
+    values[hasErrorsKey] = true;
+    values[repairKey] = repairInstructions(semanticErrors);
+    if (stepDraftKey) {
+      values[stepDraftKey] = {
+        nodes: [],
+        validation: { ok: false, errors: semanticErrors }
+      };
+    }
+    const applied = ctx.applyWrites(values);
+    return applied.ok ? ctx.advance() : ctx.fail(applied.error);
+  }
+
   const parsedNode = parseWorkflowNode(rawNodeFromPlan(parsedPlan.plan));
   if (!parsedNode.ok) {
     values[outputKey] = null;
     values[metaKey] = {};
     values[errorsKey] = parsedNode.errors;
+    values[validKey] = false;
     values[hasErrorsKey] = true;
     values[repairKey] = repairInstructions(parsedNode.errors);
     if (stepDraftKey) {
@@ -194,6 +300,7 @@ export async function executeCreateWorkflowNode(
   values[outputKey] = parsedNode.node;
   values[metaKey] = meta;
   values[errorsKey] = [];
+  values[validKey] = true;
   values[hasErrorsKey] = false;
   values[repairKey] = "";
   if (stepDraftKey) {

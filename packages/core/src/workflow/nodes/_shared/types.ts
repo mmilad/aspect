@@ -28,16 +28,21 @@ export const workflowWorkNodeTypes = [
 
 export const workflowVariableNodeTypes = ["get", "set"] as const;
 
+/** Visual data knots — created from the canvas, not the add palette. */
+export const workflowRerouteNodeTypes = ["reroute"] as const;
+
 /** Canonical palette (filter is accepted on parse and rewritten to transform). */
 export const workflowNodeTypes = [
   ...workflowControlNodeTypes,
   ...workflowWorkNodeTypes,
-  ...workflowVariableNodeTypes
+  ...workflowVariableNodeTypes,
+  ...workflowRerouteNodeTypes
 ] as const;
 
 export type WorkflowControlNodeType = (typeof workflowControlNodeTypes)[number];
 export type WorkflowWorkNodeType = (typeof workflowWorkNodeTypes)[number];
 export type WorkflowVariableNodeType = (typeof workflowVariableNodeTypes)[number];
+export type WorkflowRerouteNodeType = (typeof workflowRerouteNodeTypes)[number];
 export type WorkflowNodeType = (typeof workflowNodeTypes)[number];
 
 export type WorkflowNodeKind = "control" | "work" | "variable";

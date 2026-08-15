@@ -26,7 +26,8 @@ export const workflowStepToneByType: Record<WorkflowNodeType, string> = {
   push: "border-emerald-700 bg-emerald-50 text-emerald-950",
   create_workflow_node: "border-sky-700 bg-sky-50 text-sky-950",
   get: "border-pink-600 bg-pink-50 text-pink-950",
-  set: "border-pink-700 bg-pink-100 text-pink-950"
+  set: "border-pink-700 bg-pink-100 text-pink-950",
+  reroute: "border-stone-600 bg-stone-50 text-stone-900"
 };
 
 export const workflowPaletteGroups: Array<{ label: string; types: readonly WorkflowNodeType[] }> = [

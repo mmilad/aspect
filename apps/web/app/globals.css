@@ -34,6 +34,7 @@ textarea {
 
 .react-flow__node {
   border-radius: 8px;
+  overflow: visible;
 }
 
 .react-flow__handle.workflow-exec-handle {
@@ -50,4 +51,42 @@ textarea {
   height: 8px;
   border-radius: 50%;
   border: 1.5px solid #44403c;
+}
+
+.react-flow__handle.workflow-handle-flow {
+  position: relative !important;
+  top: auto !important;
+  left: auto !important;
+  right: auto !important;
+  transform: none !important;
+}
+
+.react-flow__handle.connectingto:not(.valid) {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.react-flow__handle.valid {
+  box-shadow: 0 0 0 3px rgb(34 197 94 / 0.55);
+}
+
+.react-flow__handle.workflow-reroute-handle {
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  right: auto !important;
+  border-radius: 50%;
+  border: 1.5px solid #44403c;
+  transform: translate(-50%, -50%) !important;
+}
+
+.react-flow__handle.workflow-reroute-handle-in {
+  width: 16px;
+  height: 16px;
+  opacity: 0;
+}
+
+.react-flow__handle.workflow-reroute-handle-out {
+  width: 8px;
+  height: 8px;
 }

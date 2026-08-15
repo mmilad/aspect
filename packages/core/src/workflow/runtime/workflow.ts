@@ -111,8 +111,8 @@ export class WorkflowRun {
       return result;
     }
 
-    if (node.type === "get") {
-      const result = fail(bag, cursor, `Get ${node.id} is not an executable step.`);
+    if (node.type === "get" || node.type === "reroute") {
+      const result = fail(bag, cursor, `${node.type === "get" ? "Get" : "Reroute"} ${node.id} is not an executable step.`);
       this._bag = result.bag;
       return result;
     }

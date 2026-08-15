@@ -37,7 +37,7 @@ MCP/HTTP `bag` is the **input variable map** (same JSON field). No `goal` unless
 
 Work/control **data pins** come from `inputs` / `outputContracts` (port contracts). Exec stays `in:{pin}` / `out:{pin}`; data uses `data:in:{port}` / `data:out:{port}`. Edges with `kind: "data"` are skipped on the exec walk. Get is not an exec target.
 
-Shapes color data wires: string/pink, bool/red, number/green, object/blue, array/cyan, any/gray.
+Shapes color data wires: string/pink, bool/red, number/green, object/blue, array/cyan, any/gray. The editor only allows same-type data wires (`any`/`unknown` to `any`/`unknown`, not string to `any`). Runtime assignability stays permissive.
 
 **LLM:** templates and `pending_llm.reads` are **incoming pin ids**. `llmWrites` keys are **output pin ids**; resume stores them on that node’s output pins.
 
@@ -47,7 +47,9 @@ Shapes color data wires: string/pink, bool/red, number/green, object/blue, array
 
 `next` / `route` / `error` edges are the **execution track** (what runs next). The editor draws them as one thick exec spline; branch True/False labels stay on pins. `depends_on` stays a dashed join edge.
 
-Reroutes are **waypoints on the edge** (`waypoints: [{x,y}]` in flow coordinates), not workflow nodes. Double-click an exec wire to add a knob; drag to move; Delete/Backspace removes a selected knob. The runner, Story, and Mermaid ignore waypoints. Data wires reuse the same waypoint UI as a thin colored spline.
+Reroutes are **waypoints on the edge** (`waypoints: [{x,y}]` in flow coordinates) for **exec** wires. Double-click an exec wire to add a knob; drag to move; Delete/Backspace removes a selected knob.
+
+**Data** wires use a real **reroute node** (Unreal-style knot). Double-click a data wire to insert one; drag from the knot to fan the same value out to more inputs. Deleting the knot splices the remaining wires. The runner treats reroutes as pass-through; Story/Mermaid may still show them as tiny nodes.
 
 After changing preset graphs in the repo, refresh the living SQLite seed:
 

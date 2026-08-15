@@ -12,6 +12,7 @@ import {
 import type { WorkflowEdgeKind } from "@projectplaner/core";
 import { cn } from "../../lib/utils";
 import type { FlowRfEdge, FlowRfEdgeData } from "./rf-adapters";
+import { splitDataEdgeWithReroute } from "./rf-adapters";
 
 export type SelectedWaypoint = { edgeId: string; index: number } | null;
 
@@ -141,7 +142,7 @@ export function WorkflowExecEdge({
   markerEnd,
   label
 }: EdgeProps<FlowRfEdge>) {
-  const { setEdges, screenToFlowPosition } = useReactFlow();
+  const { setEdges, setNodes, getEdges, screenToFlowPosition } = useReactFlow();
   const { selected, select } = useWaypointSelection();
   const waypoints = data?.waypoints ?? [];
   const points: Point[] = [{ x: sourceX, y: sourceY }, ...waypoints, { x: targetX, y: targetY }];
@@ -208,6 +209,19 @@ export function WorkflowExecEdge({
         onDoubleClick={(event) => {
           event.stopPropagation();
           const pos = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+          if (data?.kind === "data") {
+            const original = getEdges().find((edge) => edge.id === id) as FlowRfEdge | undefined;
+            if (!original) {
+              return;
+            }
+            const rerouteId = `reroute_${Date.now().toString(36)}`;
+            const split = splitDataEdgeWithReroute(original, rerouteId, pos);
+            setNodes((current) =>
+              current.some((node) => node.id === rerouteId) ? current : [...current, split.node]
+            );
+            setEdges((current) => [...current.filter((edge) => edge.id !== id), ...split.edges]);
+            return;
+          }
           const inserted = insertWaypoint(points, pos);
           writeWaypoints(inserted.waypoints);
           select({ edgeId: id, index: inserted.index });

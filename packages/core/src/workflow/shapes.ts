@@ -195,6 +195,24 @@ export function isShapeAssignable(upstream: BagShape | undefined, downstream: Ba
   return serializeShapeSlim(from) === serializeShapeSlim(to);
 }
 
+function isOpenShape(shape: BagShape): boolean {
+  return shape.kind === "any" || shape.kind === "unknown";
+}
+
+/**
+ * Editor data-pin wiring. Unlike runtime assignability, `any`/`unknown` are not
+ * wildcards — they only connect to other `any`/`unknown` pins. Concrete pins must
+ * match (string to string, bool to bool). This is what pin colors represent.
+ */
+export function isShapeConnectable(upstream: BagShape | undefined, downstream: BagShape | undefined): boolean {
+  const from = resolveBagShape(upstream);
+  const to = resolveBagShape(downstream);
+  if (isOpenShape(from) || isOpenShape(to)) {
+    return isOpenShape(from) && isOpenShape(to);
+  }
+  return isShapeAssignable(from, to);
+}
+
 export function arrayOfRef(ref: BagShapeCatalogRef): BagShape {
   return { kind: "array", items: { kind: "ref", ref } };
 }

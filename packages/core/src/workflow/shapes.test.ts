@@ -5,6 +5,7 @@ import {
   deriveMapOutputShape,
   inferNodeOutputShapes,
   isShapeAssignable,
+  isShapeConnectable,
   listShapePaths,
   nullable,
   parseBagShape,
@@ -206,6 +207,18 @@ describe("workflow bag shapes", () => {
         ]
       })
     ).toEqual(stringOrNull);
+  });
+
+  it("rejects editor pin wiring between concrete and any/unknown", () => {
+    const string = { kind: "primitive" as const, type: "string" as const };
+    const json = { kind: "any" as const };
+    expect(isShapeAssignable(string, json)).toBe(true);
+    expect(isShapeConnectable(string, json)).toBe(false);
+    expect(isShapeConnectable(json, string)).toBe(false);
+    expect(isShapeConnectable(json, json)).toBe(true);
+    expect(isShapeConnectable(string, string)).toBe(true);
+    expect(isShapeConnectable(string, { kind: "array", items: string })).toBe(false);
+    expect(isShapeConnectable(undefined, json)).toBe(true);
   });
 
   it("warns when nullable upstream feeds non-null input", () => {

@@ -234,6 +234,9 @@ export function validateTopology(graph: WorkflowGraph, errors: string[]): void {
       if (target?.type === "get") {
         errors.push(`Edge ${edge.id}: get cannot be an exec target.`);
       }
+      if (target?.type === "reroute") {
+        errors.push(`Edge ${edge.id}: reroute cannot be an exec target.`);
+      }
     }
     if (edge.targetPin === "continue") {
       const target = nodeById.get(edge.target);

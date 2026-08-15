@@ -1,7 +1,9 @@
 import {
   emptyWorkflowGraph,
+  isShapeConnectable,
   parseWaypoints,
   parseWorkflowGraph,
+  serializeShapeSlim,
   type BagShape,
   type JsonRecord,
   type WorkflowEdgeKind,
@@ -107,17 +109,6 @@ export function isValidExecConnection(connection: {
   return isExecHandle(connection.sourceHandle, "out") && isExecHandle(connection.targetHandle, "in");
 }
 
-export function isValidConnection(connection: Connection | Edge): boolean {
-  const sourceHandle = "sourceHandle" in connection ? connection.sourceHandle : null;
-  const targetHandle = "targetHandle" in connection ? connection.targetHandle : null;
-  const srcData = isDataHandle(sourceHandle);
-  const tgtData = isDataHandle(targetHandle);
-  if (srcData || tgtData) {
-    return srcData && tgtData && Boolean(sourceHandle?.startsWith("data:out:")) && Boolean(targetHandle?.startsWith("data:in:"));
-  }
-  return isValidExecConnection({ sourceHandle, targetHandle });
-}
-
 export function encodeHandle(
   direction: "in" | "out",
   pin?: string,
@@ -143,29 +134,313 @@ export function decodeHandle(handle: string | null | undefined, fallback: string
   return colon >= 0 ? handle.slice(colon + 1) || fallback : handle;
 }
 
+export type PinLookupCtx = {
+  variables?: WorkflowVariable[];
+  nodes?: FlowRfNode[];
+  edges?: FlowRfEdge[];
+};
+
+function workflowOf(node: FlowRfNode | WorkflowNode | undefined): WorkflowNode | undefined {
+  if (!node) {
+    return undefined;
+  }
+  return "data" in node && node.data && typeof node.data === "object" && "workflow" in node.data
+    ? (node.data as FlowRfNode["data"]).workflow
+    : (node as WorkflowNode);
+}
+
+function dataLinkOf(edge: FlowRfEdge): { source: string; target: string; sourcePin: string; targetPin: string } | null {
+  if (!isDataHandle(edge.sourceHandle) && edge.data?.kind !== "data") {
+    return null;
+  }
+  return {
+    source: edge.source,
+    target: edge.target,
+    sourcePin: decodeHandle(edge.sourceHandle, ""),
+    targetPin: decodeHandle(edge.targetHandle, "")
+  };
+}
+
+export function inferRerouteShape(
+  rerouteId: string,
+  ctx: PinLookupCtx,
+  seen: Set<string> = new Set()
+): BagShape | undefined {
+  if (seen.has(rerouteId)) {
+    return undefined;
+  }
+  seen.add(rerouteId);
+  const incoming = (ctx.edges ?? [])
+    .map(dataLinkOf)
+    .filter((link): link is NonNullable<typeof link> => Boolean(link && link.target === rerouteId));
+  const first = incoming[0];
+  if (!first) {
+    return undefined;
+  }
+  const sourceRf = ctx.nodes?.find((node) => node.id === first.source);
+  const source = workflowOf(sourceRf);
+  if (!source) {
+    return undefined;
+  }
+  if (source.type === "reroute") {
+    return inferRerouteShape(source.id, ctx, seen);
+  }
+  return lookupPinShape(source, first.sourcePin, "out", ctx);
+}
+
+export function lookupPinShape(
+  node: WorkflowNode | undefined,
+  pin: string | undefined,
+  channel: "in" | "out",
+  ctx?: WorkflowVariable[] | PinLookupCtx
+): BagShape | undefined {
+  const lookup: PinLookupCtx = Array.isArray(ctx) ? { variables: ctx } : (ctx ?? {});
+  if (!node || !pin) {
+    return undefined;
+  }
+  if (node.type === "reroute") {
+    return inferRerouteShape(node.id, lookup);
+  }
+  if (node.type === "get" || (node.type === "set" && channel === "in")) {
+    return lookup.variables?.find((variable) => variable.name === node.data.variable)?.shape;
+  }
+  if (channel === "out") {
+    return node.data.outputContracts?.[pin]?.shape;
+  }
+  return node.data.inputs?.[pin]?.shape;
+}
+
+export function pinTooltip(input: {
+  channel: "exec" | "data";
+  direction: "in" | "out";
+  pin: string;
+  shape?: BagShape;
+  description?: string;
+}): string {
+  const side = input.direction === "in" ? "in" : "out";
+  const head =
+    input.channel === "exec"
+      ? `exec ${side} · ${input.pin}`
+      : `data ${side} · ${input.pin} · ${serializeShapeSlim(input.shape)}`;
+  return input.description ? `${head}\n${input.description}` : head;
+}
+
+function inferRerouteShapeFromGraph(
+  graph: WorkflowGraph,
+  rerouteId: string,
+  seen: Set<string> = new Set()
+): BagShape | undefined {
+  if (seen.has(rerouteId)) {
+    return undefined;
+  }
+  seen.add(rerouteId);
+  const incoming = graph.edges.filter((edge) => edge.kind === "data" && edge.target === rerouteId);
+  const first = incoming[0];
+  if (!first) {
+    return undefined;
+  }
+  const source = graph.nodes.find((item) => item.id === first.source);
+  if (!source) {
+    return undefined;
+  }
+  if (source.type === "reroute") {
+    return inferRerouteShapeFromGraph(graph, source.id, seen);
+  }
+  return lookupPinShape(source, first.sourcePin, "out", graph.variables);
+}
+
 function pinShape(
   graph: WorkflowGraph,
   nodeId: string,
   pin: string | undefined,
   channel: "in" | "out"
 ): BagShape | undefined {
-  if (!pin) {
-    return undefined;
-  }
   const node = graph.nodes.find((item) => item.id === nodeId);
-  if (!node) {
-    return undefined;
+  if (node?.type === "reroute") {
+    return inferRerouteShapeFromGraph(graph, nodeId);
   }
-  if (node.type === "get") {
-    return graph.variables?.find((variable) => variable.name === node.data.variable)?.shape;
+  return lookupPinShape(node, pin, channel, graph.variables);
+}
+
+export function isValidWorkflowConnection(
+  connection: Connection | Edge,
+  ctx: {
+    nodes: FlowRfNode[];
+    edges: FlowRfEdge[];
+    variables?: WorkflowVariable[];
   }
-  if (node.type === "set" && channel === "in") {
-    return graph.variables?.find((variable) => variable.name === node.data.variable)?.shape;
+): boolean {
+  const sourceId = "source" in connection ? connection.source : undefined;
+  const targetId = "target" in connection ? connection.target : undefined;
+  const sourceHandle = "sourceHandle" in connection ? connection.sourceHandle : null;
+  const targetHandle = "targetHandle" in connection ? connection.targetHandle : null;
+  if (!sourceId || !targetId || sourceId === targetId) {
+    return false;
   }
-  if (channel === "out") {
-    return node.data.outputContracts?.[pin]?.shape;
+  if (!sourceHandle || !targetHandle) {
+    return false;
   }
-  return node.data.inputs?.[pin]?.shape;
+
+  const srcData = isDataHandle(sourceHandle);
+  const tgtData = isDataHandle(targetHandle);
+  if (srcData !== tgtData) {
+    return false;
+  }
+  if (srcData) {
+    if (!sourceHandle.startsWith("data:out:") || !targetHandle.startsWith("data:in:")) {
+      return false;
+    }
+  } else if (!isValidExecConnection({ sourceHandle, targetHandle })) {
+    return false;
+  }
+
+  const sourceNode = ctx.nodes.find((node) => node.id === sourceId)?.data.workflow;
+  const targetNode = ctx.nodes.find((node) => node.id === targetId)?.data.workflow;
+  if (!sourceNode || !targetNode) {
+    return false;
+  }
+  if (targetNode.type === "start") {
+    return false;
+  }
+  if ((sourceNode.type === "end" || sourceNode.type === "error_end") && !srcData) {
+    return false;
+  }
+  if (sourceNode.type === "get" && !srcData) {
+    return false;
+  }
+  if (sourceNode.type === "reroute" && !srcData) {
+    return false;
+  }
+  if (targetNode.type === "get") {
+    return false;
+  }
+  if (targetNode.type === "reroute" && !srcData) {
+    return false;
+  }
+  const connectionId = "id" in connection && typeof connection.id === "string" ? connection.id : undefined;
+  if (
+    ctx.edges.some(
+      (edge) =>
+        edge.id !== connectionId &&
+        edge.source === sourceId &&
+        edge.target === targetId &&
+        edge.sourceHandle === sourceHandle &&
+        edge.targetHandle === targetHandle
+    )
+  ) {
+    return false;
+  }
+  if (srcData && targetNode.type === "reroute") {
+    const alreadyWired = ctx.edges.some(
+      (edge) =>
+        edge.id !== connectionId &&
+        edge.target === targetId &&
+        isDataHandle(edge.targetHandle)
+    );
+    if (alreadyWired) {
+      return false;
+    }
+  }
+  if (srcData) {
+    const sourcePin = decodeHandle(sourceHandle, "");
+    const targetPin = decodeHandle(targetHandle, "");
+    if (!sourcePin || !targetPin) {
+      return false;
+    }
+    const pinCtx: PinLookupCtx = { variables: ctx.variables, nodes: ctx.nodes, edges: ctx.edges };
+    const fromShape = lookupPinShape(sourceNode, sourcePin, "out", pinCtx);
+    if (targetNode.type === "reroute") {
+      return true;
+    }
+    const toShape = lookupPinShape(targetNode, targetPin, "in", pinCtx);
+    if (!isShapeConnectable(fromShape, toShape)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+const REROUTE_SIZE = 18;
+
+export function makeRerouteRfNode(id: string, position: { x: number; y: number }): FlowRfNode {
+  return {
+    id,
+    type: "workflow",
+    position,
+    deletable: true,
+    data: {
+      workflow: {
+        id,
+        type: "reroute",
+        position,
+        data: { title: "Reroute" }
+      }
+    }
+  };
+}
+
+export function splitDataEdgeWithReroute(
+  edge: FlowRfEdge,
+  rerouteId: string,
+  position: { x: number; y: number }
+): { node: FlowRfNode; edges: FlowRfEdge[] } {
+  const color = edge.data?.color;
+  const kindStyle = styleForEdgeKind("data", color);
+  const intoReroute: FlowRfEdge = {
+    ...edge,
+    id: `${edge.id}_in_${rerouteId}`,
+    target: rerouteId,
+    targetHandle: encodeHandle("in", "value", "data"),
+    data: { kind: "data", ...(color ? { color } : {}) },
+    markerEnd: undefined,
+    label: undefined,
+    ...kindStyle
+  };
+  const outOfReroute: FlowRfEdge = {
+    ...edge,
+    id: `${edge.id}_out_${rerouteId}`,
+    source: rerouteId,
+    sourceHandle: encodeHandle("out", "value", "data"),
+    data: { kind: "data", ...(color ? { color } : {}) },
+    markerEnd: undefined,
+    label: undefined,
+    ...kindStyle
+  };
+  return {
+    node: makeRerouteRfNode(rerouteId, {
+      x: position.x - REROUTE_SIZE / 2,
+      y: position.y - REROUTE_SIZE / 2
+    }),
+    edges: [intoReroute, outOfReroute]
+  };
+}
+
+export function spliceRerouteDataEdges(edges: FlowRfEdge[], rerouteId: string): FlowRfEdge[] {
+  const incoming = edges.filter((edge) => edge.target === rerouteId && isDataHandle(edge.targetHandle));
+  const outgoing = edges.filter((edge) => edge.source === rerouteId && isDataHandle(edge.sourceHandle));
+  const rest = edges.filter((edge) => edge.source !== rerouteId && edge.target !== rerouteId);
+  if (incoming.length === 0) {
+    return rest;
+  }
+  const bridged: FlowRfEdge[] = [];
+  let index = 0;
+  for (const inn of incoming) {
+    for (const out of outgoing) {
+      index += 1;
+      const color = inn.data?.color ?? out.data?.color;
+      bridged.push({
+        ...out,
+        id: `e_${inn.source}_${out.target}_r${index}`,
+        source: inn.source,
+        sourceHandle: inn.sourceHandle,
+        target: out.target,
+        targetHandle: out.targetHandle,
+        data: { kind: "data", ...(color ? { color } : {}) },
+        ...styleForEdgeKind("data", color)
+      });
+    }
+  }
+  return [...rest, ...bridged];
 }
 
 export function toRfNodes(graph: WorkflowGraph, selectedId: string | null): FlowRfNode[] {

@@ -34,6 +34,7 @@ export type {
   WorkflowPosition,
   WorkflowPushConfig,
   WorkflowRetryOn,
+  WorkflowRerouteNodeType,
   WorkflowSubworkflowConfig,
   WorkflowSwitchConfig,
   WorkflowToolConfig,
@@ -50,6 +51,7 @@ export {
   workflowLlmFormats,
   workflowNodeTypes,
   workflowRetryOnValues,
+  workflowRerouteNodeTypes,
   workflowVariableNodeTypes,
   workflowWorkNodeTypes
 } from "./nodes/_shared/types";

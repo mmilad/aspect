@@ -64,8 +64,12 @@ function readSourcePin(
   graph: WorkflowGraph,
   frame: WorkflowRunFrame,
   source: WorkflowNode,
-  sourcePin: string
+  sourcePin: string,
+  seen: Set<string>
 ): unknown {
+  if (source.type === "reroute") {
+    return resolveDataInputFromFrame(graph, frame, source, sourcePin || "value", seen);
+  }
   if (source.type === "start") {
     return sourcePin in frame.inputs ? frame.inputs[sourcePin] : frame.pins[pinKey(source.id, sourcePin)];
   }
@@ -83,6 +87,42 @@ function readSourcePin(
   return frame.pins[pinKey(source.id, sourcePin)];
 }
 
+function resolveDataInputFromFrame(
+  graph: WorkflowGraph,
+  frame: WorkflowRunFrame,
+  node: WorkflowNode,
+  portId: string,
+  seen: Set<string>
+): unknown {
+  const guard = pinKey(node.id, portId);
+  if (seen.has(guard)) {
+    return undefined;
+  }
+  seen.add(guard);
+  const incoming = graph.edges.filter(
+    (edge) => edge.target === node.id && edge.kind === "data" && (edge.targetPin ?? "") === portId
+  );
+  if (incoming.length === 0) {
+    return frame.pins[guard];
+  }
+  let best: unknown = frame.pins[guard];
+  let bestSeq = frame.pinSeq?.[guard] ?? -1;
+  for (const edge of incoming) {
+    const source = graph.nodes.find((item) => item.id === edge.source);
+    if (!source) {
+      continue;
+    }
+    const sourcePin = edge.sourcePin ?? "";
+    const value = readSourcePin(graph, frame, source, sourcePin, seen);
+    const seq = frame.pinSeq?.[pinKey(source.id, sourcePin)] ?? 0;
+    if (seq >= bestSeq) {
+      best = value;
+      bestSeq = seq;
+    }
+  }
+  return best;
+}
+
 export function resolveDataInput(
   graph: WorkflowGraph,
   bag: WorkflowContextBag,
@@ -93,28 +133,37 @@ export function resolveDataInput(
     return bag.keys[portId];
   }
   const frame = bag.frame ?? emptyFrame();
-  const incoming = graph.edges.filter(
-    (edge) => edge.target === node.id && edge.kind === "data" && (edge.targetPin ?? "") === portId
-  );
-  if (incoming.length === 0) {
-    return frame.pins[pinKey(node.id, portId)];
+  return resolveDataInputFromFrame(graph, frame, node, portId, new Set());
+}
+
+function propagateWrittenPin(
+  graph: WorkflowGraph,
+  pins: Record<string, unknown>,
+  pinSeq: Record<string, number>,
+  sourceId: string,
+  sourcePin: string,
+  value: unknown,
+  seq: number,
+  seen: Set<string>
+): void {
+  const guard = pinKey(sourceId, sourcePin);
+  if (seen.has(guard)) {
+    return;
   }
-  let best: unknown = frame.pins[pinKey(node.id, portId)];
-  let bestSeq = frame.pinSeq?.[pinKey(node.id, portId)] ?? -1;
-  for (const edge of incoming) {
-    const source = graph.nodes.find((item) => item.id === edge.source);
-    if (!source) {
+  seen.add(guard);
+  for (const edge of graph.edges) {
+    if (edge.kind !== "data" || edge.source !== sourceId || (edge.sourcePin ?? "") !== sourcePin) {
       continue;
     }
-    const sourcePin = edge.sourcePin ?? "";
-    const value = readSourcePin(graph, frame, source, sourcePin);
-    const seq = frame.pinSeq?.[pinKey(source.id, sourcePin)] ?? 0;
-    if (seq >= bestSeq) {
-      best = value;
-      bestSeq = seq;
+    const targetPin = edge.targetPin ?? "";
+    const targetKey = pinKey(edge.target, targetPin);
+    pins[targetKey] = value;
+    pinSeq[targetKey] = seq;
+    const target = graph.nodes.find((item) => item.id === edge.target);
+    if (target?.type === "reroute") {
+      propagateWrittenPin(graph, pins, pinSeq, target.id, targetPin || "value", value, seq, seen);
     }
   }
-  return best;
 }
 
 export function writeOutputPins(
@@ -132,14 +181,7 @@ export function writeOutputPins(
     const key = pinKey(node.id, portId);
     pins[key] = value;
     pinSeq[key] = seq;
-    for (const edge of graph.edges) {
-      if (edge.kind !== "data" || edge.source !== node.id || (edge.sourcePin ?? "") !== portId) {
-        continue;
-      }
-      const targetKey = pinKey(edge.target, edge.targetPin ?? "");
-      pins[targetKey] = value;
-      pinSeq[targetKey] = seq;
-    }
+    propagateWrittenPin(graph, pins, pinSeq, node.id, portId, value, seq, new Set());
   }
   return cloneBagWithFrame(bag, { ...frame, pins, pinSeq, seq });
 }

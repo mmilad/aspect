@@ -13,6 +13,7 @@ import { llmNode } from "./llm/model";
 import { mapNode } from "./map/model";
 import { pushNode } from "./push/model";
 import { getNode } from "./get/model";
+import { rerouteNode } from "./reroute/model";
 import { setNode } from "./set/model";
 import { startNode } from "./start/model";
 import { subworkflowNode } from "./subworkflow/model";
@@ -43,7 +44,8 @@ export const workflowNodeModels: Record<WorkflowNodeType, WorkflowNodeModel> = {
   write: writeNode,
   push: pushNode,
   get: getNode,
-  set: setNode
+  set: setNode,
+  reroute: rerouteNode
 };
 
 export function getNodeModel(type: WorkflowNodeType): WorkflowNodeModel {
@@ -53,6 +55,7 @@ export function getNodeModel(type: WorkflowNodeType): WorkflowNodeModel {
 export {
   workflowControlNodeTypes,
   workflowNodeTypes,
+  workflowRerouteNodeTypes,
   workflowVariableNodeTypes,
   workflowWorkNodeTypes
 } from "./_shared/types";

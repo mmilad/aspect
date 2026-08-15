@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Background,
+  ConnectionMode,
   Controls,
   MiniMap,
   MarkerType,
@@ -36,16 +37,19 @@ import {
   decodeHandle,
   fromRf,
   isDataHandle,
-  isValidConnection,
+  isValidWorkflowConnection,
   loadInitialGraph,
+  lookupPinShape,
+  colorForBagShape,
   rfEdgeTypeForKind,
+  spliceRerouteDataEdges,
   styleForEdgeKind,
   toRfEdges,
   toRfNodes,
   type FlowRfEdge,
   type FlowRfNode
 } from "./rf-adapters";
-import { workflowRfNodeTypes } from "./workflow-step-node";
+import { workflowRfNodeTypes, WorkflowPinsContext } from "./workflow-step-node";
 import { workflowRfEdgeTypes, WorkflowWaypointProvider, useWaypointSelection } from "./workflow-exec-edge";
 import { WorkflowToolbar } from "./workflow-toolbar";
 import { WorkflowStoryPanel } from "./workflow-story-panel";
@@ -134,6 +138,8 @@ function defaultDataForType(type: WorkflowNodeType): WorkflowNodeData {
       return { title: "Get", variable: "" };
     case "set":
       return { title: "Set", variable: "", inputs: { value: { required: true } } };
+    case "reroute":
+      return getNodeModel("reroute").defaultData();
     default:
       return { title };
   }
@@ -266,6 +272,9 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
 
   const onConnect = useCallback(
     (connection: Connection) => {
+      if (!isValidWorkflowConnection(connection, { nodes, edges, variables })) {
+        return;
+      }
       const dataWire = isDataHandle(connection.sourceHandle) && isDataHandle(connection.targetHandle);
       const sourceNode = nodes.find((node) => node.id === connection.source);
       const targetNode = nodes.find((node) => node.id === connection.target);
@@ -281,14 +290,23 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
         kind === "route" ? "default" : kind === "data" ? "" : "then"
       );
       const targetPin = decodeHandle(connection.targetHandle, kind === "data" ? "" : "in");
-      const kindStyle = styleForEdgeKind(kind);
+      const color = dataWire
+        ? colorForBagShape(
+            lookupPinShape(sourceNode?.data.workflow, sourcePin, "out", {
+              variables,
+              nodes,
+              edges
+            })
+          )
+        : undefined;
+      const kindStyle = styleForEdgeKind(kind, color);
       setEdges((current) =>
         addEdge(
           {
             ...connection,
             id: `e_${connection.source}_${connection.target}_${current.length + 1}`,
             type: rfEdgeTypeForKind(kind),
-            data: { kind },
+            data: { kind, ...(color ? { color } : {}) },
             markerEnd:
               kind !== "data" && rfEdgeTypeForKind(kind) === "exec"
                 ? {
@@ -314,7 +332,7 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
         )
       );
     },
-    [connectKind, nodes, setEdges]
+    [connectKind, edges, nodes, setEdges, variables]
   );
 
   const currentGraph = useCallback(
@@ -433,10 +451,29 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
     if (!selectedId || selectedNode?.data.workflow.type === "start") {
       return;
     }
+    const reroute = selectedNode?.data.workflow.type === "reroute";
     setNodes((current) => current.filter((node) => node.id !== selectedId));
-    setEdges((current) => current.filter((edge) => edge.source !== selectedId && edge.target !== selectedId));
+    setEdges((current) =>
+      reroute
+        ? spliceRerouteDataEdges(current, selectedId)
+        : current.filter((edge) => edge.source !== selectedId && edge.target !== selectedId)
+    );
     syncSelection(null);
   }, [selectedId, nodes, setNodes, setEdges, syncSelection]);
+
+  const handleNodesChange = useCallback<OnNodesChange<FlowRfNode>>(
+    (changes) => {
+      const removed = changes.filter((change) => change.type === "remove");
+      const rerouteIds = removed
+        .map((change) => change.id)
+        .filter((id) => nodes.find((node) => node.id === id)?.data.workflow.type === "reroute");
+      if (rerouteIds.length > 0) {
+        setEdges((current) => rerouteIds.reduce((next, id) => spliceRerouteDataEdges(next, id), current));
+      }
+      onNodesChange(changes);
+    },
+    [nodes, onNodesChange, setEdges]
+  );
 
   const save = useCallback(async () => {
     const graph = currentGraph();
@@ -667,7 +704,8 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
             <WorkflowFlowCanvas
               nodes={nodes}
               edges={edges}
-              onNodesChange={onNodesChange}
+              variables={variables ?? []}
+              onNodesChange={handleNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
               onSelectNode={(id) => {
@@ -701,6 +739,7 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
 function WorkflowFlowCanvas({
   nodes,
   edges,
+  variables,
   onNodesChange,
   onEdgesChange,
   onConnect,
@@ -710,6 +749,7 @@ function WorkflowFlowCanvas({
 }: {
   nodes: FlowRfNode[];
   edges: FlowRfEdge[];
+  variables: WorkflowVariable[];
   onNodesChange: OnNodesChange<FlowRfNode>;
   onEdgesChange: OnEdgesChange<FlowRfEdge>;
   onConnect: (connection: Connection) => void;
@@ -718,16 +758,19 @@ function WorkflowFlowCanvas({
   contextMenu: ReactNode;
 }) {
   const { selected, select } = useWaypointSelection();
+  const pins = useMemo(() => ({ variables, nodes, edges }), [variables, nodes, edges]);
 
   return (
-    <>
+    <WorkflowPinsContext.Provider value={pins}>
       <ReactFlow<FlowRfNode, FlowRfEdge>
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
-        isValidConnection={isValidConnection}
+        isValidConnection={(connection) => isValidWorkflowConnection(connection, { nodes, edges, variables })}
+        connectionMode={ConnectionMode.Strict}
+        connectionRadius={12}
         nodeTypes={workflowRfNodeTypes}
         edgeTypes={workflowRfEdgeTypes}
         fitView
@@ -752,6 +795,6 @@ function WorkflowFlowCanvas({
         <MiniMap pannable zoomable />
       </ReactFlow>
       {contextMenu}
-    </>
+    </WorkflowPinsContext.Provider>
   );
 }

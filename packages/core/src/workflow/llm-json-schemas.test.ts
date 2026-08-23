@@ -9,6 +9,8 @@ import {
   WORKFLOW_NODE_QA_V1_SCHEMA,
   WORKFLOW_STEP_DRAFT_V1_KEY,
   WORKFLOW_STEP_DRAFT_V1_SCHEMA,
+  WORKFLOW_STEP_LIST_V1_KEY,
+  WORKFLOW_STEP_LIST_V1_SCHEMA,
   getLlmJsonSchemaPreset
 } from "./llm-json-schemas";
 
@@ -28,7 +30,8 @@ describe("workflow_ir_v1 JSON Schema preset", () => {
       WORKFLOW_IR_V1_KEY,
       WORKFLOW_NODE_PLAN_V1_KEY,
       WORKFLOW_NODE_QA_V1_KEY,
-      WORKFLOW_STEP_DRAFT_V1_KEY
+      WORKFLOW_STEP_DRAFT_V1_KEY,
+      WORKFLOW_STEP_LIST_V1_KEY
     ]);
     expect(WORKFLOW_IR_V1_SCHEMA.required).toEqual(["title", "steps"]);
     const steps = (WORKFLOW_IR_V1_SCHEMA.properties as { steps: { items: { properties: { type: { enum: string[] } } } } })
@@ -86,5 +89,15 @@ describe("workflow_ir_v1 JSON Schema preset", () => {
     expect(properties.nodeAccepted.type).toBe("boolean");
     expect(properties.qaReason.type).toBe("string");
     expect(properties.improvements.type).toBe("array");
+  });
+
+  it("requires at least two unique create_step instructions and no upper bound", () => {
+    const properties = WORKFLOW_STEP_LIST_V1_SCHEMA.properties as {
+      stepInstructionsList: { minItems: number; maxItems?: number; uniqueItems?: boolean };
+    };
+    expect(WORKFLOW_STEP_LIST_V1_SCHEMA.required).toEqual(["stepInstructionsList"]);
+    expect(properties.stepInstructionsList.minItems).toBe(2);
+    expect(properties.stepInstructionsList.maxItems).toBeUndefined();
+    expect(properties.stepInstructionsList.uniqueItems).toBe(true);
   });
 });

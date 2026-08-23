@@ -128,6 +128,8 @@ function defaultDataForType(type: WorkflowNodeType): WorkflowNodeData {
       };
     case "create_workflow_node":
       return getNodeModel("create_workflow_node").defaultData();
+    case "assemble_fragment":
+      return getNodeModel("assemble_fragment").defaultData();
     case "subworkflow":
       return { title, subworkflow: { workflowId: "" } };
     case "wait":

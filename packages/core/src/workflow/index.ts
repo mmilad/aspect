@@ -9,7 +9,15 @@ export * from "./template";
 export * from "./story";
 export * from "./mermaid";
 export * from "./layout";
+export * from "./assemble";
 export * from "./author";
+export {
+  llmWritesFromPending,
+  runCreateWorkflowLive,
+  type CreateWorkflowLiveInput,
+  type CreateWorkflowLiveResult,
+  type CreateWorkflowLiveTurn
+} from "./create-workflow-live";
 export * from "./llm-json-schemas";
 export * from "./llm-format";
 export * from "./presets";

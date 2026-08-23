@@ -15,6 +15,7 @@ export const WORKFLOW_IR_V1_KEY = "workflow_ir_v1";
 export const WORKFLOW_NODE_PLAN_V1_KEY = "workflow_node_plan_v1";
 export const WORKFLOW_NODE_QA_V1_KEY = "workflow_node_qa_v1";
 export const WORKFLOW_STEP_DRAFT_V1_KEY = "workflow_step_draft_v1";
+export const WORKFLOW_STEP_LIST_V1_KEY = "workflow_step_list_v1";
 
 export const WORKFLOW_IR_V1_SCHEMA: Record<string, unknown> = {
   $id: "projectplaner:llm-json-schema:workflow_ir_v1",
@@ -211,6 +212,21 @@ export const WORKFLOW_NODE_QA_V1_SCHEMA: Record<string, unknown> = {
   additionalProperties: false
 };
 
+export const WORKFLOW_STEP_LIST_V1_SCHEMA: Record<string, unknown> = {
+  $id: "projectplaner:llm-json-schema:workflow_step_list_v1",
+  type: "object",
+  properties: {
+    stepInstructionsList: {
+      type: "array",
+      minItems: 2,
+      uniqueItems: true,
+      items: { type: "string", minLength: 1 }
+    }
+  },
+  required: ["stepInstructionsList"],
+  additionalProperties: false
+};
+
 export const LLM_JSON_SCHEMA_PRESETS: LlmJsonSchemaPreset[] = [
   {
     key: WORKFLOW_IR_V1_KEY,
@@ -239,6 +255,13 @@ export const LLM_JSON_SCHEMA_PRESETS: LlmJsonSchemaPreset[] = [
     description:
       "Structured graph fragment for one workflow step. LLM emits this JSON; create_workflow can validate and insert the fragment.",
     schema: WORKFLOW_STEP_DRAFT_V1_SCHEMA
+  },
+  {
+    key: WORKFLOW_STEP_LIST_V1_KEY,
+    title: "Workflow Step List v1",
+    description:
+      "Ordered create_step instructions for create_workflow. At least two unique strings; no upper bound. Foreach runs create_step for each string.",
+    schema: WORKFLOW_STEP_LIST_V1_SCHEMA
   }
 ];
 

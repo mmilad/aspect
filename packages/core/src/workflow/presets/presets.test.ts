@@ -18,6 +18,7 @@ describe("workflow presets", () => {
     expect(presets.some((preset) => preset.presetKey === "delete_aspect")).toBe(true);
     expect(presets.some((preset) => preset.presetKey === "rollup_parent_status")).toBe(true);
     expect(presets.some((preset) => preset.presetKey === "create_step")).toBe(true);
+    expect(presets.some((preset) => preset.presetKey === "create_workflow")).toBe(true);
   });
 
   it("every pack parses into the current workflow graph version", () => {

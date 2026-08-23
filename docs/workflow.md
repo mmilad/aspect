@@ -11,6 +11,7 @@ Schema version **4**: pin-and-variable graphs (`graph.variables` present). Mutat
 | `create_*` / `update_*` / `delete_*` | Aspect/Feature/Task CRUD (`delete_*` = archive) |
 | `rollup_parent_status` | Derive parent process status and recurse |
 | `create_step` | Pin-variable proof graph: interpret instructions → create one node → QA |
+| `create_workflow` | Plan a sequential spine (min 2, unique titles, no max), run create_step per item, assemble a chained fragment |
 
 Prefer `run_workflow` over raw `create_entity` / `update_entity` when a matching mutation preset is seeded.
 
@@ -64,6 +65,8 @@ pnpm plan presets-ensure --force
 
 - Steps: start → work/control along **exec** edges → end. Data edges feed pins; they do not change the cursor.
 - **Write** actions include `create_entity`, `update_entity`, `rollup_parent_status`.
+- **assemble_fragment** is a deterministic work node: it stitches `create_step` drafts into a start→end graph (`workflowDraft`). Later steps that read an earlier write are wired to that writer, not back to start. It does not call an LLM.
+- **create_workflow** planning is multi-step: `workflow_step_list_v1` requires at least two unique work-node instructions (no start/end, sequential spine only, no maximum). The list is this layer’s spine, not an unrolled nested runtime. `push` accumulates `stepDrafts` across the foreach loop. Duplicate titles fail at assemble.
 - **LLM** nodes pause as `pending_llm`. Resume with `{ runId, llmWrites }` (Cursor, Codex, or `apps/agent`).
 - Instructions may use pin templates (`{{stepInstructions}}`, `{{@reads}}`, `{{@shapes}}`); the runner fills them before returning `pending_llm`.
 - LLM nodes have optional `systemPrompt` (chat system) and `instructions` (chat user / task). Blank or missing `systemPrompt` uses `DEFAULT_WORKFLOW_LLM_SYSTEM_PROMPT` at run. Both fields are template-filled and returned on `pending_llm`.
@@ -81,6 +84,19 @@ Terminal two-turn author demo (prints outline text, then graph JSON):
 pnpm plan author-demo --brief "Search aspects, LLM picks one, end"
 # optional: --title "..."  --outline-only  --json
 ```
+
+Live `create_workflow` (plan steps → create_step → assemble), using the same LLM env:
+
+```bash
+pnpm plan create-workflow-demo --brief "Halve currentValue, then triple that result."
+# optional: --bag-shape '{"currentValue":"number"}' --allowed-types math --json
+# save the JSON yourself (the demo does not persist a Flow):
+#   pnpm plan create-workflow-demo --brief "..." --allowed-types math > draft.json
+```
+
+Progress and LLM turns go to stderr. Stdout is always JSON (`draft` on success, plus `stepDrafts` / `turns` / `message` on failure). Persistence is a later step.
+
+Needs `PROJECTPLANER_LLM_BASE_URL` and `PROJECTPLANER_LLM_MODEL` (Ollama example is in `.env.example`).
 
 Optional live LLM checks (Ollama etc.; not in default `pnpm test`):
 

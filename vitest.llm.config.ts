@@ -10,7 +10,7 @@ export default defineConfig({
     include: ["packages/**/*.live.test.ts", "tests/**/*.live.test.ts"],
     exclude: ["**/node_modules/**", "packages/db/**"],
     environment: "node",
-    testTimeout: 120_000,
+    testTimeout: 300_000,
     hookTimeout: 30_000
   },
   resolve: {

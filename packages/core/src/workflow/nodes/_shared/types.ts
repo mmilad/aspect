@@ -24,7 +24,8 @@ export const workflowWorkNodeTypes = [
   "math",
   "write",
   "push",
-  "create_workflow_node"
+  "create_workflow_node",
+  "assemble_fragment"
 ] as const;
 
 export const workflowVariableNodeTypes = ["get", "set"] as const;
@@ -257,6 +258,11 @@ export interface WorkflowCreateWorkflowNodeConfig {
   stepDraftKey?: string;
 }
 
+export interface WorkflowAssembleFragmentConfig {
+  draftsFrom: string;
+  outputKey?: string;
+}
+
 export interface WorkflowExecutionPolicy {
   timeoutMs?: number;
   retry?: {
@@ -315,6 +321,7 @@ export interface WorkflowNodeData {
   subworkflow?: WorkflowSubworkflowConfig;
   push?: WorkflowPushConfig;
   createWorkflowNode?: WorkflowCreateWorkflowNodeConfig;
+  assembleFragment?: WorkflowAssembleFragmentConfig;
   executionPolicy?: WorkflowExecutionPolicy;
   /** Get/Set: graph variable name. */
   variable?: string;

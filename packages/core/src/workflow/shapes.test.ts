@@ -9,6 +9,7 @@ import {
   listShapePaths,
   nullable,
   parseBagShape,
+  parseShapeSlim,
   serializeBagViewSlim,
   serializeShapeSlim,
   shapeAcceptsNull,
@@ -270,5 +271,14 @@ describe("workflow bag shapes", () => {
     expect(produce?.data.outputContracts?.taskId).toBeTruthy();
     const warnings = warnShapeMismatches(graph.graph);
     expect(warnings.some((warning) => warning.includes("null check"))).toBe(true);
+  });
+
+  it("parses slim shape strings used in availableBagShape", () => {
+    expect(parseShapeSlim("number")).toEqual({ kind: "primitive", type: "number" });
+    expect(parseShapeSlim("string[]")).toEqual({
+      kind: "array",
+      items: { kind: "primitive", type: "string" }
+    });
+    expect(parseShapeSlim("Entity")).toEqual({ kind: "ref", ref: "Entity" });
   });
 });

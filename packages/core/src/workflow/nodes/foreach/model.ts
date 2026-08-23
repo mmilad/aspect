@@ -32,12 +32,13 @@ export const foreachNode: WorkflowNodeModel = {
     }
   },
   execInputs: () => ["in"],
-  execOutputs: () => ["body", "completed"],
+  execOutputs: () => ["body", "loop", "completed"],
   execInputDescriptions: () => ({
     in: "Start the loop at the first item."
   }),
   execOutputDescriptions: () => ({
     body: "Run this branch once for the current item.",
+    loop: "Run this branch once for the current item, then return to the foreach.",
     completed: "Continue here after every item has been processed."
   }),
   dataInputs: (node) => [node.data.foreach?.itemsFrom].filter(Boolean) as string[],

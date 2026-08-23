@@ -328,6 +328,184 @@ describe("foreach execution", () => {
     });
   });
 
+  it("create_step creates a math node with pin contracts and bindings", async () => {
+    const run = new WorkflowRun({
+      graph: parsed(createStepGraph),
+      bag: {
+        workflowId: "create_step",
+        cursor: "start",
+        goal: "create step",
+        keys: {
+          stepInstructions:
+            "Read currentValue:number, divide it by 2, and return dividedByTwo:number.",
+          availableBagShape: { currentValue: "number" },
+          allowedNodeTypes: ["math"]
+        },
+        status: "running"
+      }
+    });
+
+    let step = await run.step();
+    expect(step.kind).toBe("advanced");
+    step = await run.step();
+    expect(step.kind).toBe("pending_llm");
+    expect(step.llm?.instructions).toContain("For arithmetic, prefer math");
+
+    step = await run.step({
+      llmWrites: {
+        nodePlan: {
+          nodeType: "math",
+          title: "Divide by two",
+          purpose: "Divide the current value by two and expose the result as dividedByTwo.",
+          reads: ["currentValue"],
+          writes: ["dividedByTwo"],
+          inputs: {
+            value: { required: true, shape: NUMBER }
+          },
+          outputContracts: {
+            result: { required: true, shape: NUMBER }
+          },
+          inputBindings: {
+            value: "currentValue"
+          },
+          writeBindings: {
+            result: "dividedByTwo"
+          },
+          config: {
+            operation: "divide",
+            operand: 2
+          }
+        }
+      }
+    });
+    expect(step.kind).toBe("advanced");
+    step = await run.step();
+    expect(step.kind).toBe("advanced");
+    expect(pin(step.bag, "create_node", "nodePlanValid")).toBe(true);
+
+    step = await run.step();
+    expect(step.kind).toBe("advanced");
+    step = await run.step();
+    expect(step.kind).toBe("pending_llm");
+
+    step = await run.step({
+      llmWrites: {
+        nodeAccepted: true,
+        qaReason: "The math node reads currentValue through value and writes result as dividedByTwo.",
+        repairInstructions: "",
+        improvements: []
+      }
+    });
+    expect(step.kind).toBe("advanced");
+    step = await run.step();
+    expect(step.kind).toBe("advanced");
+    step = await run.step();
+    expect(step.kind).toBe("completed");
+
+    expect(step.bag.keys.stepDraft).toMatchObject({
+      nodes: [
+        {
+          type: "math",
+          data: {
+            reads: ["currentValue"],
+            writes: ["dividedByTwo"],
+            inputs: {
+              value: { required: true, shape: NUMBER }
+            },
+            outputContracts: {
+              result: { required: true, shape: NUMBER }
+            },
+            inputBindings: {
+              value: "currentValue"
+            },
+            writeBindings: {
+              result: "dividedByTwo"
+            },
+            math: {
+              operation: "divide",
+              operand: 2
+            }
+          }
+        }
+      ],
+      wiringHints: [
+        {
+          inputBindings: { value: "currentValue" },
+          writeBindings: { result: "dividedByTwo" },
+          wireIntent: [
+            "Read currentValue into input pin value.",
+            "Write output pin result to dividedByTwo."
+          ]
+        }
+      ],
+      validation: { ok: true, errors: [] }
+    });
+  });
+
+  it("create_step rejects unavailable math input binding", async () => {
+    const run = new WorkflowRun({
+      graph: parsed(createStepGraph),
+      bag: {
+        workflowId: "create_step",
+        cursor: "start",
+        goal: "create step",
+        keys: {
+          stepInstructions:
+            "Read currentValue:number, divide it by 2, and return dividedByTwo:number.",
+          availableBagShape: { currentValue: "number" },
+          allowedNodeTypes: ["math"]
+        },
+        status: "running"
+      }
+    });
+
+    let step = await run.step();
+    expect(step.kind).toBe("advanced");
+    step = await run.step();
+    expect(step.kind).toBe("pending_llm");
+
+    step = await run.step({
+      llmWrites: {
+        nodePlan: {
+          nodeType: "math",
+          title: "Divide by two",
+          inputs: {
+            value: { required: true, shape: NUMBER }
+          },
+          outputContracts: {
+            result: { required: true, shape: NUMBER }
+          },
+          inputBindings: {
+            value: "missingValue"
+          },
+          writeBindings: {
+            result: "dividedByTwo"
+          },
+          config: {
+            operation: "divide",
+            operand: 2
+          }
+        }
+      }
+    });
+    expect(step.kind).toBe("advanced");
+    step = await run.step();
+    expect(step.kind).toBe("advanced");
+    expect(step.nodeId).toBe("factory_valid_branch");
+    expect(pin(step.bag, "create_node", "nodePlanValid")).toBe(false);
+    expect(String(pin(step.bag, "create_node", "repairInstructions"))).toContain(
+      "nodePlan.inputBindings.value references unavailable bag key 'missingValue'"
+    );
+
+    step = await run.step();
+    expect(step.kind).toBe("advanced");
+    expect(step.nodeId).toBe("fix_node_plan");
+    step = await run.step();
+    expect(step.kind).toBe("pending_llm");
+    expect(step.nodeId).toBe("fix_node_plan");
+    expect(step.llm?.reads.repairInstructions).toContain("missingValue");
+  });
+
   it("create_step routes invalid factory output into a dedicated fix step", async () => {
     const run = new WorkflowRun({
       graph: parsed(createStepGraph),

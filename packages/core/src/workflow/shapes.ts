@@ -519,6 +519,39 @@ export function serializeShapeSlim(shape: BagShape | undefined): string {
   }
 }
 
+/** Inverse of serializeShapeSlim for availableBagShape catalog strings. */
+export function parseShapeSlim(slim: string): BagShape {
+  const text = slim.trim();
+  if (!text) {
+    return { kind: "unknown" };
+  }
+  if (text.includes("|") && !text.startsWith("object{")) {
+    return {
+      kind: "union",
+      options: text.split("|").map((part) => parseShapeSlim(part.trim()))
+    };
+  }
+  if (text.endsWith("[]")) {
+    return { kind: "array", items: parseShapeSlim(text.slice(0, -2)) };
+  }
+  if (text === "string" || text === "number" || text === "boolean" || text === "null") {
+    return { kind: "primitive", type: text };
+  }
+  if (text === "any") {
+    return { kind: "any" };
+  }
+  if (text === "unknown") {
+    return { kind: "unknown" };
+  }
+  if (text === "object") {
+    return { kind: "object", fields: {} };
+  }
+  if (text in BAG_SHAPE_CATALOG) {
+    return { kind: "ref", ref: text };
+  }
+  return { kind: "unknown" };
+}
+
 export function serializeBagViewSlim(view: Record<string, BagShape>): { keys: Record<string, string> } {
   const keys: Record<string, string> = {};
   for (const [key, shape] of Object.entries(view)) {

@@ -10,6 +10,7 @@ import {
   WORKFLOW_NODE_QA_V1_KEY,
   WORKFLOW_SCHEMA_VERSION,
   WORKFLOW_STEP_DRAFT_V1_KEY,
+  WORKFLOW_STEP_LIST_V1_KEY,
   createContextBag,
   parseWorkflowGraph
 } from "@projectplaner/core";
@@ -54,7 +55,8 @@ describe("llm_json_schemas", () => {
         WORKFLOW_IR_V1_KEY,
         WORKFLOW_NODE_PLAN_V1_KEY,
         WORKFLOW_NODE_QA_V1_KEY,
-        WORKFLOW_STEP_DRAFT_V1_KEY
+        WORKFLOW_STEP_DRAFT_V1_KEY,
+        WORKFLOW_STEP_LIST_V1_KEY
       ]);
       assert.deepEqual(first.skipped, []);
 
@@ -64,7 +66,8 @@ describe("llm_json_schemas", () => {
         WORKFLOW_IR_V1_KEY,
         WORKFLOW_NODE_PLAN_V1_KEY,
         WORKFLOW_NODE_QA_V1_KEY,
-        WORKFLOW_STEP_DRAFT_V1_KEY
+        WORKFLOW_STEP_DRAFT_V1_KEY,
+        WORKFLOW_STEP_LIST_V1_KEY
       ]);
 
       const row = getLlmJsonSchemaByKey(db, WORKFLOW_IR_V1_KEY, "PLAN");
@@ -72,7 +75,7 @@ describe("llm_json_schemas", () => {
       assert.equal(row.version, 1);
       assert.equal(row.status, "active");
       assert.deepEqual(row.schema, WORKFLOW_IR_V1_SCHEMA);
-      assert.equal(listLlmJsonSchemas(db, "PLAN").length, 4);
+      assert.equal(listLlmJsonSchemas(db, "PLAN").length, 5);
     })
   );
 

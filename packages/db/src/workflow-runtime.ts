@@ -14,6 +14,7 @@ import {
 } from "@projectplaner/core";
 import type { DatabaseSync } from "node:sqlite";
 import { createEntity, getEntity, listEntities, listRelations, updateEntity } from "./repository";
+import { findSeededWorkflowPreset } from "./presets";
 import { rollupParentStatus } from "./rollup";
 import { getLlmJsonSchemaByKey } from "./llm-json-schemas";
 import {
@@ -158,6 +159,29 @@ export function createSqliteWorkflowAdapters(
         version: row.version,
         id: row.id
       };
+    },
+    resolveSubworkflow: async (workflowId: string) => {
+      const direct = await getEntity(db, workflowId);
+      if (direct?.type === "flow") {
+        return getOrMigrateWorkflowGraph(db, {
+          workflowId: direct.id,
+          projectId: direct.projectId,
+          metadata: direct.metadata as JsonRecord
+        });
+      }
+      const seeded = findSeededWorkflowPreset(db, workflowId, projectKey);
+      if (!seeded) {
+        return null;
+      }
+      const flow = await getEntity(db, seeded.id);
+      if (!flow) {
+        return null;
+      }
+      return getOrMigrateWorkflowGraph(db, {
+        workflowId: flow.id,
+        projectId: flow.projectId,
+        metadata: flow.metadata as JsonRecord
+      });
     }
   };
 }

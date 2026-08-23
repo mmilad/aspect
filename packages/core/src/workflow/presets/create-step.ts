@@ -70,11 +70,18 @@ export const createStepGraph: WorkflowGraph = {
           instructions: [
             "Create one Projectplaner workflow node plan from the provided step instructions.",
             "Return a single JSON object matching workflow_node_plan_v1.",
+            "Copy Title: from the step instructions into nodePlan.title when present. Titles must stay unique and specific; never use Math, Step, or untitled.",
             "Only plan one node. Do not create edges or graph fragments.",
-            "Use the requested intent and the available bag shape to choose nodeType and config.",
+            "Use the requested intent and the available bag shape to choose nodeType, typed pins, bindings, and config.",
+            "When instructions mention source names or return names, include inputs, outputContracts, inputBindings, and writeBindings.",
+            "inputBindings maps node input pin ids to available bag keys. writeBindings maps node output pin ids to desired output/bag keys.",
+            "Keys of inputBindings, writeBindings, inputs, and outputContracts are pin ids (math: value and result), not bag names. Bag names belong in binding values and in reads/writes.",
+            "For arithmetic, prefer math. Math config should contain operation add|subtract|multiply|divide and operand; use input pin value and output pin result.",
             "Respect allowedNodeTypes when provided.",
             "For foreach, config should contain itemsFrom, itemKey, and indexKey.",
+            "For foreach collect, config.collect should contain from and as.",
             "For push, config should contain target and valueFrom.",
+            "For map, only project fields from arrays/objects; do not use map for arbitrary transformations.",
             "Step instructions: {{stepInstructions}}",
             "Available bag shape: {{availableBagShape}}",
             "Allowed node types: {{allowedNodeTypes}}"
@@ -211,6 +218,10 @@ export const createStepGraph: WorkflowGraph = {
             "Repair the previous workflow node plan. Return exactly one workflow_node_plan_v1 JSON object.",
             "Keep the original user intent. Do not create edges or graph fragments.",
             "Use the QA reason, repair instructions, validation errors, and improvements to change only the node plan.",
+            "Preserve or add typed pins and bindings when the instruction names source values or return values.",
+            "inputBindings maps node input pin ids to available bag keys. writeBindings maps node output pin ids to desired output/bag keys.",
+            "Keys of inputBindings, writeBindings, inputs, and outputContracts are pin ids (math: value and result), not bag names. Bag names belong in binding values and in reads/writes.",
+            "For arithmetic, prefer math with config operation add|subtract|multiply|divide and operand; use input pin value and output pin result.",
             "Respect allowedNodeTypes when provided.",
             "Step instructions: {{stepInstructions}}",
             "Available bag shape: {{availableBagShape}}",
@@ -286,7 +297,7 @@ export const createStepGraph: WorkflowGraph = {
 
 export const createStepPreset: WorkflowPreset = {
   presetKey: "create_step",
-  presetVersion: 5,
+  presetVersion: 6,
   title: "Create step",
   summary:
     "Pin-variable step builder: interpret instructions, create one workflow node, QA it, and return stepDraft.",

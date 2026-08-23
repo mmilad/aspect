@@ -18,7 +18,8 @@ const WORK_NODE_TYPES = new Set<WorkflowNodeType>([
   "map",
   "math",
   "push",
-  "create_workflow_node"
+  "create_workflow_node",
+  "assemble_fragment"
 ]);
 
 function isRequired(contract: WorkflowBagKeyContract | undefined): boolean {

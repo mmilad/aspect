@@ -8,12 +8,14 @@ export async function executePush(ctx: NodeExecuteContext): Promise<WorkflowStep
   }
 
   const current = ctx.read(push.target);
-  if (!Array.isArray(current)) {
+  if (current !== undefined && !Array.isArray(current)) {
     return ctx.fail(`Push ${ctx.node.id}: bag.${push.target} must be an array.`);
   }
 
   const value = readBagExpression(ctx.bag.keys, push.valueFrom);
-  const applied = ctx.applyWrites({ [push.target]: [...current, value] });
+  const applied = ctx.applyWrites({
+    [push.target]: [...(Array.isArray(current) ? current : []), value]
+  });
   if (!applied.ok) {
     return ctx.fail(applied.error);
   }

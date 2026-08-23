@@ -38,6 +38,7 @@ describe("ensureWorkflowPresets", () => {
     withTempDb(async (db) => {
       const first = await ensureWorkflowPresets(db, { projectKey: "PLAN" });
       assert.ok(first.seeded.includes("create_step"));
+      assert.ok(first.seeded.includes("create_workflow"));
       assert.ok(first.seeded.includes("create_task"));
       assert.deepEqual(first.skipped, []);
       assert.equal(first.seeded.includes("ensure_aspect"), false);

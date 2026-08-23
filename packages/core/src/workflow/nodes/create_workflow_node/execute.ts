@@ -1,8 +1,9 @@
 import { parseWorkflowNode } from "../../graph/schema";
 import { getNodeModel } from "../registry";
 import { isPosition, isRecord, normalizeNodeType } from "../_shared/schema";
-import type { WorkflowNode, WorkflowNodeData, WorkflowNodeType } from "../_shared/types";
+import type { BagShape, WorkflowNode, WorkflowNodeData, WorkflowNodeType } from "../_shared/types";
 import type { NodeExecuteContext, WorkflowStepResult } from "../../runtime/types";
+import { isShapeAssignable, parseBagShape, parseShapeSlim, serializeShapeSlim } from "../../shapes";
 
 type NodePlan = {
   id?: string;
@@ -106,6 +107,163 @@ function validatePlanSemantics(input: {
   return errors;
 }
 
+function dataInputPins(node: WorkflowNode): string[] {
+  const model = getNodeModel(node.type);
+  const fromModel = model.dataInputs?.(node) ?? [];
+  if (fromModel.length > 0) {
+    return fromModel;
+  }
+  return Object.keys(node.data.inputs ?? {});
+}
+
+function dataOutputPins(node: WorkflowNode): string[] {
+  const model = getNodeModel(node.type);
+  const fromModel = model.dataOutputs?.(node) ?? [];
+  if (fromModel.length > 0) {
+    return fromModel;
+  }
+  return Object.keys(node.data.outputContracts ?? {});
+}
+
+function mergeDeclaredRecords<T>(
+  declared: string[],
+  defaults: Record<string, T> | undefined,
+  planned: Record<string, T> | undefined
+): Record<string, T> | undefined {
+  if (declared.length === 0) {
+    return planned ?? defaults;
+  }
+  const merged: Record<string, T> = { ...(defaults ?? {}) };
+  if (planned) {
+    for (const pin of declared) {
+      if (pin in planned) {
+        merged[pin] = planned[pin]!;
+      }
+    }
+  }
+  return Object.keys(merged).length > 0 ? merged : undefined;
+}
+
+/** Map a bag-key-as-pin binding onto the unique unbound typed pin (math: value/result). */
+function coerceUniquePinBindings(
+  bindings: Record<string, string>,
+  pins: string[]
+): Record<string, string> {
+  const next = { ...bindings };
+  if (pins.length === 0) {
+    return next;
+  }
+  for (const key of Object.keys(next)) {
+    if (pins.includes(key)) {
+      continue;
+    }
+    const unbound = pins.filter((pin) => next[pin] === undefined);
+    if (unbound.length !== 1) {
+      continue;
+    }
+    next[unbound[0]!] = next[key]!;
+    delete next[key];
+  }
+  return next;
+}
+
+function loopLocalPins(node: WorkflowNode): Set<string> {
+  if (node.type !== "foreach") {
+    return new Set();
+  }
+  return new Set([
+    node.data.foreach?.itemKey ?? "item",
+    node.data.foreach?.indexKey ?? "index"
+  ]);
+}
+
+function shapeFromAvailableValue(value: unknown): BagShape | undefined {
+  return parseBagShape(value) ?? (typeof value === "string" ? parseShapeSlim(value) : undefined);
+}
+
+function pinShape(node: WorkflowNode, pin: string, channel: "in" | "out"): BagShape | undefined {
+  if (channel === "in") {
+    return node.data.inputs?.[pin]?.shape;
+  }
+  return node.data.outputContracts?.[pin]?.shape;
+}
+
+function availableShapeMap(value: unknown): Record<string, unknown> | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  return isRecord(value.keys) ? value.keys : value;
+}
+
+/**
+ * Registry-aware pin/binding checks. When availableBagShape is set, every data
+ * input pin must bind to an available key (identity if the pin name is that key).
+ * Required output pins that are not loop locals need writeBindings unless the pin
+ * name is already an available key.
+ */
+function validatePinBindings(input: {
+  node: WorkflowNode;
+  plan: NodePlan;
+  availableBagShape: unknown;
+}): string[] {
+  const errors: string[] = [];
+  const node = input.node;
+  const dataIn = dataInputPins(node);
+  const dataOut = dataOutputPins(node);
+  const inputBindings = node.data.inputBindings ?? {};
+  const writeBindings = node.data.writeBindings ?? {};
+  const available = availableBagKeys(input.availableBagShape);
+  const availableShapes = availableShapeMap(input.availableBagShape);
+
+  for (const pin of Object.keys(inputBindings)) {
+    if (!dataIn.includes(pin)) {
+      errors.push(`nodePlan.inputBindings.${pin} is not a data input pin on ${node.type}.`);
+    }
+  }
+  for (const pin of Object.keys(writeBindings)) {
+    if (!dataOut.includes(pin)) {
+      errors.push(`nodePlan.writeBindings.${pin} is not a data output pin on ${node.type}.`);
+    }
+  }
+
+  if (!available) {
+    return errors;
+  }
+
+  for (const pin of dataIn) {
+    const bound = inputBindings[pin] ?? (available.has(pin) ? pin : undefined);
+    if (!bound) {
+      errors.push(`nodePlan.inputBindings.${pin} is required for data input pin '${pin}'.`);
+      continue;
+    }
+    if (!available.has(pathRoot(bound))) {
+      errors.push(`nodePlan.inputBindings.${pin} references unavailable bag key '${bound}'.`);
+      continue;
+    }
+    const upstream = availableShapes
+      ? shapeFromAvailableValue(availableShapes[pathRoot(bound)])
+      : undefined;
+    const downstream = pinShape(node, pin, "in");
+    if (upstream && downstream && !isShapeAssignable(upstream, downstream)) {
+      errors.push(
+        `nodePlan.inputBindings.${pin} shape ${serializeShapeSlim(upstream)} is not assignable to pin '${pin}' (${serializeShapeSlim(downstream)}).`
+      );
+    }
+  }
+
+  const locals = loopLocalPins(node);
+  for (const pin of dataOut) {
+    if (locals.has(pin) || available.has(pin)) {
+      continue;
+    }
+    if (!writeBindings[pin]) {
+      errors.push(`nodePlan.writeBindings.${pin} is required for data output pin '${pin}'.`);
+    }
+  }
+
+  return errors;
+}
+
 function sanitizeId(value: string): string {
   return value
     .trim()
@@ -181,20 +339,55 @@ function rawNodeFromPlan(plan: NodePlan): WorkflowNode {
   const title = plan.title?.trim() || defaults.title || plan.purpose?.trim() || plan.nodeType;
   const id = sanitizeId(plan.id ?? title) || `${plan.nodeType}_node`;
 
-  return {
+  const skeleton: WorkflowNode = {
     id,
     type: plan.nodeType,
     position: plan.position ?? { x: 0, y: 0 },
     data: {
       ...defaults,
       ...configData,
-      title,
+      title
+    }
+  };
+  const declaredIn = model.dataInputs?.(skeleton) ?? [];
+  const declaredOut = model.dataOutputs?.(skeleton) ?? [];
+  const inputBindings = coerceUniquePinBindings(
+    { ...(plan.inputBindings ?? defaults.inputBindings ?? {}) },
+    declaredIn
+  );
+  const writeBindings = coerceUniquePinBindings(
+    { ...(plan.writeBindings ?? defaults.writeBindings ?? {}) },
+    declaredOut
+  );
+  const reads = plan.reads ?? defaults.reads ?? [];
+  if (declaredIn.length === 1 && reads.length === 1 && !inputBindings[declaredIn[0]!]) {
+    inputBindings[declaredIn[0]!] = reads[0]!;
+  }
+  const writes = plan.writes ?? defaults.writes ?? [];
+  if (declaredOut.length === 1 && writes.length === 1 && !writeBindings[declaredOut[0]!]) {
+    writeBindings[declaredOut[0]!] = writes[0]!;
+  }
+
+  return {
+    ...skeleton,
+    data: {
+      ...skeleton.data,
       ...(plan.reads ? { reads: plan.reads } : {}),
       ...(plan.writes ? { writes: plan.writes } : {}),
-      ...(plan.inputs ? { inputs: plan.inputs } : {}),
-      ...(plan.outputContracts ? { outputContracts: plan.outputContracts } : {}),
-      ...(plan.inputBindings ? { inputBindings: plan.inputBindings } : {}),
-      ...(plan.writeBindings ? { writeBindings: plan.writeBindings } : {})
+      ...(plan.inputs
+        ? { inputs: mergeDeclaredRecords(declaredIn, defaults.inputs, plan.inputs) }
+        : {}),
+      ...(plan.outputContracts
+        ? {
+            outputContracts: mergeDeclaredRecords(
+              declaredOut,
+              defaults.outputContracts,
+              plan.outputContracts
+            )
+          }
+        : {}),
+      ...(Object.keys(inputBindings).length > 0 ? { inputBindings } : {}),
+      ...(Object.keys(writeBindings).length > 0 ? { writeBindings } : {})
     }
   };
 }
@@ -218,6 +411,21 @@ function repairInstructions(errors: string[]): string {
     "Keep the same user intent, but fix these validation errors:",
     ...errors.map((error) => `- ${error}`)
   ].join("\n");
+}
+
+function wiringHints(node: WorkflowNode) {
+  return {
+    inputBindings: { ...(node.data.inputBindings ?? {}) },
+    writeBindings: { ...(node.data.writeBindings ?? {}) },
+    wireIntent: [
+      ...Object.entries(node.data.inputBindings ?? {}).map(
+        ([pin, key]) => `Read ${key} into input pin ${pin}.`
+      ),
+      ...Object.entries(node.data.writeBindings ?? {}).map(
+        ([pin, key]) => `Write output pin ${pin} to ${key}.`
+      )
+    ]
+  };
 }
 
 export async function executeCreateWorkflowNode(
@@ -300,6 +508,30 @@ export async function executeCreateWorkflowNode(
     return applied.ok ? ctx.advance() : ctx.fail(applied.error);
   }
 
+  const pinErrors = validatePinBindings({
+    node: parsedNode.node,
+    plan: parsedPlan.plan,
+    availableBagShape: config.availableBagShapeFrom
+      ? ctx.read(config.availableBagShapeFrom)
+      : undefined
+  });
+  if (pinErrors.length > 0) {
+    values[outputKey] = null;
+    values[metaKey] = {};
+    values[errorsKey] = pinErrors;
+    values[validKey] = false;
+    values[hasErrorsKey] = true;
+    values[repairKey] = repairInstructions(pinErrors);
+    if (stepDraftKey) {
+      values[stepDraftKey] = {
+        nodes: [],
+        validation: { ok: false, errors: pinErrors }
+      };
+    }
+    const applied = ctx.applyWrites(values);
+    return applied.ok ? ctx.advance() : ctx.fail(applied.error);
+  }
+
   const meta = nodeMeta(parsedNode.node);
   values[outputKey] = parsedNode.node;
   values[metaKey] = meta;
@@ -311,6 +543,7 @@ export async function executeCreateWorkflowNode(
     values[stepDraftKey] = {
       nodes: [parsedNode.node],
       nodeMeta: [meta],
+      wiringHints: [wiringHints(parsedNode.node)],
       validation: { ok: true, errors: [] }
     };
   }

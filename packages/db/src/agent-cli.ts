@@ -347,6 +347,8 @@ async function main(): Promise<void> {
     console.log("  pnpm plan import --from <file>");
     console.log("  pnpm plan presets-ensure [--force] [--only ensure_aspect]");
     console.log("  pnpm plan author-demo --brief <text> [--title <text>] [--json] [--outline-only]");
+    console.log("  pnpm plan create-workflow-demo --brief <text> [--bag-shape '{...}'] [--allowed-types math] [--json]");
+    console.log("    Prints JSON on stdout (does not persist a Flow). Redirect to save: > draft.json");
     return;
   }
 
@@ -456,6 +458,88 @@ async function main(): Promise<void> {
           ...new Set(result.graph.nodes.map((node) => node.type))
         ].join(",")}`
       );
+    }
+    return;
+  }
+
+  if (command === "create-workflow-demo") {
+    const { loadEnv } = await import("./client");
+    loadEnv();
+    const { readLlmChatConfigFromEnv, runCreateWorkflowLive } = await import("@projectplaner/core");
+
+    const brief =
+      first(args.options, "brief")?.trim() ||
+      args.positionals.slice(1).join(" ").trim();
+    const asJson = "json" in args.options;
+    const bagShapeRaw = first(args.options, "bag-shape")?.trim();
+    const allowedRaw = first(args.options, "allowed-types")?.trim();
+
+    if (!brief) {
+      throw new Error(
+        'create-workflow-demo requires --brief "<what the workflow should do>" (or a trailing brief).'
+      );
+    }
+
+    const config = readLlmChatConfigFromEnv();
+    if (!config) {
+      throw new Error(
+        "LLM not configured. Set PROJECTPLANER_LLM_BASE_URL and PROJECTPLANER_LLM_MODEL in .env (e.g. Ollama)."
+      );
+    }
+
+    let availableBagShape: Record<string, unknown> | undefined;
+    if (bagShapeRaw) {
+      const parsed = JSON.parse(bagShapeRaw) as unknown;
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new Error('--bag-shape must be a JSON object, e.g. {"currentValue":"number"}.');
+      }
+      availableBagShape = parsed as Record<string, unknown>;
+    }
+
+    const allowedNodeTypes = allowedRaw
+      ? allowedRaw.split(",").map((part) => part.trim()).filter(Boolean)
+      : undefined;
+
+    console.error(`Model: ${config.model}`);
+    console.error(`Brief: ${brief}`);
+
+    const result = await runCreateWorkflowLive(
+      {
+        brief,
+        availableBagShape,
+        allowedNodeTypes,
+        onTurn: (turn) => {
+          console.error(`=== LLM ${turn.turn} ${turn.nodeId} ${turn.schemaKey ?? ""} ===`);
+          if (!asJson) {
+            console.error(JSON.stringify(turn.writes, null, 2));
+          }
+        }
+      },
+      config
+    );
+
+    if (!asJson) {
+      console.error("");
+      console.error(`=== ${result.ok ? "COMPLETED" : "FAILED"} ===`);
+      if (result.message) {
+        console.error(result.message);
+      }
+      console.error("Does not persist a Flow. Stdout JSON is the saveable draft (stepDrafts if assemble failed).");
+    }
+    console.log(
+      JSON.stringify(
+        {
+          model: config.model,
+          brief,
+          ...result
+        },
+        null,
+        2
+      )
+    );
+
+    if (!result.ok) {
+      process.exitCode = 1;
     }
     return;
   }

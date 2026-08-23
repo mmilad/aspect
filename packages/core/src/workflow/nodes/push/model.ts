@@ -6,7 +6,7 @@ import { parsePushNodeConfig } from "./schema";
 export const pushNode: WorkflowNodeModel = {
   type: "push",
   kind: "work",
-  description: "Appends one value into an existing array in the bag.",
+  description: "Appends one value onto an array pin, creating [] if the target is empty.",
   configKey: "push",
   defaultData: () => ({
     title: "Push",

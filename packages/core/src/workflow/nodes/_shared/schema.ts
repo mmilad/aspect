@@ -28,6 +28,7 @@ export const CONFIG_KEYS = [
   "math",
   "push",
   "createWorkflowNode",
+  "assembleFragment",
   "wait",
   "subworkflow"
 ] as const;

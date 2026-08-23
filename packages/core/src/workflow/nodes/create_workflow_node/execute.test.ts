@@ -7,6 +7,7 @@ import { workflowNodeTypes } from "../_shared/types";
 const JSON_SHAPE = { kind: "any" as const };
 const BOOLEAN = { kind: "primitive" as const, type: "boolean" as const };
 const STRING = { kind: "primitive" as const, type: "string" as const };
+const NUMBER = { kind: "primitive" as const, type: "number" as const };
 
 function parsed(raw: unknown): WorkflowGraph {
   const result = parseWorkflowGraph(raw);
@@ -138,6 +139,8 @@ function configForType(type: WorkflowNodeType): Record<string, unknown> {
       return { target: "items", valueFrom: "item" };
     case "create_workflow_node":
       return { planFrom: "nodePlan" };
+    case "assemble_fragment":
+      return { draftsFrom: "stepDrafts" };
     case "get":
     case "set":
       return { variable: "scratch" };
@@ -179,7 +182,7 @@ describe("create_workflow_node execution", () => {
     expect(keys.nodeMeta).toMatchObject({
       nodeType: "foreach",
       execInputs: ["in"],
-      execOutputs: ["body", "completed"],
+      execOutputs: ["body", "loop", "completed"],
       dataInputs: ["missions"]
     });
     expect(keys.stepDraft).toMatchObject({
@@ -304,5 +307,237 @@ describe("create_workflow_node execution", () => {
       "nodePlan.reads references unavailable bag key 'missionz'.",
       "nodePlan.config.foreach.itemsFrom references unavailable bag key 'missionz'."
     ]);
+  });
+
+  it("rejects a math plan that omits pin bindings when a bag shape is provided", async () => {
+    const keys = await runFactory(
+      {
+        nodeType: "math",
+        title: "Divide by 2",
+        config: { operation: "divide", operand: 2 }
+      },
+      { availableBagShape: { currentValue: "number" } }
+    );
+
+    expect(keys.workflowNode).toBeNull();
+    expect(keys.nodePlanValid).toBe(false);
+    expect(keys.validationErrors).toEqual(
+      expect.arrayContaining([
+        "nodePlan.inputBindings.value is required for data input pin 'value'.",
+        "nodePlan.writeBindings.result is required for data output pin 'result'."
+      ])
+    );
+    expect(keys.repairInstructions).toContain("inputBindings.value");
+  });
+
+  it("accepts a math plan with registry pins, bindings, and matching shapes", async () => {
+    const keys = await runFactory(
+      {
+        nodeType: "math",
+        title: "Divide by two",
+        reads: ["currentValue"],
+        writes: ["dividedByTwo"],
+        inputs: { value: { required: true, shape: NUMBER } },
+        outputContracts: { result: { required: true, shape: NUMBER } },
+        inputBindings: { value: "currentValue" },
+        writeBindings: { result: "dividedByTwo" },
+        config: { operation: "divide", operand: 2 }
+      },
+      { availableBagShape: { currentValue: "number" } }
+    );
+
+    expect(keys.nodePlanValid).toBe(true);
+    expect(keys.stepDraft).toMatchObject({
+      wiringHints: [
+        {
+          inputBindings: { value: "currentValue" },
+          writeBindings: { result: "dividedByTwo" }
+        }
+      ]
+    });
+  });
+
+  it("remaps bag-key-as-pin math bindings onto value/result", async () => {
+    const keys = await runFactory({
+      nodeType: "math",
+      title: "TripleHalvedValue",
+      config: { operation: "multiply", operand: 3 },
+      outputContracts: { tripledValue: { type: "number" } },
+      inputBindings: { halvedValue: "halvedValue" },
+      writeBindings: { tripledValue: "tripledValue" }
+    });
+
+    expect(keys.nodePlanValid).toBe(true);
+    expect(keys.workflowNode).toMatchObject({
+      type: "math",
+      data: {
+        outputContracts: { result: { required: true, shape: NUMBER } },
+        inputBindings: { value: "halvedValue" },
+        writeBindings: { result: "tripledValue" }
+      }
+    });
+    expect(keys.stepDraft).toMatchObject({
+      wiringHints: [
+        {
+          inputBindings: { value: "halvedValue" },
+          writeBindings: { result: "tripledValue" }
+        }
+      ]
+    });
+  });
+
+  it("infers unique math pin bindings from reads and writes", async () => {
+    const keys = await runFactory({
+      nodeType: "math",
+      title: "HalveCurrentValue",
+      reads: ["currentValue"],
+      writes: ["halvedValue"],
+      config: { operation: "divide", operand: 2 }
+    });
+
+    expect(keys.nodePlanValid).toBe(true);
+    expect(keys.stepDraft).toMatchObject({
+      wiringHints: [
+        {
+          inputBindings: { value: "currentValue" },
+          writeBindings: { result: "halvedValue" }
+        }
+      ]
+    });
+  });
+
+  it("rejects a math binding whose bag shape does not match the pin", async () => {
+    const keys = await runFactory(
+      {
+        nodeType: "math",
+        title: "Divide by two",
+        inputBindings: { value: "title" },
+        writeBindings: { result: "dividedByTwo" },
+        config: { operation: "divide", operand: 2 }
+      },
+      { availableBagShape: { title: "string" } }
+    );
+
+    expect(keys.nodePlanValid).toBe(false);
+    expect(keys.validationErrors).toEqual([
+      "nodePlan.inputBindings.value shape string is not assignable to pin 'value' (number)."
+    ]);
+  });
+
+  it("rejects bindings that do not name data pins on the selected node type", async () => {
+    const keys = await runFactory({
+      nodeType: "llm",
+      title: "Writer",
+      config: { instructions: "Return JSON." },
+      inputBindings: { goal: "goal" }
+    });
+
+    expect(keys.nodePlanValid).toBe(false);
+    expect(keys.validationErrors).toEqual([
+      "nodePlan.inputBindings.goal is not a data input pin on llm."
+    ]);
+  });
+
+  it("accepts foreach when the items pin matches an available bag key", async () => {
+    const keys = await runFactory(
+      {
+        nodeType: "foreach",
+        title: "Each mission",
+        reads: ["missions"],
+        config: { itemsFrom: "missions", itemKey: "mission", indexKey: "missionIndex" }
+      },
+      { availableBagShape: { missions: "string[]", decisions: "string[]" } }
+    );
+
+    expect(keys.nodePlanValid).toBe(true);
+  });
+
+  it("requires push bindings for indexed value pins when a bag shape is provided", async () => {
+    const keys = await runFactory(
+      {
+        nodeType: "push",
+        title: "Push decision",
+        config: { target: "decisions", valueFrom: "missions[missionIndex]" }
+      },
+      { availableBagShape: { missions: "string[]", decisions: "string[]" } }
+    );
+
+    expect(keys.nodePlanValid).toBe(false);
+    expect(keys.validationErrors).toEqual([
+      "nodePlan.inputBindings.missions[missionIndex] is required for data input pin 'missions[missionIndex]'."
+    ]);
+  });
+
+  it("accepts a branch plan that binds condition to an available flag", async () => {
+    const keys = await runFactory(
+      {
+        nodeType: "branch",
+        title: "Has flag",
+        config: { on: "flag" },
+        inputBindings: { condition: "flag" }
+      },
+      { availableBagShape: { flag: "boolean" } }
+    );
+
+    expect(keys.nodePlanValid).toBe(true);
+    expect(keys.stepDraft).toMatchObject({
+      wiringHints: [{ inputBindings: { condition: "flag" } }]
+    });
+  });
+
+  it("accepts switch when config.on is an available bag key", async () => {
+    const keys = await runFactory(
+      {
+        nodeType: "switch",
+        title: "By kind",
+        config: { on: "kind", cases: ["a"], defaultLabel: "default" }
+      },
+      { availableBagShape: { kind: "string" } }
+    );
+
+    expect(keys.nodePlanValid).toBe(true);
+  });
+
+  it("accepts map when config.from is an available bag key", async () => {
+    const keys = await runFactory(
+      {
+        nodeType: "map",
+        title: "Project titles",
+        config: { from: "items", as: "mapped", fields: [{ from: "title", as: "title" }] }
+      },
+      { availableBagShape: { items: "object[]" } }
+    );
+
+    expect(keys.nodePlanValid).toBe(true);
+  });
+
+  it("accepts llm and tool plans that bind declared input pins", async () => {
+    const llm = await runFactory(
+      {
+        nodeType: "llm",
+        title: "Draft",
+        inputs: { goal: { required: true, shape: STRING } },
+        outputContracts: { plan: { required: true, shape: STRING } },
+        inputBindings: { goal: "goal" },
+        writeBindings: { plan: "plan" },
+        config: { instructions: "Draft a plan." }
+      },
+      { availableBagShape: { goal: "string" } }
+    );
+    expect(llm.nodePlanValid).toBe(true);
+
+    const tool = await runFactory(
+      {
+        nodeType: "tool",
+        title: "Load",
+        inputs: { query: { required: true, shape: STRING } },
+        outputContracts: { matches: { required: true, shape: JSON_SHAPE } },
+        inputBindings: { query: "goal" },
+        writeBindings: { matches: "matches" },
+        config: { name: "loadContext" }
+      },
+      { availableBagShape: { goal: "string" } }
+    );
+    expect(tool.nodePlanValid).toBe(true);
   });
 });

@@ -1,5 +1,6 @@
 import { authorWorkflowPreset } from "./author-workflow";
 import { createStepPreset } from "./create-step";
+import { createWorkflowPreset } from "./create-workflow";
 import { ensureAspectPreset } from "./ensure-aspect";
 import { listCrudPresets, parseMutationPresetKey, presetKeyFor } from "./crud";
 import { nextWorkPreset } from "./next-work";
@@ -14,6 +15,7 @@ export type {
 } from "./types";
 export { authorWorkflowGraph, authorWorkflowPreset } from "./author-workflow";
 export { createStepGraph, createStepPreset } from "./create-step";
+export { createWorkflowGraph, createWorkflowPreset } from "./create-workflow";
 export { ensureAspectGraph, ensureAspectPreset } from "./ensure-aspect";
 export {
   listCrudPresetKeys,
@@ -28,7 +30,7 @@ export { rollupParentStatusGraph, rollupParentStatusPreset } from "./rollup-pare
 
 /** Seeded packs: mutation/rollup plus the pin-variable proof graph. */
 export function listWorkflowPresets(): WorkflowPreset[] {
-  return [...listCrudPresets(), rollupParentStatusPreset, createStepPreset];
+  return [...listCrudPresets(), rollupParentStatusPreset, createStepPreset, createWorkflowPreset];
 }
 
 /** Authoring packs kept in-repo but not seeded. */

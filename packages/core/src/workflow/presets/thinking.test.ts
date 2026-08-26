@@ -121,9 +121,10 @@ describe("thinking workflow preset", () => {
     const llmNodes = thinkingPreset.graph.nodes.filter((node) => node.type === "llm");
     expect(llmNodes).toHaveLength(7);
     expect(llmNodes.every((node) => node.data.llm?.schemaKey)).toBe(true);
+    expect(new Set(llmNodes.map((node) => node.data.llm?.systemPrompt)).size).toBe(1);
   });
 
-  it("pauses LLM steps with system prompt and resolved JSON schema preset", async () => {
+  it("pauses LLM steps with shared system prompt, active-step instructions, and resolved JSON schema preset", async () => {
     const paused = await pauseAtNextLlm();
     expect(paused.kind, paused.message).toBe("pending_llm");
     expect(paused.nodeId).toBe("understand");
@@ -131,7 +132,16 @@ describe("thinking workflow preset", () => {
     expect(paused.llm?.schemaKey).toBe(THOUGHT_ANALYSIS_V1_KEY);
     expect(paused.llm?.jsonSchema).toEqual(THOUGHT_ANALYSIS_V1_SCHEMA);
     expect(paused.llm?.systemPrompt).toContain("Return only JSON");
+    expect(paused.llm?.systemPrompt).toContain("thinking worker inside a workflow");
+    expect(paused.llm?.systemPrompt).toContain("The workflow has these LLM steps:");
+    expect(paused.llm?.systemPrompt).toContain("- Understand task:");
+    expect(paused.llm?.systemPrompt).toContain("- Reflect:");
+    expect(paused.llm?.systemPrompt).not.toContain("You are at the Understand task step.");
+    expect(paused.llm?.instructions).toContain("You are at the Understand task step.");
+    expect(paused.llm?.instructions).toContain("Your tasks are:");
+    expect(paused.llm?.instructions).toContain("Use prior decision, validation, reflection");
     expect(paused.llm?.systemPrompt).toContain("Do not include private chain-of-thought");
+    expect(paused.llm?.systemPrompt).not.toContain("Projectplaner");
   });
 
   it("successful path finalizes only after an accepted validation", async () => {
@@ -158,6 +168,10 @@ describe("thinking workflow preset", () => {
     paused = await runAttempt(paused.bag, 1, false);
     expect(paused.kind).toBe("pending_llm");
     expect(paused.nodeId).toBe("reflect");
+    expect(paused.llm?.systemPrompt).toContain("- Reflect:");
+    expect(paused.llm?.systemPrompt).not.toContain("You are at the Reflect step.");
+    expect(paused.llm?.instructions).toContain("You are at the Reflect step.");
+    expect(paused.llm?.instructions).toContain("Explain why the decision was rejected.");
 
     paused = await completeLlm(paused.bag, "reflect", {
       reflection: {

@@ -80,13 +80,94 @@ const THOUGHT_VALIDATION = {
     recommendedAction: STRING
   }
 };
+const THINKING_STEPS = [
+  {
+    title: "Understand task",
+    tasks: [
+      "Understand the task, available context, constraints, expected output, and capabilities.",
+      "Use prior decision, validation, reflection, and trace inputs when this is a later iteration.",
+      "Emit a compact analysis and one analysis trace entry."
+    ]
+  },
+  {
+    title: "Generate alternatives",
+    tasks: [
+      "Generate candidate solutions that could satisfy the task.",
+      "Account for the current analysis and any reflection from a rejected attempt.",
+      "Emit alternatives and one alternatives trace entry."
+    ]
+  },
+  {
+    title: "Evaluate alternatives",
+    tasks: [
+      "Compare alternatives against the task, constraints, and expected output.",
+      "Identify strengths, risks, missing information, and tradeoffs.",
+      "Emit an evaluation and one evaluation trace entry."
+    ]
+  },
+  {
+    title: "Decide",
+    tasks: [
+      "Select the best result from the evaluated alternatives.",
+      "Provide a full decision object with result, reason, evidence, confidence, issues, and nextAction.",
+      "Emit one decision trace entry."
+    ]
+  },
+  {
+    title: "Validate decision",
+    tasks: [
+      "Validate whether the decision satisfies the task, constraints, and expected output.",
+      "Separate structural problems from semantic concerns.",
+      "Emit a validation result and one validation trace entry."
+    ]
+  },
+  {
+    title: "Reflect",
+    tasks: [
+      "Explain why the decision was rejected.",
+      "Identify the assumption, evidence gap, or conclusion that should change next.",
+      "Emit a reflection and one reflection trace entry."
+    ]
+  },
+  {
+    title: "Finalize",
+    tasks: [
+      "Finalize only an accepted decision.",
+      "Return the accepted decision result unchanged unless the schema requires packaging.",
+      "Report the highest completed iteration represented in the trace."
+    ]
+  }
+] as const;
 const THINKING_SYSTEM_PROMPT = [
-  "You are a careful Projectplaner thinking step.",
+  "You are a careful thinking worker inside a workflow.",
+  "The workflow has these LLM steps:",
+  ...THINKING_STEPS.flatMap((step) => [
+    `- ${step.title}:`,
+    ...step.tasks.map((task) => `  - ${task}`)
+  ]),
+  "When the task instructions say which step is active, perform only that step.",
   "Return only JSON that matches the selected response schema.",
   "Use only the declared inputs and explicit uncertainty; do not invent external facts.",
   "Do not include private chain-of-thought. Trace entries are compact semantic audit records: summary, reason, evidence, confidence, createdAt, iteration.",
-  "Keep confidence between 0 and 1. Use ISO timestamps for createdAt."
+  "Keep confidence between 0 and 1. Use ISO timestamps for createdAt.",
+  "Preserve the output port names required by the active step.",
+  "Prefer concise, inspectable summaries over long prose."
 ].join("\n");
+
+function stepTasks(title: string): string[] {
+  return THINKING_STEPS.find((step) => step.title === title)?.tasks.slice() ?? [];
+}
+
+function thinkingInstructions(step: string, instructions: string): string {
+  const tasks = stepTasks(step);
+  return [
+    `You are at the ${step} step.`,
+    "Your tasks are:",
+    ...tasks.map((task) => `- ${task}`),
+    "",
+    instructions
+  ].join("\n");
+}
 
 function data(
   id: string,
@@ -145,7 +226,7 @@ function llm(
         schemaKey,
         inputKeys: reads,
         outputSchema: writes,
-        instructions
+        instructions: thinkingInstructions(title, instructions)
       }
     }
   };

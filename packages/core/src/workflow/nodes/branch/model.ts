@@ -14,7 +14,10 @@ export const branchNode: WorkflowNodeModel = {
   inspectorFields: branchInspectorFields,
   execInputs: () => ["in"],
   execOutputs: () => ["true", "false"],
-  dataInputs: () => ["condition"],
+  dataInputs: (node) => {
+    const inputs = Object.keys(node.data.inputs ?? {});
+    return inputs.length > 0 ? inputs : ["condition"];
+  },
   canvasFields: (node) => [{ label: "on", value: node.data.branch?.on ?? "condition" }],
   validateTopology: (ctx) => {
     const routes = ctx.outgoing.filter((edge) => edge.kind === "route" || edge.sourcePin);

@@ -22,7 +22,8 @@ import type {
   WorkflowEdge,
   WorkflowGraph,
   WorkflowParseOutcome,
-  WorkflowRunFrame
+  WorkflowRunFrame,
+  WorkflowRunHistoryEntry
 } from "./types";
 
 const WORKFLOW_EDGE_KIND_SET = new Set<string>(workflowEdgeKinds);
@@ -267,6 +268,81 @@ export function validateTopology(graph: WorkflowGraph, errors: string[]): void {
     return false;
   }
 
+  function hasVisitLimit(nodeId: string): boolean {
+    const node = nodeById.get(nodeId);
+    if (node?.type === "foreach") {
+      return true;
+    }
+    const policy = node?.data.executionPolicy;
+    return Boolean(policy?.maxVisits || policy?.maxVisitsFrom);
+  }
+
+  const execEdges = graph.edges.filter(
+    (edge) => edge.kind !== "depends_on" && edge.kind !== "error" && edge.kind !== "data"
+  );
+  const execAdjacency = new Map<string, string[]>();
+  for (const node of graph.nodes) {
+    execAdjacency.set(node.id, []);
+  }
+  for (const edge of execEdges) {
+    execAdjacency.get(edge.source)?.push(edge.target);
+  }
+
+  let index = 0;
+  const stack: string[] = [];
+  const onStack = new Set<string>();
+  const indexes = new Map<string, number>();
+  const lowLinks = new Map<string, number>();
+  const components: string[][] = [];
+
+  function strongConnect(nodeId: string): void {
+    indexes.set(nodeId, index);
+    lowLinks.set(nodeId, index);
+    index += 1;
+    stack.push(nodeId);
+    onStack.add(nodeId);
+
+    for (const nextId of execAdjacency.get(nodeId) ?? []) {
+      if (!indexes.has(nextId)) {
+        strongConnect(nextId);
+        lowLinks.set(nodeId, Math.min(lowLinks.get(nodeId) ?? 0, lowLinks.get(nextId) ?? 0));
+      } else if (onStack.has(nextId)) {
+        lowLinks.set(nodeId, Math.min(lowLinks.get(nodeId) ?? 0, indexes.get(nextId) ?? 0));
+      }
+    }
+
+    if (lowLinks.get(nodeId) !== indexes.get(nodeId)) {
+      return;
+    }
+    const component: string[] = [];
+    while (stack.length > 0) {
+      const item = stack.pop()!;
+      onStack.delete(item);
+      component.push(item);
+      if (item === nodeId) {
+        break;
+      }
+    }
+    components.push(component);
+  }
+
+  for (const node of graph.nodes) {
+    if (!indexes.has(node.id)) {
+      strongConnect(node.id);
+    }
+  }
+
+  for (const component of components) {
+    const selfLoop = component.length === 1 && execEdges.some(
+      (edge) => edge.source === component[0] && edge.target === component[0]
+    );
+    if ((component.length > 1 || selfLoop) && !component.some(hasVisitLimit)) {
+      errors.push(
+        `Workflow cycle [${component.sort().join(", ")}] requires executionPolicy.maxVisits or maxVisitsFrom on at least one node.`
+      );
+    }
+  }
+
   // Ambiguous multi-next merge into work/control (non-join) nodes is forbidden.
   for (const [targetId, edges] of incoming) {
     const target = nodeById.get(targetId);
@@ -442,6 +518,21 @@ function parseFrame(raw: unknown): WorkflowRunFrame | undefined {
   };
 }
 
+function parseHistory(raw: unknown): WorkflowRunHistoryEntry[] | undefined {
+  if (!Array.isArray(raw)) {
+    return undefined;
+  }
+  const history = raw.filter(
+    (entry): entry is WorkflowRunHistoryEntry =>
+      isRecord(entry) &&
+      typeof entry.seq === "number" &&
+      typeof entry.nodeId === "string" &&
+      typeof entry.visit === "number" &&
+      typeof entry.createdAt === "string"
+  );
+  return history.length > 0 ? history.map((entry) => ({ ...entry })) : undefined;
+}
+
 export function parseContextBag(raw: unknown): WorkflowContextBag | null {
   if (!isRecord(raw)) {
     return null;
@@ -457,6 +548,12 @@ export function parseContextBag(raw: unknown): WorkflowContextBag | null {
   }
 
   const frame = parseFrame(raw.frame);
+  const history = parseHistory(raw.history);
+  const visits = isRecord(raw.visits)
+    ? Object.fromEntries(
+        Object.entries(raw.visits).filter(([, value]) => typeof value === "number") as Array<[string, number]>
+      )
+    : undefined;
 
   return {
     workflowId: raw.workflowId,
@@ -475,6 +572,8 @@ export function parseContextBag(raw: unknown): WorkflowContextBag | null {
         : undefined,
     error: typeof raw.error === "string" ? raw.error : undefined,
     frontier: asStringArray(raw.frontier),
+    ...(history ? { history } : {}),
+    ...(visits ? { visits } : {}),
     ...(frame ? { frame } : {})
   };
 }
@@ -495,6 +594,8 @@ export function writeContextBag(metadata: JsonRecord, bag: WorkflowContextBag): 
       ...(bag.status ? { status: bag.status } : {}),
       ...(bag.error ? { error: bag.error } : {}),
       ...(bag.frontier ? { frontier: bag.frontier } : {}),
+      ...(bag.history ? { history: bag.history } : {}),
+      ...(bag.visits ? { visits: bag.visits } : {}),
       ...(bag.frame ? { frame: bag.frame } : {})
     }
   };

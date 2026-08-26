@@ -279,6 +279,7 @@ function crudPreset(op: MutationOp, type: EntityType): WorkflowPreset {
         : `${title} through the workflow runner.`,
     body,
     status: "accepted",
+    kind: "mutation",
     graph
   };
 }

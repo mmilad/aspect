@@ -232,5 +232,7 @@ export const createWorkflowPreset: WorkflowPreset = {
     "Output: workflowDraft. Persistence and graph-level QA are deferred."
   ].join("\n"),
   status: "accepted",
-  graph: createWorkflowGraph
+  kind: "builder",
+  graph: createWorkflowGraph,
+  supportsTargetSlug: "FEAT-24"
 };

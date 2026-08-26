@@ -58,8 +58,13 @@ const BOOLEAN: BagShape = { kind: "primitive", type: "boolean" };
 const NULL_PRIM: BagShape = { kind: "primitive", type: "null" };
 const NULLABLE_STRING: BagShape = { kind: "union", options: [STRING, NULL_PRIM] };
 
-function objectShape(fields: Record<string, BagShape>, ref?: string): BagShape {
-  return { kind: "object", fields, ...(ref ? { ref } : {}) };
+function objectShape(fields: Record<string, BagShape>, ref?: string, requiredFields?: string[]): BagShape {
+  return {
+    kind: "object",
+    fields,
+    ...(ref ? { ref } : {}),
+    ...(requiredFields ? { requiredFields } : {})
+  };
 }
 
 /** Builtin shape catalog (stable refs for UI + slim AI). */
@@ -118,7 +123,12 @@ export function resolveBagShape(shape: BagShape | undefined): BagShape {
     for (const [key, value] of Object.entries(shape.fields)) {
       fields[key] = resolveBagShape(value);
     }
-    return { kind: "object", fields, ...(shape.ref ? { ref: shape.ref } : {}) };
+    return {
+      kind: "object",
+      fields,
+      ...(shape.ref ? { ref: shape.ref } : {}),
+      ...(shape.requiredFields ? { requiredFields: [...shape.requiredFields] } : {})
+    };
   }
   if (shape.kind === "union") {
     return {
@@ -642,6 +652,11 @@ export function validateValueAgainstShape(
     if (!isRecordShape(value)) {
       return { ok: false, error: "expected object" };
     }
+    for (const key of resolved.requiredFields ?? []) {
+      if (!(key in value)) {
+        return { ok: false, error: `missing required field '${key}'` };
+      }
+    }
     for (const [key, fieldShape] of Object.entries(resolved.fields)) {
       if (!(key in value)) {
         continue;
@@ -682,8 +697,16 @@ export function parseBagShape(raw: unknown): BagShape | undefined {
       return { kind: "array", items };
     }
     case "object": {
+      const requiredFields = Array.isArray(raw.requiredFields)
+        ? raw.requiredFields.filter((item): item is string => typeof item === "string")
+        : undefined;
       if (!isRecordShape(raw.fields)) {
-        return { kind: "object", fields: {}, ref: typeof raw.ref === "string" ? raw.ref : undefined };
+        return {
+          kind: "object",
+          fields: {},
+          ref: typeof raw.ref === "string" ? raw.ref : undefined,
+          ...(requiredFields && requiredFields.length > 0 ? { requiredFields } : {})
+        };
       }
       const fields: Record<string, BagShape> = {};
       for (const [key, value] of Object.entries(raw.fields)) {
@@ -695,7 +718,8 @@ export function parseBagShape(raw: unknown): BagShape | undefined {
       return {
         kind: "object",
         fields,
-        ref: typeof raw.ref === "string" ? raw.ref : undefined
+        ref: typeof raw.ref === "string" ? raw.ref : undefined,
+        ...(requiredFields && requiredFields.length > 0 ? { requiredFields } : {})
       };
     }
     case "union": {

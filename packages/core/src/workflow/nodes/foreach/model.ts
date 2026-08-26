@@ -44,8 +44,9 @@ export const foreachNode: WorkflowNodeModel = {
   dataInputs: (node) => [node.data.foreach?.itemsFrom].filter(Boolean) as string[],
   dataOutputs: (node) => [
     node.data.foreach?.itemKey ?? "item",
-    node.data.foreach?.indexKey ?? "index"
-  ],
+    node.data.foreach?.indexKey ?? "index",
+    node.data.foreach?.collect?.as
+  ].filter(Boolean) as string[],
   canvasFields: (node) => {
     const each = node.data.foreach;
     return each

@@ -16,6 +16,13 @@ export const WORKFLOW_NODE_PLAN_V1_KEY = "workflow_node_plan_v1";
 export const WORKFLOW_NODE_QA_V1_KEY = "workflow_node_qa_v1";
 export const WORKFLOW_STEP_DRAFT_V1_KEY = "workflow_step_draft_v1";
 export const WORKFLOW_STEP_LIST_V1_KEY = "workflow_step_list_v1";
+export const THOUGHT_ANALYSIS_V1_KEY = "thought_analysis_v1";
+export const THOUGHT_ALTERNATIVES_V1_KEY = "thought_alternatives_v1";
+export const THOUGHT_EVALUATION_V1_KEY = "thought_evaluation_v1";
+export const THOUGHT_DECISION_V1_KEY = "thought_decision_v1";
+export const THOUGHT_VALIDATION_V1_KEY = "thought_validation_v1";
+export const THOUGHT_REFLECTION_V1_KEY = "thought_reflection_v1";
+export const THOUGHT_FINALIZE_V1_KEY = "thought_finalize_v1";
 
 export const WORKFLOW_IR_V1_SCHEMA: Record<string, unknown> = {
   $id: "projectplaner:llm-json-schema:workflow_ir_v1",
@@ -227,6 +234,172 @@ export const WORKFLOW_STEP_LIST_V1_SCHEMA: Record<string, unknown> = {
   additionalProperties: false
 };
 
+const CONFIDENCE_SCHEMA = { type: "number", minimum: 0, maximum: 1 };
+const STRING_ARRAY_SCHEMA = {
+  type: "array",
+  items: { type: "string", minLength: 1 }
+};
+const REJECTED_ALTERNATIVE_SCHEMA = {
+  type: "object",
+  properties: {
+    alternative: { type: "string", minLength: 1 },
+    reason: { type: "string", minLength: 1 }
+  },
+  required: ["alternative", "reason"],
+  additionalProperties: false
+};
+const THOUGHT_DECISION_SCHEMA = {
+  type: "object",
+  properties: {
+    result: {},
+    decision: { type: "string", minLength: 1 },
+    accepted: { type: "boolean" },
+    reason: { type: "string", minLength: 1 },
+    evidence: STRING_ARRAY_SCHEMA,
+    confidence: CONFIDENCE_SCHEMA,
+    rejectedAlternatives: {
+      type: "array",
+      items: REJECTED_ALTERNATIVE_SCHEMA
+    },
+    issues: STRING_ARRAY_SCHEMA,
+    nextAction: { type: "string", minLength: 1 }
+  },
+  required: [
+    "result",
+    "decision",
+    "accepted",
+    "reason",
+    "evidence",
+    "confidence",
+    "rejectedAlternatives",
+    "issues",
+    "nextAction"
+  ],
+  additionalProperties: false
+};
+const THOUGHT_VALIDATION_SCHEMA = {
+  type: "object",
+  properties: {
+    accepted: { type: "boolean" },
+    reason: { type: "string", minLength: 1 },
+    issues: STRING_ARRAY_SCHEMA,
+    confidence: CONFIDENCE_SCHEMA,
+    recommendedAction: { type: "string" }
+  },
+  required: ["accepted", "reason", "issues", "confidence", "recommendedAction"],
+  additionalProperties: false
+};
+
+function traceEntrySchema(kind: string, nodeId: string): Record<string, unknown> {
+  return {
+    type: "object",
+    properties: {
+      id: { type: "string", minLength: 1 },
+      iteration: { type: "number", minimum: 1 },
+      nodeId: { const: nodeId },
+      kind: { const: kind },
+      summary: { type: "string", minLength: 1 },
+      reason: { type: "string", minLength: 1 },
+      evidence: STRING_ARRAY_SCHEMA,
+      confidence: CONFIDENCE_SCHEMA,
+      createdAt: { type: "string", minLength: 1 }
+    },
+    required: [
+      "id",
+      "iteration",
+      "nodeId",
+      "kind",
+      "summary",
+      "reason",
+      "evidence",
+      "confidence",
+      "createdAt"
+    ],
+    additionalProperties: false
+  };
+}
+
+export const THOUGHT_ANALYSIS_V1_SCHEMA: Record<string, unknown> = {
+  $id: "projectplaner:llm-json-schema:thought_analysis_v1",
+  type: "object",
+  properties: {
+    analysis: {},
+    analysisTrace: traceEntrySchema("analysis", "understand")
+  },
+  required: ["analysis", "analysisTrace"],
+  additionalProperties: false
+};
+
+export const THOUGHT_ALTERNATIVES_V1_SCHEMA: Record<string, unknown> = {
+  $id: "projectplaner:llm-json-schema:thought_alternatives_v1",
+  type: "object",
+  properties: {
+    alternatives: {
+      type: "array",
+      minItems: 1,
+      items: {}
+    },
+    alternativesTrace: traceEntrySchema("alternatives", "generate_alternatives")
+  },
+  required: ["alternatives", "alternativesTrace"],
+  additionalProperties: false
+};
+
+export const THOUGHT_EVALUATION_V1_SCHEMA: Record<string, unknown> = {
+  $id: "projectplaner:llm-json-schema:thought_evaluation_v1",
+  type: "object",
+  properties: {
+    evaluation: {},
+    evaluationTrace: traceEntrySchema("evaluation", "evaluate")
+  },
+  required: ["evaluation", "evaluationTrace"],
+  additionalProperties: false
+};
+
+export const THOUGHT_DECISION_V1_SCHEMA: Record<string, unknown> = {
+  $id: "projectplaner:llm-json-schema:thought_decision_v1",
+  type: "object",
+  properties: {
+    decision: THOUGHT_DECISION_SCHEMA,
+    decisionTrace: traceEntrySchema("decision", "decide")
+  },
+  required: ["decision", "decisionTrace"],
+  additionalProperties: false
+};
+
+export const THOUGHT_VALIDATION_V1_SCHEMA: Record<string, unknown> = {
+  $id: "projectplaner:llm-json-schema:thought_validation_v1",
+  type: "object",
+  properties: {
+    validation: THOUGHT_VALIDATION_SCHEMA,
+    validationTrace: traceEntrySchema("validation", "validate")
+  },
+  required: ["validation", "validationTrace"],
+  additionalProperties: false
+};
+
+export const THOUGHT_REFLECTION_V1_SCHEMA: Record<string, unknown> = {
+  $id: "projectplaner:llm-json-schema:thought_reflection_v1",
+  type: "object",
+  properties: {
+    reflection: {},
+    reflectionTrace: traceEntrySchema("reflection", "reflect")
+  },
+  required: ["reflection", "reflectionTrace"],
+  additionalProperties: false
+};
+
+export const THOUGHT_FINALIZE_V1_SCHEMA: Record<string, unknown> = {
+  $id: "projectplaner:llm-json-schema:thought_finalize_v1",
+  type: "object",
+  properties: {
+    result: {},
+    iterations: { type: "number", minimum: 1 }
+  },
+  required: ["result", "iterations"],
+  additionalProperties: false
+};
+
 export const LLM_JSON_SCHEMA_PRESETS: LlmJsonSchemaPreset[] = [
   {
     key: WORKFLOW_IR_V1_KEY,
@@ -262,6 +435,48 @@ export const LLM_JSON_SCHEMA_PRESETS: LlmJsonSchemaPreset[] = [
     description:
       "Ordered create_step instructions for create_workflow. At least two unique strings; no upper bound. Foreach runs create_step for each string.",
     schema: WORKFLOW_STEP_LIST_V1_SCHEMA
+  },
+  {
+    key: THOUGHT_ANALYSIS_V1_KEY,
+    title: "Thought Analysis v1",
+    description: "Thinking workflow analysis output plus one compact semantic trace entry.",
+    schema: THOUGHT_ANALYSIS_V1_SCHEMA
+  },
+  {
+    key: THOUGHT_ALTERNATIVES_V1_KEY,
+    title: "Thought Alternatives v1",
+    description: "Thinking workflow candidate alternatives output plus one compact semantic trace entry.",
+    schema: THOUGHT_ALTERNATIVES_V1_SCHEMA
+  },
+  {
+    key: THOUGHT_EVALUATION_V1_KEY,
+    title: "Thought Evaluation v1",
+    description: "Thinking workflow alternatives evaluation output plus one compact semantic trace entry.",
+    schema: THOUGHT_EVALUATION_V1_SCHEMA
+  },
+  {
+    key: THOUGHT_DECISION_V1_KEY,
+    title: "Thought Decision v1",
+    description: "Thinking workflow final decision object plus one compact semantic trace entry.",
+    schema: THOUGHT_DECISION_V1_SCHEMA
+  },
+  {
+    key: THOUGHT_VALIDATION_V1_KEY,
+    title: "Thought Validation v1",
+    description: "Thinking workflow validation result plus one compact semantic trace entry.",
+    schema: THOUGHT_VALIDATION_V1_SCHEMA
+  },
+  {
+    key: THOUGHT_REFLECTION_V1_KEY,
+    title: "Thought Reflection v1",
+    description: "Thinking workflow rejection reflection plus one compact semantic trace entry.",
+    schema: THOUGHT_REFLECTION_V1_SCHEMA
+  },
+  {
+    key: THOUGHT_FINALIZE_V1_KEY,
+    title: "Thought Finalize v1",
+    description: "Thinking workflow accepted result and iteration count.",
+    schema: THOUGHT_FINALIZE_V1_SCHEMA
   }
 ];
 

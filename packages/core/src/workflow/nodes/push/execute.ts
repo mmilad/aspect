@@ -1,3 +1,4 @@
+import { usesPinFrame } from "../../graph/schema";
 import { readBagExpression } from "../../runtime/helpers";
 import type { NodeExecuteContext, WorkflowStepResult } from "../../runtime/types";
 
@@ -12,7 +13,7 @@ export async function executePush(ctx: NodeExecuteContext): Promise<WorkflowStep
     return ctx.fail(`Push ${ctx.node.id}: bag.${push.target} must be an array.`);
   }
 
-  const value = readBagExpression(ctx.bag.keys, push.valueFrom);
+  const value = usesPinFrame(ctx.graph) ? ctx.read(push.valueFrom) : readBagExpression(ctx.bag.keys, push.valueFrom);
   const applied = ctx.applyWrites({
     [push.target]: [...(Array.isArray(current) ? current : []), value]
   });

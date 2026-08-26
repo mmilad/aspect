@@ -5,7 +5,12 @@ import {
   serializeShapeSlim,
   WORKFLOW_SCHEMA_VERSION
 } from "../schema";
-import { ensureAspectPreset, listWorkflowPresets } from "./index";
+import {
+  ensureAspectPreset,
+  listParkedWorkflowPresets,
+  listWorkflowPresets,
+  resolveWorkflowKind
+} from "./index";
 
 describe("workflow presets", () => {
   it("lists mutation packs and create_step, parks authoring presets", () => {
@@ -19,6 +24,37 @@ describe("workflow presets", () => {
     expect(presets.some((preset) => preset.presetKey === "rollup_parent_status")).toBe(true);
     expect(presets.some((preset) => preset.presetKey === "create_step")).toBe(true);
     expect(presets.some((preset) => preset.presetKey === "create_workflow")).toBe(true);
+  });
+
+  it("assigns a closed kind to every catalog pack", () => {
+    const catalog = [...listWorkflowPresets(), ...listParkedWorkflowPresets()];
+    for (const preset of catalog) {
+      expect(preset.kind, preset.presetKey).toBeTruthy();
+    }
+    expect(listWorkflowPresets().find((preset) => preset.presetKey === "create_task")?.kind).toBe(
+      "mutation"
+    );
+    expect(listWorkflowPresets().find((preset) => preset.presetKey === "create_step")?.kind).toBe(
+      "builder"
+    );
+    expect(listWorkflowPresets().find((preset) => preset.presetKey === "create_workflow")?.kind).toBe(
+      "builder"
+    );
+    expect(
+      listWorkflowPresets().find((preset) => preset.presetKey === "rollup_parent_status")?.kind
+    ).toBe("housekeeping");
+    expect(listParkedWorkflowPresets().find((preset) => preset.presetKey === "onboarding")?.kind).toBe(
+      "orientation"
+    );
+  });
+
+  it("resolves kind from catalog presetKey before persisted presetKind", () => {
+    expect(resolveWorkflowKind({ presetKey: "create_task", kind: "user" })).toBe("mutation");
+    expect(resolveWorkflowKind({ presetKey: "create_workflow" })).toBe("builder");
+    expect(resolveWorkflowKind({ kind: "housekeeping" })).toBe("housekeeping");
+    expect(resolveWorkflowKind({ presetKey: "not_a_pack", kind: "orientation" })).toBe("orientation");
+    expect(resolveWorkflowKind({})).toBe("user");
+    expect(resolveWorkflowKind({ kind: "nope" })).toBe("user");
   });
 
   it("every pack parses into the current workflow graph version", () => {

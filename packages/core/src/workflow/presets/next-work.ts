@@ -78,5 +78,6 @@ export const nextWorkPreset: WorkflowPreset = {
     "Refresh seeded DB with: pnpm plan presets-ensure --force"
   ].join("\n"),
   status: "accepted",
+  kind: "housekeeping",
   graph: nextWorkGraph
 };

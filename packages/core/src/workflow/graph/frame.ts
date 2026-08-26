@@ -38,6 +38,8 @@ export function cloneContextBag(bag: WorkflowContextBag): WorkflowContextBag {
     ...bag,
     keys: { ...bag.keys },
     frontier: bag.frontier ? [...bag.frontier] : undefined,
+    history: bag.history ? bag.history.map((entry) => ({ ...entry })) : undefined,
+    visits: bag.visits ? { ...bag.visits } : undefined,
     ...(bag.frame ? { frame: cloneBagWithFrame(bag, bag.frame).frame } : {})
   };
 }

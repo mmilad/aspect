@@ -8,6 +8,7 @@ import {
   createEntity,
   ensureWorkflowPresets,
   listEntities,
+  listRelations,
   loadWorkflowGraph,
   updateEntity
 } from "./index";
@@ -54,6 +55,73 @@ describe("ensureWorkflowPresets", () => {
       assert.ok(graph);
       assert.ok(graph.nodes.length > 3);
       assert.ok(graph.variables?.some((variable) => variable.name === "stepInstructions"));
+      assert.equal(presetFlows[0]!.metadata.presetKind, "builder");
+      const createWorkflow = flows.find((flow) => flow.metadata.presetKey === "create_workflow");
+      assert.equal(createWorkflow?.metadata.presetKind, "builder");
+      const createTask = flows.find((flow) => flow.metadata.presetKey === "create_task");
+      assert.equal(createTask?.metadata.presetKind, "mutation");
+    })
+  );
+
+  it(
+    "skip path stamps presetKind without replacing the graph",
+    withTempDb(async (db) => {
+      await ensureWorkflowPresets(db, { projectKey: "PLAN" });
+      const before = (await listEntities(db, { projectKey: "PLAN", type: "flow" })).find(
+        (flow) => flow.metadata.presetKey === "create_step"
+      );
+      assert.ok(before);
+      const nodeCount = loadWorkflowGraph(db, before.id)?.nodes.length;
+      const { presetKind: _removed, ...metadataWithoutKind } = before.metadata;
+
+      await updateEntity(db, {
+        id: before.id,
+        patch: {
+          title: "Mutated Create Step",
+          metadata: metadataWithoutKind
+        }
+      });
+
+      const skip = await ensureWorkflowPresets(db, { projectKey: "PLAN" });
+      assert.ok(skip.skipped.includes("create_step"));
+      assert.deepEqual(skip.reseeded, []);
+      assert.deepEqual(skip.seeded, []);
+
+      const after = (await listEntities(db, { projectKey: "PLAN", type: "flow" })).find(
+        (flow) => flow.metadata.presetKey === "create_step"
+      );
+      assert.ok(after);
+      assert.equal(after.title, "Mutated Create Step");
+      assert.equal(after.metadata.presetKind, "builder");
+      assert.equal(loadWorkflowGraph(db, after.id)?.nodes.length, nodeCount);
+    })
+  );
+
+  it(
+    "links builder presets to a feature key without force-reseed",
+    withTempDb(async (db) => {
+      const feature = await createEntity(db, {
+        projectKey: "PLAN",
+        type: "feature",
+        title: "Workflow Builder Pipeline",
+        summary: "test target",
+        status: "in_progress",
+        key: "FEAT-24"
+      });
+
+      const first = await ensureWorkflowPresets(db, { projectKey: "PLAN", only: ["create_workflow"] });
+      assert.ok(first.seeded.includes("create_workflow"));
+
+      const flow = (await listEntities(db, { projectKey: "PLAN", type: "flow" })).find(
+        (entity) => entity.metadata.presetKey === "create_workflow"
+      );
+      assert.ok(flow);
+      const relations = await listRelations(db, { sourceEntityId: flow.id });
+      assert.ok(
+        relations.some(
+          (relation) => relation.targetEntityId === feature.entity.id && relation.type === "supports"
+        )
+      );
     })
   );
 

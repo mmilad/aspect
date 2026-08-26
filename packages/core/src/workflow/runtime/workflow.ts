@@ -77,6 +77,54 @@ export class WorkflowRun {
     return fail(bag, nodeId, error);
   }
 
+  private visitLimitFor(node: WorkflowNode, bag: WorkflowContextBag): number | undefined {
+    const policy = node.data.executionPolicy;
+    if (!policy) {
+      return undefined;
+    }
+    if (policy.maxVisitsFrom) {
+      const raw = bag.frame?.inputs[policy.maxVisitsFrom] ?? bag.keys[policy.maxVisitsFrom];
+      if (typeof raw === "number" && Number.isInteger(raw) && raw > 0) {
+        return raw;
+      }
+      return policy.maxVisits;
+    }
+    return policy.maxVisits;
+  }
+
+  private enterNode(bag: WorkflowContextBag, node: WorkflowNode): { ok: true; bag: WorkflowContextBag } | { ok: false; result: WorkflowStepResult } {
+    const visits = { ...(bag.visits ?? {}) };
+    const visit = (visits[node.id] ?? 0) + 1;
+    const limit = this.visitLimitFor(node, bag);
+    const history = bag.history ?? [];
+    const nextBag: WorkflowContextBag = {
+      ...bag,
+      visits: { ...visits, [node.id]: visit },
+      history: [
+        ...history,
+        {
+          seq: history.length + 1,
+          nodeId: node.id,
+          visit,
+          createdAt: new Date().toISOString()
+        }
+      ]
+    };
+
+    if (limit !== undefined && visit > limit) {
+      return {
+        ok: false,
+        result: this.contractFailure(
+          nextBag,
+          node.id,
+          `Node ${node.id} exceeded executionPolicy.maxVisits (${limit}).`
+        )
+      };
+    }
+
+    return { ok: true, bag: nextBag };
+  }
+
   async step(opts?: {
     llmWrites?: Record<string, unknown>;
     userRoute?: string;
@@ -115,6 +163,16 @@ export class WorkflowRun {
       const result = fail(bag, cursor, `${node.type === "get" ? "Get" : "Reroute"} ${node.id} is not an executable step.`);
       this._bag = result.bag;
       return result;
+    }
+
+    const isResume = (node.type === "llm" && Boolean(opts?.llmWrites)) || (node.type === "gate" && Boolean(opts?.userRoute));
+    if (!isResume) {
+      const entered = this.enterNode(bag, node);
+      if (!entered.ok) {
+        this._bag = entered.result.bag;
+        return entered.result;
+      }
+      bag = entered.bag;
     }
 
     if (node.type === "end" || node.type === "error_end") {
@@ -292,7 +350,9 @@ export class WorkflowRun {
       }
     }
 
-    return last ?? fail(this._bag, this._bag.cursor, "Workflow exceeded maxSteps.");
+    const result = fail(this._bag, this._bag.cursor, `Workflow exceeded maxSteps (${maxSteps}).`);
+    this._bag = result.bag;
+    return result;
   }
 }
 

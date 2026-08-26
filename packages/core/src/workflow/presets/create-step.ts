@@ -211,6 +211,7 @@ export const createStepGraph: WorkflowGraph = {
         outputContracts: {
           nodePlan: { required: true, shape: JSON_SHAPE }
         },
+        executionPolicy: { maxVisits: 3, onExhausted: "fail_run" },
         llm: {
           schemaKey: WORKFLOW_NODE_PLAN_V1_KEY,
           outputSchema: ["nodePlan"],
@@ -311,5 +312,7 @@ export const createStepPreset: WorkflowPreset = {
     "Rejected output routes into a dedicated fix-node-plan LLM, then re-runs deterministic creation and verification."
   ].join("\n"),
   status: "accepted",
-  graph: createStepGraph
+  kind: "builder",
+  graph: createStepGraph,
+  supportsTargetSlug: "FEAT-24"
 };

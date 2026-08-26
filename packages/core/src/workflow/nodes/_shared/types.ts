@@ -265,6 +265,10 @@ export interface WorkflowAssembleFragmentConfig {
 
 export interface WorkflowExecutionPolicy {
   timeoutMs?: number;
+  /** Maximum times this node may be entered in one run. */
+  maxVisits?: number;
+  /** Bag key containing the maximum visit count for this node. */
+  maxVisitsFrom?: string;
   retry?: {
     maxAttempts: number;
     backoffMs?: number;
@@ -286,7 +290,7 @@ export type BagShape =
   | { kind: "unknown" }
   | { kind: "any" }
   | { kind: "primitive"; type: "string" | "number" | "boolean" | "null" }
-  | { kind: "object"; fields: Record<string, BagShape>; ref?: string }
+  | { kind: "object"; fields: Record<string, BagShape>; ref?: string; requiredFields?: string[] }
   | { kind: "array"; items: BagShape }
   | { kind: "ref"; ref: string }
   | { kind: "union"; options: BagShape[] };

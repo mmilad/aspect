@@ -132,6 +132,7 @@ export const authorWorkflowPreset: WorkflowPreset = {
     "Refresh seeded DB with: pnpm plan presets-ensure --force"
   ].join("\n"),
   status: "accepted",
+  kind: "builder",
   graph: authorWorkflowGraph,
   supportsTargetSlug: "should-author-executable-workflow-step-graphs"
 };

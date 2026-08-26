@@ -97,6 +97,20 @@ export function parseExecutionPolicy(
       policy.timeoutMs = raw.timeoutMs;
     }
   }
+  if (raw.maxVisits !== undefined) {
+    if (typeof raw.maxVisits !== "number" || !Number.isInteger(raw.maxVisits) || raw.maxVisits < 1) {
+      errors.push(`Node ${nodeId} executionPolicy.maxVisits must be a positive integer.`);
+    } else {
+      policy.maxVisits = raw.maxVisits;
+    }
+  }
+  if (raw.maxVisitsFrom !== undefined) {
+    if (typeof raw.maxVisitsFrom !== "string" || !raw.maxVisitsFrom.trim()) {
+      errors.push(`Node ${nodeId} executionPolicy.maxVisitsFrom must be a non-empty string.`);
+    } else {
+      policy.maxVisitsFrom = raw.maxVisitsFrom.trim();
+    }
+  }
   if (raw.onExhausted !== undefined) {
     if (raw.onExhausted !== "error_edge" && raw.onExhausted !== "fail_run") {
       errors.push(`Node ${nodeId} executionPolicy.onExhausted must be error_edge|fail_run.`);

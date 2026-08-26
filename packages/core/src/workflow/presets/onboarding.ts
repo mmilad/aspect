@@ -75,5 +75,6 @@ export const onboardingPreset: WorkflowPreset = {
     "Prefer Ensure Aspect / CRUD presets over inventing duplicate meaning anchors."
   ].join("\n"),
   status: "accepted",
+  kind: "orientation",
   graph: onboardingGraph
 };

@@ -21,6 +21,13 @@ export interface WorkflowRunFrame {
   seq?: number;
 }
 
+export interface WorkflowRunHistoryEntry {
+  seq: number;
+  nodeId: string;
+  visit: number;
+  createdAt: string;
+}
+
 export interface WorkflowEdge {
   id: string;
   source: string;
@@ -52,6 +59,10 @@ export interface WorkflowContextBag {
   error?: string;
   /** Active frontier token ids when multi-token runtime is used. */
   frontier?: string[];
+  /** Append-only execution visits for debuggability and loop audits. */
+  history?: WorkflowRunHistoryEntry[];
+  /** Per-node visit counters for executionPolicy.maxVisits. */
+  visits?: Record<string, number>;
   /** Pin-variable runtime frame (v4 graphs). */
   frame?: WorkflowRunFrame;
 }

@@ -72,15 +72,13 @@ async function findSupportsTargetId(
   if (!slug) {
     return undefined;
   }
-  const entities = await listEntities(db, { projectKey, type: "aspect" });
-  const match = entities.find((entity) => entity.slug === slug);
+  const aspects = await listEntities(db, { projectKey, type: "aspect" });
+  const features = await listEntities(db, { projectKey, type: "feature" });
+  const match =
+    aspects.find((entity) => entity.slug === slug || entity.key === slug) ??
+    features.find((entity) => entity.slug === slug || entity.key === slug);
   if (!match) {
-    const features = await listEntities(db, { projectKey, type: "feature" });
-    const feature = features.find((entity) => entity.slug === slug);
-    if (feature) {
-      return feature.id;
-    }
-    warnings.push(`Preset supports target slug "${slug}" not found; skipping link.`);
+    warnings.push(`Preset supports target "${slug}" not found; skipping link.`);
     return undefined;
   }
   return match.id;
@@ -109,6 +107,7 @@ function presetMetadata(preset: WorkflowPreset, dirty = false): JsonRecord {
   return {
     presetKey: preset.presetKey,
     presetVersion: preset.presetVersion,
+    presetKind: preset.kind,
     presetDirty: dirty,
     schemaVersion: WORKFLOW_SCHEMA_VERSION
   };
@@ -121,6 +120,26 @@ function graphSnapshot(graph: WorkflowGraph): JsonRecord {
     edges: graph.edges,
     ...(graph.variables ? { variables: graph.variables } : {})
   };
+}
+
+async function syncPresetCatalogFields(
+  db: DatabaseSync,
+  existing: { id: string; metadata: JsonRecord },
+  preset: WorkflowPreset,
+  targetId: string | undefined
+): Promise<void> {
+  if (existing.metadata.presetKind !== preset.kind) {
+    await updateEntity(db, {
+      id: existing.id,
+      patch: {
+        metadata: {
+          ...existing.metadata,
+          presetKind: preset.kind
+        }
+      }
+    });
+  }
+  await ensureSupportsLink(db, existing.id, targetId);
 }
 
 /**
@@ -188,6 +207,7 @@ export async function ensureWorkflowPresets(
     }
 
     if (!force) {
+      await syncPresetCatalogFields(db, existing, preset, targetId);
       skipped.push(preset.presetKey);
       continue;
     }

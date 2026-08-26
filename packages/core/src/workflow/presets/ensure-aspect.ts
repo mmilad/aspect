@@ -224,6 +224,7 @@ export const ensureAspectPreset: WorkflowPreset = {
     "Refresh seeded DB with: pnpm plan presets-ensure --force"
   ].join("\n"),
   status: "accepted",
+  kind: "mutation",
   graph: ensureAspectGraph,
   supportsTargetSlug: "should-author-executable-workflow-step-graphs"
 };

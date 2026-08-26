@@ -83,6 +83,7 @@ export const rollupParentStatusPreset: WorkflowPreset = {
     "Port contracts + identity bindings; refresh DB with pnpm plan presets-ensure --force."
   ].join("\n"),
   status: "accepted",
+  kind: "housekeeping",
   graph: rollupParentStatusGraph,
   supportsTargetSlug: "parent-status-rollup-workflow"
 };

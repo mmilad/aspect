@@ -50,7 +50,7 @@ function WorkflowRightSidebar({
     );
   }
 
-  const showStep = Boolean(session && !session.diagramOpen && session.selected);
+  const showStep = Boolean(session && session.selected);
   if (showStep && session) {
     return (
       <InspectorHost eyebrow="Step">

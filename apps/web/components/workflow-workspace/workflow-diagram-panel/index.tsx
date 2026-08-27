@@ -1,15 +1,40 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { workflowIdFromMermaidDomId } from "@projectplaner/core";
 import { GhostButton } from "../../ui";
 
 interface WorkflowDiagramPanelProps {
   source: string;
+  workflowNodeIds: string[];
+  selectedId: string | null;
+  onSelectNode: (id: string | null) => void;
 }
 
-export function WorkflowDiagramPanel({ source }: WorkflowDiagramPanelProps) {
+function mermaidNodeElement(target: EventTarget | null): Element | null {
+  if (!(target instanceof Element)) {
+    return null;
+  }
+  return target.closest("g.node, .node");
+}
+
+function mermaidDomIdFromNode(element: Element): string {
+  if (element.id) {
+    return element.id;
+  }
+  const nested = element.querySelector("[id]");
+  return nested?.id ?? "";
+}
+
+export function WorkflowDiagramPanel({
+  source,
+  workflowNodeIds,
+  selectedId,
+  onSelectNode
+}: WorkflowDiagramPanelProps) {
   const reactId = useId().replace(/:/g, "");
   const renderId = `wf-mermaid-${reactId}`;
+  const svgRootRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [svgHtml, setSvgHtml] = useState<string>("");
@@ -44,6 +69,23 @@ export function WorkflowDiagramPanel({ source }: WorkflowDiagramPanelProps) {
     };
   }, [source, renderId]);
 
+  useEffect(() => {
+    const root = svgRootRef.current;
+    if (!root) {
+      return;
+    }
+    for (const element of root.querySelectorAll(".node")) {
+      const workflowId = workflowIdFromMermaidDomId(mermaidDomIdFromNode(element), workflowNodeIds);
+      const selected = Boolean(selectedId && workflowId === selectedId);
+      element.classList.toggle("is-selected", selected);
+      if (selected) {
+        element.setAttribute("data-selected", "true");
+      } else {
+        element.removeAttribute("data-selected");
+      }
+    }
+  }, [svgHtml, selectedId, workflowNodeIds]);
+
   async function copySource(): Promise<void> {
     try {
       await navigator.clipboard.writeText(source);
@@ -54,11 +96,23 @@ export function WorkflowDiagramPanel({ source }: WorkflowDiagramPanelProps) {
     }
   }
 
+  function handleDiagramClick(event: React.MouseEvent<HTMLDivElement>): void {
+    const nodeEl = mermaidNodeElement(event.target);
+    if (!nodeEl) {
+      onSelectNode(null);
+      return;
+    }
+    const workflowId = workflowIdFromMermaidDomId(mermaidDomIdFromNode(nodeEl), workflowNodeIds);
+    if (workflowId) {
+      onSelectNode(workflowId);
+    }
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-col bg-zinc-50">
       <div className="flex flex-wrap items-center gap-2 border-b border-border bg-white px-3 py-2">
         <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-700">Diagram</div>
-        <p className="text-xs text-muted-foreground">Read-only Mermaid view of the step graph.</p>
+        <p className="text-xs text-muted-foreground">Click a step to inspect it. Edits apply to the graph.</p>
         <div className="ml-auto">
           <GhostButton size="xs" onClick={() => void copySource()}>
             {copied ? "Copied" : "Copy source"}
@@ -73,8 +127,10 @@ export function WorkflowDiagramPanel({ source }: WorkflowDiagramPanelProps) {
           </div>
         ) : svgHtml ? (
           <div
-            className="mx-auto flex max-w-full justify-center [&_svg]:max-w-full"
+            ref={svgRootRef}
+            className="workflow-mermaid mx-auto flex max-w-full cursor-default justify-center [&_svg]:max-w-full"
             dangerouslySetInnerHTML={{ __html: svgHtml }}
+            onClick={handleDiagramClick}
           />
         ) : (
           <div className="text-xs text-muted-foreground">Rendering…</div>

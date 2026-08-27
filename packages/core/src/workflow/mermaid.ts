@@ -25,6 +25,44 @@ export function mermaidNodeId(id: string): string {
   return base;
 }
 
+/** mermaidNodeId → first matching workflow node id (stable over the given list). */
+export function mermaidIdLookup(workflowIds: string[]): Map<string, string> {
+  const lookup = new Map<string, string>();
+  for (const id of workflowIds) {
+    const mermaidId = mermaidNodeId(id);
+    if (!lookup.has(mermaidId)) {
+      lookup.set(mermaidId, id);
+    }
+  }
+  return lookup;
+}
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Resolve a Mermaid SVG node id (`flowchart-n_end-0`, `n_end`, `start-0`, …) back to a workflow node id.
+ */
+export function workflowIdFromMermaidDomId(domId: string, workflowIds: string[]): string | null {
+  if (!domId) {
+    return null;
+  }
+  const lookup = mermaidIdLookup(workflowIds);
+  const exact = lookup.get(domId);
+  if (exact) {
+    return exact;
+  }
+  const mermaidIds = [...lookup.keys()].sort((a, b) => b.length - a.length);
+  for (const mermaidId of mermaidIds) {
+    const token = escapeRegex(mermaidId);
+    if (new RegExp(`(?:^|[-_])${token}(?:-\\d+)?$`).test(domId)) {
+      return lookup.get(mermaidId) ?? null;
+    }
+  }
+  return null;
+}
+
 function escapeLabel(text: string): string {
   return text.replace(/["\\]/g, " ").replace(/\s+/g, " ").trim();
 }

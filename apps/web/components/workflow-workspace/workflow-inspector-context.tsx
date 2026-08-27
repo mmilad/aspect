@@ -11,7 +11,6 @@ import {
 import type { BagShape, WorkflowNode, WorkflowNodeData, WorkflowVariable } from "@projectplaner/core";
 
 export type WorkflowInspectorSession = {
-  diagramOpen: boolean;
   selected: WorkflowNode | null;
   bagView: Record<string, BagShape>;
   pinMode: boolean;

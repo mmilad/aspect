@@ -14,7 +14,7 @@ import {
 import type { CSSProperties } from "react";
 import { MarkerType, type Connection, type Edge, type Node } from "@xyflow/react";
 
-export type FlowRfNode = Node<{ workflow: WorkflowNode }, "workflow">;
+export type FlowRfNode = Node<{ workflow: WorkflowNode; onTryLlm?: (node: WorkflowNode) => void }, "workflow">;
 
 export type FlowRfEdgeData = {
   kind: WorkflowEdgeKind;
@@ -527,6 +527,35 @@ export function fromRf(
     }),
     ...(variables ? { variables } : {})
   };
+}
+
+export function applyVariablesToRfNodes(nodes: FlowRfNode[], variables: WorkflowVariable[]): FlowRfNode[] {
+  const inputs = Object.fromEntries(
+    variables
+      .filter((variable) => variable.role === "input")
+      .map((variable) => [variable.name, { required: variable.required, shape: variable.shape }])
+  );
+  const outputs = Object.fromEntries(
+    variables
+      .filter((variable) => variable.role === "output")
+      .map((variable) => [variable.name, { required: variable.required, shape: variable.shape }])
+  );
+  return nodes.map((node) => {
+    const workflow = node.data.workflow;
+    if (workflow.type === "start") {
+      return {
+        ...node,
+        data: { workflow: { ...workflow, data: { ...workflow.data, outputContracts: inputs } } }
+      };
+    }
+    if (workflow.type === "end") {
+      return {
+        ...node,
+        data: { workflow: { ...workflow, data: { ...workflow.data, inputs: outputs } } }
+      };
+    }
+    return node;
+  });
 }
 
 export function loadInitialGraph(metadata: JsonRecord): WorkflowGraph {

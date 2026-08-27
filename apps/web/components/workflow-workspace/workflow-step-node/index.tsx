@@ -2,6 +2,7 @@
 
 import { createContext, useContext } from "react";
 import { Handle, type NodeProps, Position } from "@xyflow/react";
+import { FlaskConical } from "lucide-react";
 import { getNodeModel, type BagShape, type WorkflowVariable } from "@projectplaner/core";
 import { workflowStepToneByType } from "../../../lib/workflow-tones";
 import { cn } from "../../../lib/utils";
@@ -209,11 +210,30 @@ export function WorkflowStepNode({ data, selected }: NodeProps<FlowRfNode>) {
           ))}
         </div>
         <div className="min-w-0 flex-1 px-2">
-          <div className="text-[10px] font-semibold uppercase tracking-wide opacity-70">
-            {isVariable ? "var - " : isControl ? "control - " : "work - "}
-            {node.type.replaceAll("_", " ")}
+          <div className="flex items-start gap-1">
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] font-semibold uppercase tracking-wide opacity-70">
+                {isVariable ? "var - " : isControl ? "control - " : "work - "}
+                {node.type.replaceAll("_", " ")}
+              </div>
+              <div className="text-sm font-medium leading-tight">{title}</div>
+            </div>
+            {node.type === "llm" && data.onTryLlm ? (
+              <button
+                type="button"
+                className="nodrag nopan mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border border-amber-300 bg-white text-amber-700 hover:border-amber-500 hover:bg-amber-50"
+                title="Try LLM step"
+                aria-label={`Try ${title}`}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  data.onTryLlm?.(node);
+                }}
+              >
+                <FlaskConical className="h-3 w-3" aria-hidden="true" />
+              </button>
+            ) : null}
           </div>
-          <div className="text-sm font-medium leading-tight">{title}</div>
         </div>
         <div className="flex flex-col">
           {execOutputs.map((pin) => (

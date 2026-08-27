@@ -144,6 +144,19 @@ describe("thinking workflow preset", () => {
     expect(paused.llm?.systemPrompt).not.toContain("Projectplaner");
   });
 
+  it("tells decide and validate to enforce expectedOutput shape", () => {
+    const decide = thinkingGraph.nodes.find((node) => node.id === "decide");
+    const validate = thinkingGraph.nodes.find((node) => node.id === "validate");
+    const evaluate = thinkingGraph.nodes.find((node) => node.id === "evaluate");
+    expect(decide?.data.llm?.instructions).toContain("expectedOutput is a bag shape");
+    expect(decide?.data.llm?.instructions).toContain("result.placement is a mismatch");
+    expect(decide?.data.llm?.instructions).toContain("nextAction must be exactly finalize or reflect");
+    expect(validate?.data.llm?.instructions).toContain("accepted=false");
+    expect(validate?.data.llm?.instructions).toContain("Do not require result.answer.kind");
+    expect(validate?.data.llm?.instructions).toContain("Do not accept because the decision sounds plausible.");
+    expect(evaluate?.data.llm?.instructions).toContain("do not invent candidates");
+  });
+
   it("successful path finalizes only after an accepted validation", async () => {
     let paused = await pauseAtNextLlm();
     expect(paused.kind, paused.message).toBe("pending_llm");

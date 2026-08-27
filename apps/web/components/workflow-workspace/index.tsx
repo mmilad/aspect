@@ -1,18 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Background,
-  ConnectionMode,
-  Controls,
-  MiniMap,
   MarkerType,
-  ReactFlow,
   addEdge,
   useEdgesState,
   useNodesState,
   type Connection,
-  type OnEdgesChange,
   type OnNodesChange,
   type ReactFlowInstance
 } from "@xyflow/react";
@@ -35,6 +29,7 @@ import {
   type WorkflowVariable
 } from "@projectplaner/core";
 import {
+  applyVariablesToRfNodes,
   defaultEdgeKindForConnection,
   decodeHandle,
   fromRf,
@@ -51,133 +46,18 @@ import {
   type FlowRfEdge,
   type FlowRfNode
 } from "./rf-adapters";
-import { workflowRfNodeTypes, WorkflowPinsContext } from "./workflow-step-node";
-import { workflowRfEdgeTypes, WorkflowWaypointProvider, useWaypointSelection } from "./workflow-exec-edge";
+import { WorkflowWaypointProvider } from "./workflow-exec-edge";
 import { WorkflowToolbar } from "./workflow-toolbar";
 import { WorkflowStoryPanel } from "./workflow-story-panel";
 import { WorkflowDiagramPanel } from "./workflow-diagram-panel";
 import { WorkflowCanvasContextMenu, WorkflowToolbarAdd } from "./workflow-add-menu";
 import { useWorkflowInspectorPublisher } from "./workflow-inspector-context";
+import { WorkflowFlowCanvas } from "./workflow-flow-canvas";
+import { TryLlmDialog } from "./try-llm-dialog";
 
 interface WorkflowWorkspaceProps {
   projectKey: string;
   flow: Entity;
-}
-
-function defaultDataForType(type: WorkflowNodeType): WorkflowNodeData {
-  const title = type === "llm" ? "LLM step" : type.replaceAll("_", " ");
-  switch (type) {
-    case "tool":
-      return { title, tool: { name: "tool_name" }, writes: ["result"] };
-    case "llm":
-      return {
-        title,
-        reads: ["goal"],
-        writes: ["result"],
-        llm: { instructions: "Describe the step responsibility.", inputKeys: ["goal"], outputSchema: ["result"] }
-      };
-    case "context":
-      return {
-        title,
-        reads: ["goal"],
-        writes: ["matches"],
-        auto: { loadContext: { queryFrom: "goal", limit: 10 } }
-      };
-    case "transform":
-      return {
-        title,
-        reads: ["matches"],
-        writes: ["filtered"],
-        auto: { filter: { from: "matches" } }
-      };
-    case "map":
-      return {
-        title,
-        reads: ["matches"],
-        writes: ["projected"],
-        map: {
-          from: "matches",
-          as: "projected",
-          mode: "array",
-          fields: [
-            { from: "id", as: "id" },
-            { from: "title", as: "title" }
-          ]
-        }
-      };
-    case "math":
-      return getNodeModel("math").defaultData();
-    case "join":
-      return { title, join: { mode: "all", remaining: "cancel_remaining", merge: { strategy: "object_per_arm" } } };
-    case "foreach":
-      return {
-        title,
-        foreach: {
-          itemsFrom: "items",
-          itemKey: "item",
-          indexKey: "itemIndex",
-          failureMode: "fail"
-        }
-      };
-    case "push":
-      return {
-        title,
-        reads: ["items", "itemIndex", "results"],
-        writes: ["results"],
-        push: { target: "results", valueFrom: "items[itemIndex]" }
-      };
-    case "create_workflow_node":
-      return getNodeModel("create_workflow_node").defaultData();
-    case "assemble_fragment":
-      return getNodeModel("assemble_fragment").defaultData();
-    case "subworkflow":
-      return { title, subworkflow: { workflowId: "" } };
-    case "wait":
-      return { title, wait: { delayMs: 1000 } };
-    case "switch":
-      return { title, switch: { on: "type", cases: ["a", "b"], defaultLabel: "default" } };
-    case "branch":
-      return { title, branch: { on: "flag" } };
-    case "start":
-      return getNodeModel("start").defaultData();
-    case "get":
-      return { title: "Get", variable: "" };
-    case "set":
-      return { title: "Set", variable: "", inputs: { value: { required: true } } };
-    case "reroute":
-      return getNodeModel("reroute").defaultData();
-    default:
-      return { title };
-  }
-}
-
-function applyVariablesToRfNodes(nodes: FlowRfNode[], variables: WorkflowVariable[]): FlowRfNode[] {
-  const inputs = Object.fromEntries(
-    variables
-      .filter((variable) => variable.role === "input")
-      .map((variable) => [variable.name, { required: variable.required, shape: variable.shape }])
-  );
-  const outputs = Object.fromEntries(
-    variables
-      .filter((variable) => variable.role === "output")
-      .map((variable) => [variable.name, { required: variable.required, shape: variable.shape }])
-  );
-  return nodes.map((node) => {
-    const workflow = node.data.workflow;
-    if (workflow.type === "start") {
-      return {
-        ...node,
-        data: { workflow: { ...workflow, data: { ...workflow.data, outputContracts: inputs } } }
-      };
-    }
-    if (workflow.type === "end") {
-      return {
-        ...node,
-        data: { workflow: { ...workflow, data: { ...workflow.data, inputs: outputs } } }
-      };
-    }
-    return node;
-  });
 }
 
 function isScaffoldGraph(nodes: Array<{ type: string }>): boolean {
@@ -203,6 +83,7 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
   const [authorOpen, setAuthorOpen] = useState(() => isScaffoldGraph(initial.nodes));
   const [storyOpen, setStoryOpen] = useState(false);
   const [diagramOpen, setDiagramOpen] = useState(false);
+  const [tryLlmNode, setTryLlmNode] = useState<WorkflowNode | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const presetKey = typeof flow.metadata.presetKey === "string" ? flow.metadata.presetKey : null;
   const [presetDirty, setPresetDirty] = useState(flow.metadata.presetDirty === true);
@@ -237,6 +118,8 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
     const g = parsed.ok ? parsed.graph : graph;
     return renderWorkflowMermaid(g, { title: flow.title });
   }, [nodes, edges, version, flow.title, variables]);
+
+  const workflowNodeIds = useMemo(() => nodes.map((node) => node.id), [nodes]);
 
   function findStartId(graph: WorkflowGraph): string | undefined {
     return graph.nodes.find((node) => node.type === "start")?.id;
@@ -346,6 +229,20 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
     () => fromRf(nodes as FlowRfNode[], edges, version, variables),
     [nodes, edges, version, variables]
   );
+  const displayedNodes = useMemo(
+    () =>
+      nodes.map((node) => ({
+        ...node,
+        data: {
+          ...node.data,
+          onTryLlm: (workflowNode: WorkflowNode) => {
+            setTryLlmNode(workflowNode);
+            syncSelection(workflowNode.id);
+          }
+        }
+      })),
+    [nodes, syncSelection]
+  );
 
   const formatLayout = useCallback(() => {
     const laid = layoutWorkflowGraph(currentGraph());
@@ -404,36 +301,6 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
     [selectedId, setNodes]
   );
 
-  const updateSelectedType = useCallback(
-    (type: WorkflowNodeType) => {
-      if (!selectedId) {
-        return;
-      }
-      setNodes((current) =>
-        current.map((node) => {
-          if (node.id !== selectedId) {
-            return node;
-          }
-          return {
-            ...node,
-            data: {
-              workflow: {
-                ...node.data.workflow,
-                type,
-                data: {
-                  ...node.data.workflow.data,
-                  ...defaultDataForType(type),
-                  title: node.data.workflow.data.title
-                }
-              }
-            }
-          };
-        })
-      );
-    },
-    [selectedId, setNodes]
-  );
-
   const addNode = useCallback(
     (type: WorkflowNodeType) => {
       if (type === "start" && nodes.some((node) => node.data.workflow.type === "start")) {
@@ -445,7 +312,7 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
         id,
         type,
         position: { x: 160 + nodes.length * 24, y: 80 + (nodes.length % 4) * 72 },
-        data: defaultDataForType(type)
+        data: getNodeModel(type).defaultData()
       };
       setNodes((current) => [
         ...current,
@@ -631,7 +498,6 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
 
   useEffect(() => {
     publish({
-      diagramOpen,
       selected,
       bagView,
       pinMode,
@@ -648,7 +514,6 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
     });
   }, [
     publish,
-    diagramOpen,
     selected,
     bagView,
     pinMode,
@@ -713,13 +578,18 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
 
       {diagramOpen ? (
         <div className="min-h-0 flex-1">
-          <WorkflowDiagramPanel source={mermaidSource} />
+          <WorkflowDiagramPanel
+            source={mermaidSource}
+            workflowNodeIds={workflowNodeIds}
+            selectedId={selectedId}
+            onSelectNode={syncSelection}
+          />
         </div>
       ) : (
         <div className="relative min-h-0 min-w-0 flex-1">
           <WorkflowWaypointProvider>
             <WorkflowFlowCanvas
-              nodes={nodes}
+              nodes={displayedNodes}
               edges={edges}
               variables={variables ?? []}
               onInit={(instance) => {
@@ -750,74 +620,16 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
               }
             />
           </WorkflowWaypointProvider>
+          {tryLlmNode ? (
+            <TryLlmDialog
+              projectKey={projectKey}
+              node={nodes.find((item) => item.id === tryLlmNode.id)?.data.workflow ?? tryLlmNode}
+              bagView={bagView}
+              onClose={() => setTryLlmNode(null)}
+            />
+          ) : null}
         </div>
       )}
     </div>
-  );
-}
-
-function WorkflowFlowCanvas({
-  nodes,
-  edges,
-  variables,
-  onInit,
-  onNodesChange,
-  onEdgesChange,
-  onConnect,
-  onSelectNode,
-  onPaneContextMenu,
-  contextMenu
-}: {
-  nodes: FlowRfNode[];
-  edges: FlowRfEdge[];
-  variables: WorkflowVariable[];
-  onInit?: (instance: ReactFlowInstance<FlowRfNode, FlowRfEdge>) => void;
-  onNodesChange: OnNodesChange<FlowRfNode>;
-  onEdgesChange: OnEdgesChange<FlowRfEdge>;
-  onConnect: (connection: Connection) => void;
-  onSelectNode: (id: string | null) => void;
-  onPaneContextMenu: (event: React.MouseEvent | MouseEvent) => void;
-  contextMenu: ReactNode;
-}) {
-  const { selected, select } = useWaypointSelection();
-  const pins = useMemo(() => ({ variables, nodes, edges }), [variables, nodes, edges]);
-
-  return (
-    <WorkflowPinsContext.Provider value={pins}>
-      <ReactFlow<FlowRfNode, FlowRfEdge>
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        onInit={onInit}
-        isValidConnection={(connection) => isValidWorkflowConnection(connection, { nodes, edges, variables })}
-        connectionMode={ConnectionMode.Strict}
-        connectionRadius={12}
-        nodeTypes={workflowRfNodeTypes}
-        edgeTypes={workflowRfEdgeTypes}
-        fitView
-        onNodeClick={(_, node) => {
-          select(null);
-          onSelectNode(node.id);
-        }}
-        onPaneClick={() => {
-          select(null);
-          onSelectNode(null);
-        }}
-        onPaneContextMenu={onPaneContextMenu}
-        onNodeContextMenu={(event) => {
-          event.preventDefault();
-          onPaneContextMenu(event);
-        }}
-        deleteKeyCode={selected ? undefined : ["Backspace", "Delete"]}
-        connectionLineStyle={{ stroke: "#57534e", strokeWidth: 3 }}
-      >
-        <Background gap={18} size={1} />
-        <Controls />
-        <MiniMap pannable zoomable />
-      </ReactFlow>
-      {contextMenu}
-    </WorkflowPinsContext.Provider>
   );
 }

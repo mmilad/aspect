@@ -90,3 +90,12 @@ textarea {
   width: 8px;
   height: 8px;
 }
+
+.workflow-mermaid .node {
+  cursor: pointer;
+}
+
+.workflow-mermaid .node.is-selected :is(rect, polygon, circle, path, ellipse) {
+  stroke: #b45309;
+  stroke-width: 3px;
+}

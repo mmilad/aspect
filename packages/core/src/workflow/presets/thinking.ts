@@ -101,6 +101,8 @@ const THINKING_STEPS = [
     title: "Evaluate alternatives",
     tasks: [
       "Compare alternatives against the task, constraints, and expected output.",
+      "Name a preferred alternative and say why it wins; do not restate the task as the reason.",
+      "If alternatives is empty or missing, say so and do not invent candidates.",
       "Identify strengths, risks, missing information, and tradeoffs.",
       "Emit an evaluation and one evaluation trace entry."
     ]
@@ -109,7 +111,9 @@ const THINKING_STEPS = [
     title: "Decide",
     tasks: [
       "Select the best result from the evaluated alternatives.",
+      "Write decision.result as the instance that satisfies expectedOutput (field names from fields.*, values matching type). Do not copy kind/type into the result.",
       "Provide a full decision object with result, reason, evidence, confidence, issues, and nextAction.",
+      "nextAction must be finalize if you stand behind the result, otherwise reflect.",
       "Emit one decision trace entry."
     ]
   },
@@ -117,6 +121,9 @@ const THINKING_STEPS = [
     title: "Validate decision",
     tasks: [
       "Validate whether the decision satisfies the task, constraints, and expected output.",
+      "Compare decision.result (the instance) to expectedOutput (the shape). Missing or renamed fields are mismatches; do not treat kind/type as result fields.",
+      "If the instance does not satisfy the shape, set accepted=false and list each mismatch in issues.",
+      "Do not accept plausible prose that uses the wrong shape or renamed fields.",
       "Separate structural problems from semantic concerns.",
       "Emit a validation result and one validation trace entry."
     ]
@@ -149,8 +156,11 @@ const THINKING_SYSTEM_PROMPT = [
   "Return only JSON that matches the selected response schema.",
   "Use only the declared inputs and explicit uncertainty; do not invent external facts.",
   "Do not include private chain-of-thought. Trace entries are compact semantic audit records: summary, reason, evidence, confidence, createdAt, iteration.",
-  "Keep confidence between 0 and 1. Use ISO timestamps for createdAt.",
+  "Keep confidence between 0 and 1. createdAt must be a current ISO-8601 timestamp; do not invent historical dates.",
+  "iteration must come from inputs when present, otherwise 1.",
   "Preserve the output port names required by the active step.",
+  "expectedOutput is a bag-shape descriptor of decision.result, not part of the result. kind/type/fields describe the instance.",
+  "Example: expectedOutput {kind:object, fields:{answer:{kind:primitive, type:string}}} is satisfied by result {\"answer\":\"...\"}. {\"placement\":\"...\"} is a mismatch. Do not require result.answer.kind or result.answer.type.",
   "Prefer concise, inspectable summaries over long prose."
 ].join("\n");
 
@@ -332,8 +342,11 @@ export const thinkingGraph: WorkflowGraph = {
       THOUGHT_EVALUATION_V1_KEY,
       [
         "Compare the alternatives against the task, context, constraints, and expected output.",
-        "Include advantages, disadvantages, risks, missing information, and the reason for the evaluation.",
+        "Name the preferred alternative. reason must explain why it beats the others, not restate the task.",
+        "If alternatives is empty or missing, say there is nothing to evaluate and do not invent candidates.",
+        "Include advantages, disadvantages, risks, missing information, and tradeoffs.",
         "Return evaluation plus evaluationTrace. evaluationTrace.kind must be evaluation and nodeId must be evaluate.",
+        "Expected output: {{expectedOutput}}",
         "Alternatives: {{alternatives}}"
       ].join("\n")
     ),
@@ -348,8 +361,10 @@ export const thinkingGraph: WorkflowGraph = {
       [
         "Choose the best result and return a full decision object, never just a label or boolean.",
         "decision.reason is required. confidence must be a number between 0 and 1.",
-        "decision.result must be structurally usable as the requested expected output.",
+        "expectedOutput is a bag shape for the value of decision.result. Emit the instance, not the shape: if fields.answer is primitive string, result must be {\"answer\":\"...\"}. result.placement is a mismatch. Do not put kind or type inside result.answer.",
+        "nextAction must be exactly finalize or reflect.",
         "Return decision plus decisionTrace. decisionTrace.kind must be decision and nodeId must be decide.",
+        "Expected output: {{expectedOutput}}",
         "Evaluation: {{evaluation}}"
       ].join("\n")
     ),
@@ -363,9 +378,14 @@ export const thinkingGraph: WorkflowGraph = {
       THOUGHT_VALIDATION_V1_KEY,
       [
         "Validate the decision. Separate deterministic contract or shape concerns from semantic judgement.",
-        "Check required fields, reason, confidence, explicit constraints, unresolved blockers, and structural usability of result.",
+        "expectedOutput is a bag shape; decision.result is the instance. Compare values to fields/types. Do not require result.answer.kind or result.answer.type.",
+        "Pass: {\"answer\":\"flask in title row\"} against fields.answer primitive string. Fail: {\"placement\":\"title row\"} (wrong key) or missing answer.",
+        "Check required decision fields, reason, confidence, explicit constraints, unresolved blockers, and shape match.",
+        "Set accepted=true only if every check passes. A renamed field, missing field, or constraint violation is accepted=false with issues naming each mismatch.",
+        "Do not accept because the decision sounds plausible.",
         "Return validation plus validationTrace. validationTrace.kind must be validation and nodeId must be validate.",
         "The route after this step uses only validation.accepted.",
+        "Expected output: {{expectedOutput}}",
         "Decision: {{decision}}"
       ].join("\n")
     ),

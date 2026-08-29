@@ -13,6 +13,7 @@ import {
   type WorkflowPresetKind
 } from "@projectplaner/core";
 import { Badge, GhostButton, Select, TextArea, TextInput } from "../ui";
+import { RunWorkflowDialog } from "../workflow-run-dialog";
 import { projectPaths } from "../../lib/project-paths";
 
 interface WorkflowsOverviewProps {
@@ -49,13 +50,11 @@ function flowKind(flow: ProjectNode): WorkflowPresetKind {
 function FlowRow({
   flow,
   projectKey,
-  runningId,
   onRun,
   onOpen
 }: {
   flow: ProjectNode;
   projectKey: string;
-  runningId: string | null;
   onRun: (flow: ProjectNode) => void;
   onOpen: (flow: ProjectNode) => void;
 }) {
@@ -78,10 +77,10 @@ function FlowRow({
         ) : null}
       </div>
       <div className="flex shrink-0 items-center gap-1">
-        <GhostButton size="xs" disabled={runningId === flow.id} onClick={() => onRun(flow)}>
+        <GhostButton size="xs" onClick={() => onRun(flow)}>
           <span className="inline-flex items-center gap-1">
             <Play className="h-3 w-3" />
-            {runningId === flow.id ? "Running…" : "Run"}
+            Run
           </span>
         </GhostButton>
         <GhostButton size="xs" tone="workflow" onClick={() => onOpen(flow)}>
@@ -102,7 +101,7 @@ export function WorkflowsOverview({ snapshot }: WorkflowsOverviewProps) {
   const [brief, setBrief] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
-  const [runningId, setRunningId] = useState<string | null>(null);
+  const [runTarget, setRunTarget] = useState<ProjectNode | null>(null);
   const [runMessage, setRunMessage] = useState<string | null>(null);
 
   const flows = useMemo(
@@ -178,43 +177,6 @@ export function WorkflowsOverview({ snapshot }: WorkflowsOverviewProps) {
       setCreateError(err instanceof Error ? err.message : "Could not create workflow.");
     } finally {
       setCreating(false);
-    }
-  }
-
-  async function runWorkflow(flow: ProjectNode) {
-    setRunningId(flow.id);
-    setRunMessage(null);
-    try {
-      const response = await fetch("/api/workflows/run", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          id: flow.id,
-          projectKey: snapshot.project.key,
-          goal: flow.title,
-          bag: {
-            title: flow.title,
-            reason: `Workflow run of ${flow.title}`
-          }
-        })
-      });
-      const payload = (await response.json()) as {
-        run?: { id: string; status?: string };
-        step?: { kind?: string };
-        error?: string;
-        note?: string;
-      };
-      if (!response.ok || !payload.run) {
-        throw new Error(payload.error ?? "Run failed.");
-      }
-      const kind = payload.step?.kind ?? payload.run.status ?? "running";
-      setRunMessage(
-        [`${flow.title}: run ${payload.run.id} (${kind})`, payload.note].filter(Boolean).join(" — ")
-      );
-    } catch (err) {
-      setRunMessage(err instanceof Error ? err.message : "Run failed.");
-    } finally {
-      setRunningId(null);
     }
   }
 
@@ -339,8 +301,10 @@ export function WorkflowsOverview({ snapshot }: WorkflowsOverviewProps) {
                       key={flow.id}
                       flow={flow}
                       projectKey={snapshot.project.key}
-                      runningId={runningId}
-                      onRun={(next) => void runWorkflow(next)}
+                      onRun={(next) => {
+                        setRunMessage(null);
+                        setRunTarget(next);
+                      }}
                       onOpen={(next) => router.push(projectPaths.flow(snapshot.project.key, next.id))}
                     />
                   ))}
@@ -381,6 +345,14 @@ export function WorkflowsOverview({ snapshot }: WorkflowsOverviewProps) {
           </div>
         )}
       </div>
+      {runTarget ? (
+        <RunWorkflowDialog
+          flowId={runTarget.id}
+          flowTitle={runTarget.title}
+          onClose={() => setRunTarget(null)}
+          onRan={(summary) => setRunMessage(summary)}
+        />
+      ) : null}
     </div>
   );
 }

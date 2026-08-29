@@ -1,6 +1,7 @@
 import path from "node:path";
 import { NextResponse } from "next/server";
 import { openDatabase, runWorkflow } from "@projectplaner/db";
+import { drainPendingLlm, workflowRunJson } from "../../../../lib/drain-pending-llm";
 
 async function openDb() {
   return openDatabase(process.env.PROJECTPLANER_DB_PATH ?? path.resolve(process.cwd(), "../../projectplaner.db"));
@@ -27,6 +28,7 @@ export async function POST(request: Request) {
     runId?: string;
     llmWrites?: Record<string, unknown>;
     userRoute?: string;
+    drainLlm?: boolean;
   };
 
   if (!body.runId && !body.id?.trim() && !body.key?.trim()) {
@@ -38,7 +40,7 @@ export async function POST(request: Request) {
 
   const db = await openDb();
   try {
-    const result = await runWorkflow(db, {
+    const started = await runWorkflow(db, {
       id: body.id,
       key: body.key,
       projectKey: body.projectKey,
@@ -48,13 +50,8 @@ export async function POST(request: Request) {
       llmWrites: body.llmWrites,
       userRoute: body.userRoute
     });
-    return NextResponse.json({
-      flow: result.flow,
-      run: result.run,
-      step: result.step,
-      nodeRuns: result.nodeRuns,
-      note: result.note
-    });
+    const result = body.drainLlm ? await drainPendingLlm(db, started) : { ...started, turns: [], llmConfigured: false };
+    return NextResponse.json(workflowRunJson(result));
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not run workflow.";
     const status = /not found/i.test(message) ? 404 : 400;

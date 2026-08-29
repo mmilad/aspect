@@ -16,6 +16,7 @@ import {
   type JsonRecord,
   type WorkflowGraph
 } from "@projectplaner/core";
+import { drainPendingLlm, workflowRunJson } from "../../../../lib/drain-pending-llm";
 
 async function openDb() {
   return openDatabase(process.env.PROJECTPLANER_DB_PATH ?? path.resolve(process.cwd(), "../../projectplaner.db"));
@@ -87,23 +88,24 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
 /** @deprecated Prefer POST /api/workflows/run with { id }. Kept as a thin alias. */
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
-  const body = (await request.json()) as { action?: string; goal?: string; bag?: JsonRecord };
+  const body = (await request.json()) as {
+    action?: string;
+    goal?: string;
+    bag?: JsonRecord;
+    drainLlm?: boolean;
+  };
   if (body.action !== "run") {
     return NextResponse.json({ error: "Unsupported action." }, { status: 400 });
   }
   const db = await openDb();
   try {
-    const result = await runWorkflow(db, {
+    const started = await runWorkflow(db, {
       id,
       goal: body.goal,
       bag: body.bag as Record<string, unknown> | undefined
     });
-    return NextResponse.json({
-      run: result.run,
-      step: result.step,
-      nodeRuns: result.nodeRuns,
-      note: result.note
-    });
+    const result = body.drainLlm ? await drainPendingLlm(db, started) : { ...started, turns: [], llmConfigured: false };
+    return NextResponse.json(workflowRunJson(result));
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Could not start workflow run." },

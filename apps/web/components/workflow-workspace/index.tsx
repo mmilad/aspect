@@ -54,6 +54,7 @@ import { WorkflowCanvasContextMenu, WorkflowToolbarAdd } from "./workflow-add-me
 import { useWorkflowInspectorPublisher } from "./workflow-inspector-context";
 import { WorkflowFlowCanvas } from "./workflow-flow-canvas";
 import { TryLlmDialog } from "./try-llm-dialog";
+import { RunWorkflowDialog } from "../workflow-run-dialog";
 
 interface WorkflowWorkspaceProps {
   projectKey: string;
@@ -84,6 +85,7 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
   const [storyOpen, setStoryOpen] = useState(false);
   const [diagramOpen, setDiagramOpen] = useState(false);
   const [tryLlmNode, setTryLlmNode] = useState<WorkflowNode | null>(null);
+  const [runDialogOpen, setRunDialogOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const presetKey = typeof flow.metadata.presetKey === "string" ? flow.metadata.presetKey : null;
   const [presetDirty, setPresetDirty] = useState(flow.metadata.presetDirty === true);
@@ -365,7 +367,7 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
       setErrors(parsed.errors);
       setWarnings([]);
       setStatus("Validation failed.");
-      return;
+      return false;
     }
     setSaving(true);
     setStatus(null);
@@ -387,14 +389,16 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
         setPresetDirty(true);
       }
       replaceGraph(parsed.graph);
+      return true;
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Save failed.");
+      return false;
     } finally {
       setSaving(false);
     }
-  }, [currentGraph, flow.id, replaceGraph]);
+  }, [currentGraph, flow.id, presetKey, replaceGraph]);
 
-  const startRun = useCallback(async () => {
+  const openRunDialog = useCallback(async () => {
     const graph = currentGraph();
     const parsed = parseWorkflowGraph(graph);
     if (!parsed.ok) {
@@ -402,45 +406,11 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
       setStatus("Fix validation errors before Run.");
       return;
     }
-    try {
-      await save();
-      const response = await fetch("/api/workflows/run", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          id: flow.id,
-          goal: brief || flow.title,
-          bag: {
-            title: brief || flow.title,
-            reason: `Workflow run of ${flow.title}`
-          }
-        })
-      });
-      const payload = (await response.json()) as {
-        run?: { id: string; status?: string };
-        step?: { kind?: string; message?: string; llm?: { instructions?: string; outputSchema?: string[] } };
-        error?: string;
-        note?: string;
-      };
-      if (!response.ok || !payload.run) {
-        throw new Error(payload.error ?? "Run failed.");
-      }
-      const kind = payload.step?.kind ?? payload.run.status ?? "running";
-      setStatus(
-        [
-          `Run ${payload.run.id}: ${kind}.`,
-          payload.note,
-          payload.step?.llm?.outputSchema
-            ? `LLM writes: ${payload.step.llm.outputSchema.join(", ")}`
-            : null
-        ]
-          .filter(Boolean)
-          .join(" ")
-      );
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Run failed.");
+    const saved = await save();
+    if (saved) {
+      setRunDialogOpen(true);
     }
-  }, [brief, currentGraph, flow.id, flow.title, save]);
+  }, [currentGraph, save]);
 
   const generateFromBrief = useCallback(
     async (scaffoldOnly = false) => {
@@ -549,7 +519,7 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
         onToggleDiagram={() => setDiagramOpen((open) => !open)}
         onSave={() => void save()}
         onFormat={formatLayout}
-        onRun={() => void startRun()}
+        onRun={() => void openRunDialog()}
         addSlot={
           diagramOpen ? null : (
             <WorkflowToolbarAdd
@@ -630,6 +600,14 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
           ) : null}
         </div>
       )}
+      {runDialogOpen ? (
+        <RunWorkflowDialog
+          flowId={flow.id}
+          flowTitle={flow.title}
+          onClose={() => setRunDialogOpen(false)}
+          onRan={(summary) => setStatus(summary)}
+        />
+      ) : null}
     </div>
   );
 }

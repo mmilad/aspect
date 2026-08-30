@@ -5,7 +5,7 @@ import type { WorkflowEdgeKind, WorkflowNodeType } from "@projectplaner/core";
 import workflow from "@projectplaner/core/workflow";
 
 const { workflowControlNodeTypes, workflowVariableNodeTypes, workflowWorkNodeTypes } = workflow.nodes;
-import { GhostButton } from "../../ui";
+import { Button } from "../../ui";
 
 type MenuPosition = { x: number; y: number } | null;
 
@@ -114,9 +114,9 @@ export function WorkflowToolbarAdd({
 
   return (
     <div ref={rootRef} className="relative">
-      <GhostButton size="xs" tone={open ? "accent" : "default"} active={open} onClick={() => setOpen((v) => !v)}>
+      <Button size="xs" variant={open ? "default" : "outline"} onClick={() => setOpen((v) => !v)}>
         Add
-      </GhostButton>
+      </Button>
       {open ? (
         <div className="absolute right-0 top-full z-50 mt-1">
           <WorkflowAddMenuBody

@@ -199,8 +199,6 @@ export function AppShell({ snapshot, initialSelectedId }: AppShellProps) {
           selectedId={selectedId}
           activeTypes={activeTypes}
           entityTypes={allEntityTypes}
-          centerNode={centerNode}
-          recentScopes={breadcrumbs}
           onSelectTypes={setActiveTypes}
           onToggleType={(type) =>
             setActiveTypes((current) => {
@@ -213,8 +211,6 @@ export function AppShell({ snapshot, initialSelectedId }: AppShellProps) {
               return next;
             })
           }
-          onOpenScope={openScope}
-          onCreated={selectEntity}
         />
       }
       center={
@@ -226,7 +222,7 @@ export function AppShell({ snapshot, initialSelectedId }: AppShellProps) {
               nodeId: selectedNode.id
             }}
           />
-          <section className="relative h-full min-h-0 bg-[#f8faf9]">
+          <section className="relative flex h-full min-h-0 flex-col bg-[#f8faf9]">
             <GraphToolbar
               parentNode={parentNode}
               breadcrumbs={breadcrumbs}
@@ -242,26 +238,30 @@ export function AppShell({ snapshot, initialSelectedId }: AppShellProps) {
               onCenterFromSearch={setCenterId}
             />
             {graphSurface === "map" ? (
-              <GraphCanvas
-                nodes={flowNodes}
-                edges={flowEdges}
-                onNodesChange={onNodesChange}
-                onSelect={selectEntity}
-                onOpen={(id) => {
-                  router.push(graphNodeOpenHref(snapshot.project.key, id));
-                }}
-              />
+              <div className="min-h-0 flex-1">
+                <GraphCanvas
+                  nodes={flowNodes}
+                  edges={flowEdges}
+                  onNodesChange={onNodesChange}
+                  onSelect={selectEntity}
+                  onOpen={(id) => {
+                    router.push(graphNodeOpenHref(snapshot.project.key, id));
+                  }}
+                />
+              </div>
             ) : (
-              <SpatialGraphCanvas
-                matches={displayedMatches}
-                relations={visibleEntityRelations}
-                selectedId={selectedFeatureId ?? selectedId}
-                centerId={centerNode.id}
-                onSelect={selectEntity}
-                onOpen={(id) => {
-                  router.push(graphNodeOpenHref(snapshot.project.key, id));
-                }}
-              />
+              <div className="min-h-0 flex-1">
+                <SpatialGraphCanvas
+                  matches={displayedMatches}
+                  relations={visibleEntityRelations}
+                  selectedId={selectedFeatureId ?? selectedId}
+                  centerId={centerNode.id}
+                  onSelect={selectEntity}
+                  onOpen={(id) => {
+                    router.push(graphNodeOpenHref(snapshot.project.key, id));
+                  }}
+                />
+              </div>
             )}
           </section>
         </WorkspaceCenter>
@@ -282,6 +282,7 @@ export function AppShell({ snapshot, initialSelectedId }: AppShellProps) {
           incomingCount={inspector.incomingCount}
           outgoingCount={inspector.outgoingCount}
           onCenter={openScope}
+          onCreated={selectEntity}
         />
       }
     />

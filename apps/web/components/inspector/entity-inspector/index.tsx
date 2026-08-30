@@ -7,8 +7,9 @@ import type { Feature, JsonRecord, ProjectNode, ProjectPlanSnapshot, Tag, Task }
 import legacy from "@projectplaner/core/legacy";
 
 const { getTagsForEntity } = legacy;
-import { Badge, GhostButton, ToolbarLink, Metric } from "../../ui";
+import { Badge, Button, ToolbarLink, Metric } from "../../ui";
 import { EntityHeader, TagList } from "../../entity-chrome";
+import { CreationRail } from "../../project-left-sidebar/creation-rail";
 import { toEntityPreview, type EntityPreview } from "../../../lib/entity-preview";
 import { formatStatus } from "../../../lib/entity-label";
 import { projectPaths } from "../../../lib/project-paths";
@@ -33,6 +34,7 @@ export interface EntityInspectorProps {
   incomingCount?: number;
   outgoingCount?: number;
   onCenter?: (id: string) => void;
+  onCreated?: (id: string) => void;
 }
 
 function matchesTags(taskTags: Tag[], selectedTagIds: Set<string>): boolean {
@@ -56,7 +58,8 @@ export function EntityInspector({
   snapshot,
   incomingCount = 0,
   outgoingCount = 0,
-  onCenter
+  onCenter,
+  onCreated
 }: EntityInspectorProps) {
   const isAspect = entity.type === "aspect";
   const preview = toEntityPreview(
@@ -137,6 +140,14 @@ export function EntityInspector({
 
   return (
     <div className={styles.inspector}>
+      {snapshot ? (
+        <CreationRail
+          snapshot={snapshot}
+          selectedId={feature?.id ?? entity.id}
+          centerNode={center}
+          onCreated={onCreated}
+        />
+      ) : null}
       <div className={styles.top}>
         <div className={styles.eyebrow}>
           <PanelRight className="h-4 w-4" />
@@ -144,10 +155,10 @@ export function EntityInspector({
         </div>
         <div className="flex items-center gap-2">
           {isAspect ? (
-            <GhostButton size="xs" onClick={() => onCenter?.(node.id)}>
+            <Button size="xs" variant="outline" onClick={() => onCenter?.(node.id)}>
               <LocateFixed className="h-3.5 w-3.5" />
               Center
-            </GhostButton>
+            </Button>
           ) : null}
           {entity.type === "flow" ? (
             <ToolbarLink href={projectPaths.flow(projectKey, entity.id)} size="xs" tone="workflow">

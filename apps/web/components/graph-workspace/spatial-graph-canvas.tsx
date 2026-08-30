@@ -74,7 +74,7 @@ export function SpatialGraphCanvas({
   }, [matches, relations]);
 
   return (
-    <div className="relative h-full min-h-[calc(100vh-3.5rem)] overflow-hidden bg-[#f8faf9]">
+    <div className="relative h-full overflow-hidden bg-[#f8faf9]">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,rgba(20,184,166,0.12),transparent_42%)]" />
       <div className="absolute inset-0" style={{ perspective: 900 }}>
         <svg className="absolute inset-0 h-full w-full" viewBox={`0 0 ${layout.width} ${layout.height}`} preserveAspectRatio="xMidYMid meet">

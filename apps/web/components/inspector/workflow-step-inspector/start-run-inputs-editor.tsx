@@ -5,7 +5,7 @@ import type { BagShape, WorkflowBagKeyContract, WorkflowNode, WorkflowNodeData }
 import workflow from "@projectplaner/core/workflow";
 
 const { serializeShapeSlim } = workflow.bag;
-import { FormLabel, GhostButton, NativeSelect, Input } from "../../ui";
+import { FormLabel, Button, NativeSelect, Input } from "../../ui";
 
 const STRING: BagShape = { kind: "primitive", type: "string" };
 const NUMBER: BagShape = { kind: "primitive", type: "number" };
@@ -131,9 +131,9 @@ function RunInputRow({
         />
         req
       </label>
-      <GhostButton size="xs" tone="danger" onClick={onRemove}>
+      <Button size="xs" variant="danger" onClick={onRemove}>
         ×
-      </GhostButton>
+      </Button>
     </div>
   );
 }
@@ -195,8 +195,9 @@ export function StartRunInputsEditor({
           />
         ))
       )}
-      <GhostButton
+      <Button
         size="xs"
+        variant="outline"
         onClick={() => {
           let name = "input";
           let n = 1;
@@ -211,7 +212,7 @@ export function StartRunInputsEditor({
         }}
       >
         + run input
-      </GhostButton>
+      </Button>
     </div>
   );
 }

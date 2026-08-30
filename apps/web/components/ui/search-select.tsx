@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { ChevronsUpDown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -21,17 +21,6 @@ export type SearchSelectOption = {
   label: string;
   hint?: string;
 };
-
-export function filterSearchSelectOptions(options: SearchSelectOption[], query: string): SearchSelectOption[] {
-  const q = query.trim().toLowerCase();
-  if (!q) {
-    return options;
-  }
-  return options.filter((option) => {
-    const haystack = `${option.label} ${option.value} ${option.hint ?? ""}`.toLowerCase();
-    return haystack.includes(q);
-  });
-}
 
 type SearchSelectProps = {
   label: string;
@@ -56,7 +45,6 @@ export function SearchSelect({
 }: SearchSelectProps) {
   const [open, setOpen] = useState(false);
   const selected = options.find((option) => option.value === value);
-  const filtered = useMemo(() => options, [options]);
 
   return (
     <div className="grid gap-1">
@@ -101,7 +89,7 @@ export function SearchSelect({
                 >
                   <span className="text-muted-foreground">—</span>
                 </CommandItem>
-                {filtered.map((option) => (
+                {options.map((option) => (
                   <CommandItem
                     key={option.value}
                     value={`${option.label} ${option.value} ${option.hint ?? ""}`}

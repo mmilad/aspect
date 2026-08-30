@@ -156,13 +156,6 @@ export function ShellBody({ projectKey, leftSidebar, center, rightSidebar }: She
                   Inspect
                 </Button>
                 <Button
-                  size="xs"
-                  variant={mode === "assistant" ? "default" : "ghost"}
-                  onClick={() => setMode("assistant")}
-                >
-                  Assistant
-                </Button>
-                <Button
                   size="icon"
                   variant="ghost"
                   title={`Collapse ${paneLabel.toLowerCase()}`}
@@ -182,11 +175,15 @@ export function ShellBody({ projectKey, leftSidebar, center, rightSidebar }: She
             aria-hidden={collapsed}
           >
             {mode === "assistant" ? (
-              <AssistantRail />
+              <div className={styles.rightInspectScroll}>
+                <AssistantRail />
+              </div>
             ) : (
               <div className="flex h-full min-h-0 flex-col">
-                <AssistantRail />
-                <div className="min-h-0 flex-1 overflow-hidden border-t border-border">{rightSidebar}</div>
+                <div className="flex-shrink-0">
+                  <AssistantRail />
+                </div>
+                <div className={`${styles.rightInspectScroll} border-t border-border`}>{rightSidebar}</div>
               </div>
             )}
           </div>

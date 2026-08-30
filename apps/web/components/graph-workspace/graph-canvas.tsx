@@ -15,7 +15,7 @@ interface GraphCanvasProps {
 
 export function GraphCanvas({ nodes, edges, onSelect, onOpen, onNodesChange }: GraphCanvasProps) {
   return (
-    <div className="h-full min-h-[calc(100vh-3.5rem)] bg-[#f8faf9]">
+    <div className="h-full bg-[#f8faf9]">
       <ReactFlow
         nodes={nodes}
         edges={edges}

@@ -1,16 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Braces, Columns3, GitFork, LayoutDashboard, ListTodo, Workflow } from "lucide-react";
+import { Columns3, GitFork, LayoutDashboard, ListTodo } from "lucide-react";
 import type { ProjectPlanSnapshot } from "@projectplaner/core";
 import { projectPaths } from "../../lib/project-paths";
-import {
-  isGraphNavActive,
-  isSchemasNavActive,
-  isWorkflowsNavActive,
-  isWorkspaceNavActive,
-  type ProjectView
-} from "../../lib/project-view";
+import { isGraphNavActive, isWorkspaceNavActive, type ProjectView } from "../../lib/project-view";
 import { cn } from "../../lib/utils";
 import styles from "./style.module.css";
 
@@ -62,24 +56,6 @@ export function ProjectTabsNav({ snapshot, activeView, selectedId }: ProjectTabs
           <span className="inline-flex items-center gap-2">
             <Columns3 className="h-4 w-4" />
             Kanban
-          </span>
-        </Link>
-        <Link
-          className={cn(styles.link, isWorkflowsNavActive(activeView) && styles.activeLink)}
-          href={projectPaths.workflows(key)}
-        >
-          <span className="inline-flex items-center gap-2">
-            <Workflow className="h-4 w-4" />
-            Workflows
-          </span>
-        </Link>
-        <Link
-          className={cn(styles.link, isSchemasNavActive(activeView) && styles.activeLink)}
-          href={projectPaths.schemas(key)}
-        >
-          <span className="inline-flex items-center gap-2">
-            <Braces className="h-4 w-4" />
-            Schemas
           </span>
         </Link>
       </nav>

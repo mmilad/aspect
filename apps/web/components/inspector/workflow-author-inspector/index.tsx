@@ -1,6 +1,6 @@
 "use client";
 
-import { GhostButton, Textarea } from "../../ui";
+import { Button, Textarea } from "../../ui";
 
 export interface WorkflowAuthorInspectorProps {
   brief: string;
@@ -32,12 +32,12 @@ export function WorkflowAuthorInspector({
         onChange={(event) => onBriefChange(event.target.value)}
       />
       <div className="flex flex-wrap gap-2">
-        <GhostButton size="xs" tone="accent" disabled={generating} onClick={() => onGenerate(false)}>
+        <Button size="xs" variant="accent" disabled={generating} onClick={() => onGenerate(false)}>
           {generating ? "Generating…" : "Generate workflow"}
-        </GhostButton>
-        <GhostButton size="xs" disabled={generating} onClick={() => onGenerate(true)}>
+        </Button>
+        <Button size="xs" variant="outline" disabled={generating} onClick={() => onGenerate(true)}>
           Scaffold only
-        </GhostButton>
+        </Button>
       </div>
     </div>
   );

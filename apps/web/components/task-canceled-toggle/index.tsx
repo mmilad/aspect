@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import type { JsonRecord } from "@projectplaner/core";
-import { GhostButton } from "../ui";
+import { Button } from "../ui";
 
 interface TaskCanceledToggleProps {
   entityId: string;
@@ -58,9 +58,9 @@ export function TaskCanceledToggle({ entityId, metadata }: TaskCanceledTogglePro
               : "Mark disabled when a decision branch falls away."}
           </p>
         </div>
-        <GhostButton size="xs" tone={disabled ? "danger" : "default"} disabled={pending} onClick={() => void toggle()}>
+        <Button size="xs" variant={disabled ? "danger" : "outline"} disabled={pending} onClick={() => void toggle()}>
           {pending ? "Saving…" : disabled ? "Restore" : "Cancel task"}
-        </GhostButton>
+        </Button>
       </div>
       {error ? <p className="mt-2 text-xs text-rose-700">{error}</p> : null}
     </div>

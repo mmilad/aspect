@@ -56,11 +56,11 @@ export {
   MessageScrollerProvider,
   MessageScrollerViewport
 } from "./message-scroller";
-export { GhostButton, ToolbarLink } from "./ghost-button";
+export { ToolbarLink } from "./ghost-button";
 export { NativeSelect } from "./native-select";
 export { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "./popover";
 export { ScrollArea, ScrollBar } from "./scroll-area";
-export { SearchSelect, filterSearchSelectOptions, type SearchSelectOption } from "./search-select";
+export { SearchSelect, type SearchSelectOption } from "./search-select";
 export {
   Select,
   SelectContent,

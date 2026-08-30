@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from "react";
+import type { AnchorHTMLAttributes, ReactNode } from "react";
 
 import { Button, type ButtonProps } from "./button";
 
@@ -37,23 +37,6 @@ function mapSize(size: Size | undefined): ButtonProps["size"] {
     return "default";
   }
   return size ?? "sm";
-}
-
-/** @deprecated Prefer `Button`. Thin tone mapper over shadcn Button. */
-export function GhostButton({
-  children,
-  className,
-  size = "sm",
-  active,
-  tone = "default",
-  type = "button",
-  ...props
-}: CommonProps & ButtonHTMLAttributes<HTMLButtonElement>) {
-  return (
-    <Button type={type} variant={mapVariant(tone, active)} size={mapSize(size)} className={className} {...props}>
-      {children}
-    </Button>
-  );
 }
 
 export function ToolbarLink({

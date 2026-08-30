@@ -8,17 +8,17 @@ Shared 3-pane chrome via `ProjectShell` / `ProjectViewShell`:
 
 | Pane | Role |
 |------|------|
-| Left | Project nav, **Assistant** (New chat + session list), Create rail, filters |
+| Left | Project Tabs (Workspace, Graph, Issues, Kanban), **Assistant** (New chat + session list), **Tools** (Workflows, Schemas), Graph filters when Graph is active |
 | Center | Inspect: workspace (graph, kanban, …). Assistant: chat (or a selected session view). |
-| Right | Inspect: entity/step/Describe. Assistant: inferred session buttons (Summary, Topics, Context, later Plans). |
+| Right | Inspect: **Create** + entity/step/Describe. Assistant: inferred session buttons (Summary, Topics, Context, later Plans). The page does not scroll — header stays pinned; left and right panes scroll independently. |
 
-**Inspect** is entity / workflow step / Describe (`components/inspector/`). **Assistant** is a conversation document (`components/assistant/`) — **not a graph entity**. Left sidebar **Assistant** has **New chat** and the session list. Open a session (or Chat in the right rail) and the conversation occupies the **main pane**. Other session views light up as right-sidebar buttons.
+**Inspect** is entity / workflow step / Describe (`components/inspector/`). **Assistant** is a conversation document (`components/assistant/`) — **not a graph entity**. Left sidebar **Assistant** has **New chat** and the session list. Open a session (or Chat in the right rail) and the conversation occupies the **main pane**. Other session views light up as right-sidebar buttons. Right chrome keeps **Inspect** (returns to graph/workspace + inspector) and collapse — there is no Assistant toggle in the chrome.
 
 Flow editor (`WorkflowEditorShell`) uses the same shell: center is toolbar + React Flow (or Diagram Mermaid view); Inspect still shows Author when **Describe** is on, step details when a node is selected, otherwise the flow entity. Assistant is a sibling mode — it does not replace Describe. No nested palette or second inspector column.
 
 Add workflow steps via toolbar **Add** or canvas **right-click** context menu (connect-kind lives there too).
 
-New assistant UI uses shadcn primitives (`Button`, `Textarea`, `Breadcrumb`, `ScrollArea`, `Message`, `Bubble`, `Item`, `Field`, `Dialog`). Homemade `GhostButton` is a thin tone mapper over `Button`. Assistant non-chat views render from the core block catalog via `SchemaView`.
+New assistant UI uses shadcn primitives (`Button`, `Textarea`, `Breadcrumb`, `ScrollArea`, `Message`, `Bubble`, `Item`, `Field`, `Dialog`). Assistant non-chat views render from the core block catalog via `SchemaView`.
 
 ## Surfaces
 
@@ -55,7 +55,7 @@ Avoid a second inspector inside center workspaces.
 
 - Operational density over dashboards.
 - Status badges follow the process ladder (and decision/question sets where relevant).
-- Creation stays compact (left Create rail) with selection context.
+- Creation stays compact at the top of Inspect (entity inspector) with selection context.
 - Soft-deleted (`archived`) entities stay out of default graph/list views.
 - Assistant sessions archive; never hard-delete.
 

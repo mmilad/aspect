@@ -11,7 +11,7 @@ import workflow from "@projectplaner/core/workflow";
 
 const { getDataPath, getNodeModel, setDataPath } = workflow.nodes;
 const { listShapePaths } = workflow.bag;
-import { FormLabel, GhostButton, NativeSelect, Textarea, Input } from "../../ui";
+import { FormLabel, Button, NativeSelect, Textarea, Input } from "../../ui";
 import { LlmJsonSchemaPicker } from "./llm-json-schema-picker";
 import { QueryConfigEditor } from "./query-config-editor";
 import { PropPicker, WorkflowBagPanel } from "../../workflow-workspace/workflow-bag-panel";
@@ -290,8 +290,9 @@ function renderField(
             </FormLabel>
           </div>
         ))}
-        <GhostButton
+        <Button
           size="xs"
+          variant="outline"
           onClick={() =>
             onUpdateData({
               map: {
@@ -310,7 +311,7 @@ function renderField(
           }
         >
           Add field
-        </GhostButton>
+        </Button>
       </div>
     );
   }
@@ -397,20 +398,21 @@ function SwitchCasesEditor({
               onUpdateData({ switch: { ...(selected.data.switch ?? {}), cases: next } });
             }}
           />
-          <GhostButton
+          <Button
             size="xs"
-            tone="danger"
+            variant="danger"
             onClick={() => {
               const next = cases.filter((_, itemIndex) => itemIndex !== index);
               onUpdateData({ switch: { ...(selected.data.switch ?? {}), cases: next } });
             }}
           >
             Remove
-          </GhostButton>
+          </Button>
         </div>
       ))}
-      <GhostButton
+      <Button
         size="xs"
+        variant="outline"
         onClick={() =>
           onUpdateData({
             switch: {
@@ -421,7 +423,7 @@ function SwitchCasesEditor({
         }
       >
         Add case
-      </GhostButton>
+      </Button>
     </div>
   );
 }
@@ -518,9 +520,9 @@ export function WorkflowStepInspector({
           <SwitchCasesEditor selected={selected} onUpdateData={onUpdateData} />
           {visibleFields.map((field) => renderField(field, selected, bagView, onUpdateData, projectKey))}
           {selected.type !== "start" ? (
-            <GhostButton size="xs" tone="danger" onClick={onDelete}>
+            <Button size="xs" variant="danger" onClick={onDelete}>
               Delete node
-            </GhostButton>
+            </Button>
           ) : null}
         </div>
       )}

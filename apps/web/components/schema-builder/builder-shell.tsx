@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { ProjectPlanSnapshot } from "@projectplaner/core";
 import type { LlmJsonSchemaRecord } from "@projectplaner/db";
-import { Badge, FormLabel, GhostButton, Textarea, Input } from "../ui";
+import { Badge, Button, FormLabel, Textarea, Input } from "../ui";
 
 interface BuilderShellProps {
   snapshot: ProjectPlanSnapshot;
@@ -104,16 +104,16 @@ export function BuilderShell({ snapshot, schemas }: BuilderShellProps) {
         <span className="text-[11px] text-muted-foreground">{snapshot.project.title}</span>
         <div className="ml-auto flex items-center gap-2">
           {message ? <span className="text-[11px] text-muted-foreground">{message}</span> : null}
-          <GhostButton
+          <Button
             size="xs"
-            active={composerOpen}
+            variant={composerOpen ? "default" : "outline"}
             onClick={() => {
               setComposerOpen((open) => !open);
               setMessage(null);
             }}
           >
             + New
-          </GhostButton>
+          </Button>
         </div>
       </div>
 
@@ -143,12 +143,12 @@ export function BuilderShell({ snapshot, schemas }: BuilderShellProps) {
             />
           </FormLabel>
           <div className="flex gap-2">
-            <GhostButton size="xs" tone="primary" disabled={saving} onClick={() => void saveSchema()}>
+            <Button size="xs" variant="default" disabled={saving} onClick={() => void saveSchema()}>
               {saving ? "Saving..." : "Save"}
-            </GhostButton>
-            <GhostButton size="xs" disabled={saving} onClick={() => setComposerOpen(false)}>
+            </Button>
+            <Button size="xs" variant="outline" disabled={saving} onClick={() => setComposerOpen(false)}>
               Cancel
-            </GhostButton>
+            </Button>
           </div>
         </div>
       ) : null}

@@ -1,6 +1,6 @@
 import type { BagShape, WorkflowBagKeyContract, WorkflowNode, WorkflowNodeData } from "@projectplaner/core";
 import workflow from "@projectplaner/core/workflow";
-import { FormLabel, GhostButton, Input } from "../../ui";
+import { FormLabel, Button, Input } from "../../ui";
 import { PropPicker } from "../../workflow-workspace/workflow-bag-panel";
 
 const { resolveInputBindings, serializeShapeSlim } = workflow.bag;
@@ -148,9 +148,9 @@ export function BagPortsEditor({
                   <div className="truncate font-mono text-xs text-zinc-800">{portId}</div>
                   <div className="text-[10px] text-muted-foreground">{shapeLabel(contract?.shape)}</div>
                 </div>
-                <GhostButton
+                <Button
                   size="xs"
-                  tone="danger"
+                  variant="danger"
                   onClick={() => {
                     const next = { ...writeBindings };
                     delete next[portId];
@@ -158,14 +158,15 @@ export function BagPortsEditor({
                   }}
                 >
                   ×
-                </GhostButton>
+                </Button>
               </div>
             );
           })
         )}
         {unboundOutputs.length > 0 ? (
-          <GhostButton
+          <Button
             size="xs"
+            variant="outline"
             onClick={() => {
               const portId = unboundOutputs[0]!;
               patchWriteBindings({
@@ -175,7 +176,7 @@ export function BagPortsEditor({
             }}
           >
             + bind output
-          </GhostButton>
+          </Button>
         ) : null}
       </div>
     </div>

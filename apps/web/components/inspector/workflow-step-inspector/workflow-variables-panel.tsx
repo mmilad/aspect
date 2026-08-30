@@ -1,7 +1,7 @@
 "use client";
 
 import type { BagShape, WorkflowVariable, WorkflowVariableRole } from "@projectplaner/core";
-import { GhostButton, NativeSelect, Input } from "../../ui";
+import { Button, NativeSelect, Input } from "../../ui";
 
 const ROLES: WorkflowVariableRole[] = ["input", "output", "local"];
 
@@ -85,9 +85,9 @@ export function WorkflowVariablesPanel({
                     </option>
                   ))}
                 </NativeSelect>
-                <GhostButton size="xs" tone="danger" onClick={() => onChange(variables.filter((_, itemIndex) => itemIndex !== index))}>
+                <Button size="xs" variant="danger" onClick={() => onChange(variables.filter((_, itemIndex) => itemIndex !== index))}>
                   ×
-                </GhostButton>
+                </Button>
               </div>
               <div className="flex items-center gap-2">
                 <NativeSelect
@@ -122,15 +122,15 @@ export function WorkflowVariablesPanel({
         </ul>
       )}
       <div className="flex flex-wrap gap-1">
-        <GhostButton size="xs" onClick={() => add("input")}>
+        <Button size="xs" variant="outline" onClick={() => add("input")}>
           + input
-        </GhostButton>
-        <GhostButton size="xs" onClick={() => add("output")}>
+        </Button>
+        <Button size="xs" variant="outline" onClick={() => add("output")}>
           + output
-        </GhostButton>
-        <GhostButton size="xs" onClick={() => add("local")}>
+        </Button>
+        <Button size="xs" variant="outline" onClick={() => add("local")}>
           + local
-        </GhostButton>
+        </Button>
       </div>
     </div>
   );

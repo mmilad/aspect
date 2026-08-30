@@ -1,12 +1,11 @@
-import type { EntityType, ProjectNode, ProjectPlanSnapshot } from "@projectplaner/core";
+import type { EntityType, ProjectPlanSnapshot } from "@projectplaner/core";
 import type { ProjectView } from "../../lib/project-view";
 import { isGraphNavActive } from "../../lib/project-view";
 import styles from "./style.module.css";
 import { ProjectTabsNav } from "./project-tabs-nav";
+import { ToolsNav } from "./tools-nav";
 import { GraphFilters } from "./graph-filters";
-import { ScopeSection, type ScopeEntry } from "./scope-section";
 import { AssistantSessionsSection } from "./assistant-sessions-section";
-import { CreationRail } from "./creation-rail";
 
 interface ProjectLeftSidebarProps {
   snapshot: ProjectPlanSnapshot;
@@ -14,14 +13,8 @@ interface ProjectLeftSidebarProps {
   selectedId?: string;
   activeTypes?: Set<EntityType>;
   entityTypes?: EntityType[];
-  centerNode?: ProjectNode;
-  /** Display override for Scope (Kanban board focus, including features). */
-  scopeCenter?: ScopeEntry | null;
-  recentScopes?: ScopeEntry[];
   onSelectTypes?: (types: Set<EntityType>) => void;
   onToggleType?: (type: EntityType) => void;
-  onOpenScope?: (id: string) => void;
-  onCreated?: (id: string) => void;
 }
 
 export function ProjectLeftSidebar({
@@ -30,27 +23,16 @@ export function ProjectLeftSidebar({
   selectedId,
   activeTypes,
   entityTypes = [],
-  centerNode,
-  scopeCenter = null,
-  recentScopes = [],
   onSelectTypes,
-  onToggleType,
-  onOpenScope,
-  onCreated
+  onToggleType
 }: ProjectLeftSidebarProps) {
   const graphActive = isGraphNavActive(activeView);
-  const resolvedSelectedId = selectedId ?? centerNode?.id;
 
   return (
     <div className={styles.sidebar}>
-      <ProjectTabsNav snapshot={snapshot} activeView={activeView} selectedId={resolvedSelectedId} />
+      <ProjectTabsNav snapshot={snapshot} activeView={activeView} selectedId={selectedId} />
       <AssistantSessionsSection />
-      <CreationRail
-        snapshot={snapshot}
-        selectedId={resolvedSelectedId}
-        centerNode={centerNode}
-        onCreated={onCreated}
-      />
+      <ToolsNav snapshot={snapshot} activeView={activeView} />
       {graphActive && activeTypes && onSelectTypes && onToggleType ? (
         <GraphFilters
           activeTypes={activeTypes}
@@ -59,14 +41,6 @@ export function ProjectLeftSidebar({
           onToggleType={onToggleType}
         />
       ) : null}
-      <ScopeSection
-        snapshot={snapshot}
-        activeView={activeView}
-        centerNode={centerNode}
-        scopeCenter={scopeCenter}
-        recentScopes={recentScopes}
-        onOpenScope={onOpenScope}
-      />
     </div>
   );
 }

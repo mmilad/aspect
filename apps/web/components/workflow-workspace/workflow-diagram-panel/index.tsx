@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import generator from "@projectplaner/core/generator";
 
 const { workflowIdFromMermaidDomId } = generator.views;
-import { GhostButton } from "../../ui";
+import { Button } from "../../ui";
 
 interface WorkflowDiagramPanelProps {
   source: string;
@@ -116,9 +116,9 @@ export function WorkflowDiagramPanel({
         <div className="text-[10px] font-semibold uppercase tracking-wide text-zinc-700">Diagram</div>
         <p className="text-xs text-muted-foreground">Click a step to inspect it. Edits apply to the graph.</p>
         <div className="ml-auto">
-          <GhostButton size="xs" onClick={() => void copySource()}>
+          <Button size="xs" variant="outline" onClick={() => void copySource()}>
             {copied ? "Copied" : "Copy source"}
-          </GhostButton>
+          </Button>
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-auto p-4">

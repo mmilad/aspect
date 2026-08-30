@@ -20,7 +20,7 @@ export default async function ProjectKanbanPage({
   }
 
   const scopeId = query.scope ?? null;
-  const { center: scopeCenter, recent: recentScopes, focusNode } = buildKanbanSidebarScopes(
+  const { center: scopeCenter, focusNode } = buildKanbanSidebarScopes(
     snapshot,
     scopeId
   );
@@ -34,8 +34,6 @@ export default async function ProjectKanbanPage({
       selectedId={query.selected ?? scopeId ?? focusNode?.id}
       selectedNode={focusNode}
       selectedFeature={scopeFeature ?? null}
-      scopeCenter={scopeCenter}
-      recentScopes={recentScopes}
       scrollCenter
       center={
         <KanbanBoard snapshot={snapshot} scopeId={scopeId} selectedId={query.selected ?? scopeId ?? undefined} />

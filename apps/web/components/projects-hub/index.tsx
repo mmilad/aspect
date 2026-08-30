@@ -4,7 +4,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FolderKanban, Trash2 } from "lucide-react";
-import { FormLabel, GhostButton, Input } from "../ui";
+import { Button, FormLabel, Input } from "../ui";
 import { projectPaths } from "../../lib/project-paths";
 
 /** Keep in sync with EXAMPLE_PROJECT_KEY in @projectplaner/db (do not import db in client). */
@@ -127,7 +127,7 @@ export function ProjectsHub({ initialProjects }: ProjectsHubProps) {
   }
 
   return (
-    <main className="min-h-screen bg-[#f8faf9] text-zinc-900">
+    <main className="h-full overflow-auto bg-[#f8faf9] text-zinc-900">
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4 py-6">
         <header className="flex items-center gap-2">
           <FolderKanban className="h-5 w-5 text-teal-800" />
@@ -163,13 +163,14 @@ export function ProjectsHub({ initialProjects }: ProjectsHubProps) {
             />
           </FormLabel>
           <div className="flex items-end">
-            <GhostButton
+            <Button
               type="submit"
-              tone="primary"
+              size="sm"
+              variant="default"
               disabled={busy || exampleBusy || !key.trim() || !title.trim()}
             >
               {busy ? "Creating…" : "Create project"}
-            </GhostButton>
+            </Button>
           </div>
         </form>
 
@@ -177,9 +178,10 @@ export function ProjectsHub({ initialProjects }: ProjectsHubProps) {
           <p className="mr-auto text-xs text-muted-foreground">
             Example: Signal Desk content pipeline (key {EXAMPLE_PROJECT_KEY}). Delete to recreate.
           </p>
-          <GhostButton
+          <Button
             type="button"
-            tone="accent"
+            size="sm"
+            variant="accent"
             disabled={busy || exampleBusy || exampleExists}
             onClick={() => void onCreateExample()}
           >
@@ -188,7 +190,7 @@ export function ProjectsHub({ initialProjects }: ProjectsHubProps) {
               : exampleExists
                 ? `${EXAMPLE_PROJECT_KEY} exists`
                 : "Create example (Signal Desk)"}
-          </GhostButton>
+          </Button>
         </div>
 
         {error ? <p className="text-xs text-rose-700">{error}</p> : null}
@@ -226,9 +228,9 @@ export function ProjectsHub({ initialProjects }: ProjectsHubProps) {
                     {project.key === PROTECTED_KEY ? (
                       <span className="text-xs text-muted-foreground">Protected</span>
                     ) : (
-                      <GhostButton
+                      <Button
                         size="xs"
-                        tone="danger"
+                        variant="danger"
                         disabled={deletingKey === project.key || busy || exampleBusy}
                         onClick={() => onDelete(project)}
                       >
@@ -236,7 +238,7 @@ export function ProjectsHub({ initialProjects }: ProjectsHubProps) {
                           <Trash2 className="h-3.5 w-3.5" />
                           {deletingKey === project.key ? "Deleting…" : "Delete"}
                         </span>
-                      </GhostButton>
+                      </Button>
                     )}
                   </td>
                 </tr>

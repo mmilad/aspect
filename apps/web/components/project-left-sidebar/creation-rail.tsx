@@ -3,7 +3,7 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { EntityRelationType, ProjectNode, ProjectPlanSnapshot } from "@projectplaner/core";
-import { GhostButton, Input, NativeSelect, FormLabel } from "../ui";
+import { Button, Input, NativeSelect, FormLabel } from "../ui";
 import styles from "./style.module.css";
 import {
   RELATION_TYPE_OPTIONS,
@@ -217,14 +217,14 @@ export function CreationRail({ snapshot, selectedId, centerNode, onCreated }: Cr
       </div>
       <div className={styles.createGrid}>
         {KIND_BUTTONS.map((item) => (
-          <GhostButton
+          <Button
             key={item.kind}
             size="xs"
-            active={kind === item.kind}
+            variant={kind === item.kind ? "default" : "outline"}
             onClick={() => resetForm(kind === item.kind ? null : item.kind)}
           >
             {item.label}
-          </GhostButton>
+          </Button>
         ))}
       </div>
 
@@ -283,12 +283,12 @@ export function CreationRail({ snapshot, selectedId, centerNode, onCreated }: Cr
           )}
 
           <div className={styles.createActions}>
-            <GhostButton type="submit" size="xs" tone="primary" disabled={busy}>
+            <Button type="submit" size="xs" variant="default" disabled={busy}>
               {busy ? "Saving…" : "Add"}
-            </GhostButton>
-            <GhostButton type="button" size="xs" disabled={busy} onClick={() => resetForm(null)}>
+            </Button>
+            <Button type="button" size="xs" variant="outline" disabled={busy} onClick={() => resetForm(null)}>
               Cancel
-            </GhostButton>
+            </Button>
           </div>
         </form>
       ) : null}

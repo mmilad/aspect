@@ -4,7 +4,6 @@ import type { EntityPreview } from "../../lib/entity-preview";
 import type { ProjectView } from "../../lib/project-view";
 import type { HeaderChromeContext } from "../project-header";
 import { ProjectLeftSidebar } from "../project-left-sidebar";
-import type { ScopeEntry } from "../project-left-sidebar/scope-section";
 import { ProjectShell } from "../project-shell";
 import { AssistantContextBridge } from "../assistant/assistant-context-bridge";
 import { EntityInspector } from "../inspector";
@@ -22,10 +21,6 @@ export type ProjectViewShellProps = {
   selectedId?: string;
   selectedNode?: ProjectNode | null;
   selectedFeature?: Feature | null;
-  /** Scope section current focus (defaults to selected/root node). */
-  scopeCenter?: ScopeEntry | null;
-  /** Ancestor / recent scopes; center id is filtered out in the Scope section. */
-  recentScopes?: ScopeEntry[];
   entity?: EntityPreview;
   tags?: ProjectPlanSnapshot["tags"];
   incomingCount?: number;
@@ -49,8 +44,6 @@ export function ProjectViewShell({
   selectedId,
   selectedNode = null,
   selectedFeature = null,
-  scopeCenter = null,
-  recentScopes,
   entity,
   tags = [],
   incomingCount = 0,
@@ -92,9 +85,6 @@ export function ProjectViewShell({
             snapshot={snapshot}
             activeView={activeView}
             selectedId={selectedId ?? node?.id}
-            centerNode={node}
-            scopeCenter={scopeCenter}
-            recentScopes={recentScopes ?? []}
           />
         )
       }

@@ -1,6 +1,6 @@
 "use client";
 
-import { Badge, GhostButton } from "../../ui";
+import { Badge, Button } from "../../ui";
 import { badgeClassForTone } from "../../../lib/entity-tones";
 import { cn } from "../../../lib/utils";
 import type { ReactNode } from "react";
@@ -53,34 +53,33 @@ export function WorkflowToolbar({
         <div className="font-mono text-[10px] text-muted-foreground">{presetKey}</div>
       ) : null}
       <div className="ml-auto flex flex-wrap items-center gap-2">
-        <GhostButton size="xs" tone={authorOpen ? "accent" : "default"} active={authorOpen} onClick={onToggleAuthor}>
+        <Button size="xs" variant={authorOpen ? "default" : "outline"} onClick={onToggleAuthor}>
           Describe
-        </GhostButton>
-        <GhostButton size="xs" tone={storyOpen ? "accent" : "default"} active={storyOpen} onClick={onToggleStory}>
+        </Button>
+        <Button size="xs" variant={storyOpen ? "default" : "outline"} onClick={onToggleStory}>
           Story
-        </GhostButton>
-        <GhostButton
+        </Button>
+        <Button
           size="xs"
-          tone={diagramOpen ? "accent" : "default"}
-          active={diagramOpen}
+          variant={diagramOpen ? "default" : "outline"}
           onClick={onToggleDiagram}
         >
           Diagram
-        </GhostButton>
+        </Button>
         {addSlot}
         {onFormat ? (
-          <GhostButton size="xs" onClick={onFormat}>
+          <Button size="xs" variant="outline" onClick={onFormat}>
             Format
-          </GhostButton>
+          </Button>
         ) : null}
         {onRun ? (
-          <GhostButton size="xs" onClick={onRun}>
+          <Button size="xs" variant="outline" onClick={onRun}>
             Run
-          </GhostButton>
+          </Button>
         ) : null}
-        <GhostButton size="xs" tone="primary" disabled={saving} onClick={onSave}>
+        <Button size="xs" variant="default" disabled={saving} onClick={onSave}>
           {saving ? "Saving…" : "Save graph"}
-        </GhostButton>
+        </Button>
       </div>
     </div>
   );

@@ -20,7 +20,7 @@ const {
   uniqueSlotId,
   withQueryConfig
 } = workflow.nodes;
-import { FormLabel, GhostButton, NativeSelect, Input } from "../../ui";
+import { FormLabel, Button, NativeSelect, Input } from "../../ui";
 
 function slotLabel(slot: WorkflowQuerySlot): string {
   switch (slot.slot) {
@@ -183,9 +183,9 @@ export function QueryConfigEditor({
                   {slotLabel(slot)}
                 </span>
                 {!required.has(slot.slot) ? (
-                  <GhostButton size="xs" onClick={() => removeSlot(index)}>
+                  <Button size="xs" variant="outline" onClick={() => removeSlot(index)}>
                     Remove
-                  </GhostButton>
+                  </Button>
                 ) : null}
               </div>
               {slot.slot === "field" ? (
@@ -267,30 +267,32 @@ export function QueryConfigEditor({
           ))}
           <div className="flex flex-wrap gap-1">
             {allowed.has("field") ? (
-              <GhostButton
+              <Button
                 size="xs"
+                variant="outline"
                 onClick={() => addSlot({ id: "key", slot: "field", field: "key", op: "eq", source: "const", value: "" })}
               >
                 Add filter
-              </GhostButton>
+              </Button>
             ) : null}
             {allowed.has("relatedTo") ? (
-              <GhostButton
+              <Button
                 size="xs"
+                variant="outline"
                 onClick={() => addSlot({ slot: "relatedTo", source: "const", value: "" })}
               >
                 Add join
-              </GhostButton>
+              </Button>
             ) : null}
             {allowed.has("q") && !slots.some((slot) => slot.slot === "q") ? (
-              <GhostButton size="xs" onClick={() => addSlot({ slot: "q", source: "pin" })}>
+              <Button size="xs" variant="outline" onClick={() => addSlot({ slot: "q", source: "pin" })}>
                 Add text
-              </GhostButton>
+              </Button>
             ) : null}
             {allowed.has("relations") && !slots.some((slot) => slot.slot === "relations") ? (
-              <GhostButton size="xs" onClick={() => addSlot({ slot: "relations", source: "pin" })}>
+              <Button size="xs" variant="outline" onClick={() => addSlot({ slot: "relations", source: "pin" })}>
                 Add relations
-              </GhostButton>
+              </Button>
             ) : null}
           </div>
         </div>

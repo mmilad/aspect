@@ -8,7 +8,7 @@ import type { ProjectNode, ProjectPlanSnapshot, WorkflowPresetKind } from "@proj
 import workflow from "@projectplaner/core/workflow";
 
 const { isWorkflowPresetKind, resolveWorkflowKind, workflowPresetKinds } = workflow.presets;
-import { Badge, GhostButton, NativeSelect, Textarea, Input } from "../ui";
+import { Badge, Button, NativeSelect, Textarea, Input } from "../ui";
 import { badgeClassForTone } from "../../lib/entity-tones";
 import { cn } from "../../lib/utils";
 import { RunWorkflowDialog } from "../workflow-run-dialog";
@@ -75,15 +75,15 @@ function FlowRow({
         ) : null}
       </div>
       <div className="flex shrink-0 items-center gap-1">
-        <GhostButton size="xs" onClick={() => onRun(flow)}>
+        <Button size="xs" variant="outline" onClick={() => onRun(flow)}>
           <span className="inline-flex items-center gap-1">
             <Play className="h-3 w-3" />
             Run
           </span>
-        </GhostButton>
-        <GhostButton size="xs" tone="workflow" onClick={() => onOpen(flow)}>
+        </Button>
+        <Button size="xs" variant="workflow" onClick={() => onOpen(flow)}>
           Open
-        </GhostButton>
+        </Button>
       </div>
     </li>
   );
@@ -185,17 +185,16 @@ export function WorkflowsOverview({ snapshot }: WorkflowsOverviewProps) {
         <div className="text-sm font-medium text-zinc-900">Project workflows</div>
         <Badge>{flows.length}</Badge>
         <div className="ml-auto">
-          <GhostButton
+          <Button
             size="xs"
-            tone="workflow"
-            active={composerOpen}
+            variant={composerOpen ? "default" : "workflow"}
             onClick={() => {
               setComposerOpen((open) => !open);
               setCreateError(null);
             }}
           >
             + New workflow from brief
-          </GhostButton>
+          </Button>
         </div>
       </div>
 
@@ -210,18 +209,19 @@ export function WorkflowsOverview({ snapshot }: WorkflowsOverviewProps) {
           />
           {createError ? <p className="text-[11px] text-rose-700">{createError}</p> : null}
           <div className="flex gap-1">
-            <GhostButton size="xs" tone="workflow" disabled={creating} onClick={() => void createWorkflow()}>
+            <Button size="xs" variant="workflow" disabled={creating} onClick={() => void createWorkflow()}>
               {creating ? "Creating…" : "Create flow"}
-            </GhostButton>
-            <GhostButton
+            </Button>
+            <Button
               size="xs"
+              variant="outline"
               onClick={() => {
                 setComposerOpen(false);
                 setCreateError(null);
               }}
             >
               Cancel
-            </GhostButton>
+            </Button>
           </div>
         </div>
       ) : null}

@@ -49,6 +49,7 @@ import { WorkflowToolbar } from "./workflow-toolbar";
 import { WorkflowStoryPanel } from "./workflow-story-panel";
 import { WorkflowDiagramPanel } from "./workflow-diagram-panel";
 import { WorkflowCanvasContextMenu, WorkflowToolbarAdd } from "./workflow-add-menu";
+import { useAssistantContextPublisher } from "../project-shell/right-pane-context";
 import { useWorkflowInspectorPublisher } from "./workflow-inspector-context";
 import { WorkflowFlowCanvas } from "./workflow-flow-canvas";
 import { TryLlmDialog } from "./try-llm-dialog";
@@ -88,6 +89,7 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
   const presetKey = typeof flow.metadata.presetKey === "string" ? flow.metadata.presetKey : null;
   const [presetDirty, setPresetDirty] = useState(flow.metadata.presetDirty === true);
   const { publish, clear } = useWorkflowInspectorPublisher();
+  const publishAssistant = useAssistantContextPublisher();
   const rfRef = useRef<ReactFlowInstance<FlowRfNode, FlowRfEdge> | null>(null);
 
   const selected = nodes.find((node) => node.id === selectedId)?.data.workflow ?? null;
@@ -148,6 +150,15 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
       cancelled = true;
     };
   }, [flow.id, setEdges, setNodes]);
+
+  useEffect(() => {
+    publishAssistant?.({
+      projectKey,
+      flowId: flow.id,
+      nodeId: selectedId ?? "",
+      entityId: ""
+    });
+  }, [publishAssistant, projectKey, flow.id, selectedId]);
 
   const syncSelection = useCallback(
     (id: string | null) => {

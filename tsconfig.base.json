@@ -20,6 +20,7 @@
       "@projectplaner/core/workflow": ["packages/core/src/workflow/index.ts"],
       "@projectplaner/core/planning": ["packages/core/src/planning/index.ts"],
       "@projectplaner/core/generator": ["packages/core/src/generator/index.ts"],
+      "@projectplaner/core/assistant": ["packages/core/src/assistant/index.ts"],
       "@projectplaner/db": ["packages/db/src/index.ts"],
       "@projectplaner/db/entities": ["packages/db/src/repositories/entities.ts"],
       "@projectplaner/db/relations": ["packages/db/src/repositories/relations.ts"],
@@ -29,6 +30,7 @@
       "@projectplaner/db/query": ["packages/db/src/query/index.ts"],
       "@projectplaner/db/workflows": ["packages/db/src/workflows/index.ts"],
       "@projectplaner/db/llm-json-schemas": ["packages/db/src/repositories/llm-json-schemas.ts"],
+      "@projectplaner/db/assistant-sessions": ["packages/db/src/repositories/assistant-sessions.ts"],
       "@projectplaner/mcp": ["packages/mcp/src/index.ts"],
       "@projectplaner/agent": ["apps/agent/src/index.ts"]
     }

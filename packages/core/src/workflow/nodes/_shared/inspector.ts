@@ -1,4 +1,5 @@
 import type { WorkflowNodeData } from "./types";
+import { getDataPath as getRecordPath, setDataPath as setRecordPath } from "../../../json-path";
 
 /** Declarative inspector field — rendered by the web WorkflowStepInspector. */
 export type WorkflowInspectorField =
@@ -51,38 +52,10 @@ export type WorkflowInspectorField =
     };
 
 export function getDataPath(data: WorkflowNodeData, path: string): unknown {
-  if (!path) {
-    return undefined;
-  }
-  const parts = path.split(".");
-  let current: unknown = data;
-  for (const part of parts) {
-    if (typeof current !== "object" || current === null || !(part in current)) {
-      return undefined;
-    }
-    current = (current as Record<string, unknown>)[part];
-  }
-  return current;
+  return getRecordPath(data, path);
 }
 
 /** Immutable set of a dotted path on node data (creates intermediate objects). */
 export function setDataPath(data: WorkflowNodeData, path: string, value: unknown): WorkflowNodeData {
-  const parts = path.split(".").filter(Boolean);
-  if (parts.length === 0) {
-    return data;
-  }
-  const root: Record<string, unknown> = { ...data };
-  let cursor: Record<string, unknown> = root;
-  for (let i = 0; i < parts.length - 1; i += 1) {
-    const key = parts[i]!;
-    const next = cursor[key];
-    const clone =
-      typeof next === "object" && next !== null && !Array.isArray(next)
-        ? { ...(next as Record<string, unknown>) }
-        : {};
-    cursor[key] = clone;
-    cursor = clone;
-  }
-  cursor[parts[parts.length - 1]!] = value;
-  return root as WorkflowNodeData;
+  return setRecordPath(data as Record<string, unknown>, path, value) as WorkflowNodeData;
 }

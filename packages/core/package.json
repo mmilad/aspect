@@ -13,7 +13,8 @@
     "./legacy": "./src/legacy/index.ts",
     "./workflow": "./src/workflow/index.ts",
     "./planning": "./src/planning/index.ts",
-    "./generator": "./src/generator/index.ts"
+    "./generator": "./src/generator/index.ts",
+    "./assistant": "./src/assistant/index.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",

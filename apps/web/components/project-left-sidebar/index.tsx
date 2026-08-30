@@ -5,6 +5,7 @@ import styles from "./style.module.css";
 import { ProjectTabsNav } from "./project-tabs-nav";
 import { GraphFilters } from "./graph-filters";
 import { ScopeSection, type ScopeEntry } from "./scope-section";
+import { AssistantSessionsSection } from "./assistant-sessions-section";
 import { CreationRail } from "./creation-rail";
 
 interface ProjectLeftSidebarProps {
@@ -43,6 +44,7 @@ export function ProjectLeftSidebar({
   return (
     <div className={styles.sidebar}>
       <ProjectTabsNav snapshot={snapshot} activeView={activeView} selectedId={resolvedSelectedId} />
+      <AssistantSessionsSection />
       <CreationRail
         snapshot={snapshot}
         selectedId={resolvedSelectedId}

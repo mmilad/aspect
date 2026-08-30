@@ -323,5 +323,22 @@ export function runMigrations(sqlite: MigrationDatabase): void {
 
     CREATE UNIQUE INDEX IF NOT EXISTS llm_json_schema_versions_schema_version_idx
       ON llm_json_schema_versions(schema_id, version);
+
+    CREATE TABLE IF NOT EXISTS assistant_sessions (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      title TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'active',
+      session_json TEXT NOT NULL,
+      context_entity_id TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS assistant_sessions_project_status_updated_idx
+      ON assistant_sessions(project_id, status, updated_at);
+
+    CREATE INDEX IF NOT EXISTS assistant_sessions_context_entity_idx
+      ON assistant_sessions(context_entity_id);
   `);
 }

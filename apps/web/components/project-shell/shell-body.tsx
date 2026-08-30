@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
-import { PanelRight, PanelRightClose, PanelRightOpen } from "lucide-react";
-import { GhostButton } from "../ui";
+import { MessageSquare, PanelRight, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { AssistantHost, AssistantRail } from "../assistant";
+import { Button } from "../ui";
+import { useRightPane } from "./right-pane-context";
 import styles from "./style.module.css";
 
 const WIDTH_MIN = 280;
@@ -41,6 +43,7 @@ interface ShellBodyProps {
 }
 
 export function ShellBody({ projectKey, leftSidebar, center, rightSidebar }: ShellBodyProps) {
+  const { mode, setMode } = useRightPane();
   const [width, setWidth] = useState(WIDTH_DEFAULT);
   const [collapsed, setCollapsed] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -95,6 +98,7 @@ export function ShellBody({ projectKey, leftSidebar, center, rightSidebar }: She
   }
 
   const rightWidth = collapsed ? COLLAPSED_WIDTH : width;
+  const paneLabel = mode === "assistant" ? "Assistant" : "Inspector";
 
   return (
     <div
@@ -104,8 +108,8 @@ export function ShellBody({ projectKey, leftSidebar, center, rightSidebar }: She
       }}
     >
       <aside className={styles.left}>{leftSidebar}</aside>
-      <section className={styles.center}>{center}</section>
-      <aside className={styles.right} aria-label="Right inspector">
+      <section className={styles.center}>{mode === "assistant" ? <AssistantHost /> : center}</section>
+      <aside className={styles.right} aria-label={`Right ${paneLabel.toLowerCase()}`}>
         {!collapsed ? (
           <div
             className={styles.resizeHandle}
@@ -114,7 +118,7 @@ export function ShellBody({ projectKey, leftSidebar, center, rightSidebar }: She
             aria-valuenow={width}
             aria-valuemin={WIDTH_MIN}
             aria-valuemax={WIDTH_MAX}
-            aria-label="Resize inspector"
+            aria-label={`Resize ${paneLabel.toLowerCase()}`}
             onPointerDown={onResizePointerDown}
             onPointerMove={onResizePointerMove}
             onPointerUp={onResizePointerUp}
@@ -125,41 +129,66 @@ export function ShellBody({ projectKey, leftSidebar, center, rightSidebar }: She
         <div className={styles.rightFrame}>
           {collapsed ? (
             <div className={styles.collapsedRail}>
-              <GhostButton
-                size="xs"
+              <Button
+                size="icon"
+                variant="ghost"
                 className={styles.collapsedButton}
-                title="Expand inspector"
+                title={`Expand ${paneLabel.toLowerCase()}`}
                 aria-expanded={false}
-                aria-controls="project-right-inspector"
+                aria-controls="project-right-pane"
                 onClick={() => setCollapsed(false)}
               >
                 <PanelRightOpen className="h-4 w-4" />
-              </GhostButton>
+              </Button>
             </div>
           ) : (
             <div className={styles.rightChrome}>
               <span className={styles.rightChromeLabel}>
-                <PanelRight className="h-3.5 w-3.5" />
-                Inspector
+                {mode === "assistant" ? <MessageSquare className="h-3.5 w-3.5" /> : <PanelRight className="h-3.5 w-3.5" />}
+                {paneLabel}
               </span>
-              <GhostButton
-                size="xs"
-                title="Collapse inspector"
-                aria-expanded={true}
-                aria-controls="project-right-inspector"
-                onClick={() => setCollapsed(true)}
-              >
-                <PanelRightClose className="h-3.5 w-3.5" />
-              </GhostButton>
+              <div className="flex items-center gap-1">
+                <Button
+                  size="xs"
+                  variant={mode === "inspect" ? "default" : "ghost"}
+                  onClick={() => setMode("inspect")}
+                >
+                  Inspect
+                </Button>
+                <Button
+                  size="xs"
+                  variant={mode === "assistant" ? "default" : "ghost"}
+                  onClick={() => setMode("assistant")}
+                >
+                  Assistant
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  title={`Collapse ${paneLabel.toLowerCase()}`}
+                  aria-expanded={true}
+                  aria-controls="project-right-pane"
+                  onClick={() => setCollapsed(true)}
+                >
+                  <PanelRightClose className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           )}
 
           <div
-            id="project-right-inspector"
+            id="project-right-pane"
             className={collapsed ? styles.hiddenInspector : styles.rightContent}
             aria-hidden={collapsed}
           >
-            {rightSidebar}
+            {mode === "assistant" ? (
+              <AssistantRail />
+            ) : (
+              <div className="flex h-full min-h-0 flex-col">
+                <AssistantRail />
+                <div className="min-h-0 flex-1 overflow-hidden border-t border-border">{rightSidebar}</div>
+              </div>
+            )}
           </div>
         </div>
       </aside>

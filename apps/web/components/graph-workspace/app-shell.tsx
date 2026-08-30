@@ -7,6 +7,7 @@ import type { EntityType, ProjectPlanSnapshot } from "@projectplaner/core";
 import legacy from "@projectplaner/core/legacy";
 
 const { focusGraph } = legacy;
+import { AssistantContextBridge } from "../assistant/assistant-context-bridge";
 import { ProjectLeftSidebar } from "../project-left-sidebar";
 import { ProjectShell } from "../project-shell";
 import { SelectionInspector } from "../selection-inspector";
@@ -218,6 +219,13 @@ export function AppShell({ snapshot, initialSelectedId }: AppShellProps) {
       }
       center={
         <WorkspaceCenter>
+          <AssistantContextBridge
+            context={{
+              projectKey: snapshot.project.key,
+              entityId: selectedEntity.id,
+              nodeId: selectedNode.id
+            }}
+          />
           <section className="relative h-full min-h-0 bg-[#f8faf9]">
             <GraphToolbar
               parentNode={parentNode}

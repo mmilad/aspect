@@ -6,6 +6,7 @@ import type { HeaderChromeContext } from "../project-header";
 import { ProjectLeftSidebar } from "../project-left-sidebar";
 import type { ScopeEntry } from "../project-left-sidebar/scope-section";
 import { ProjectShell } from "../project-shell";
+import { AssistantContextBridge } from "../assistant/assistant-context-bridge";
 import { EntityInspector } from "../inspector";
 import { WorkspaceCenter } from "../workspace-center";
 
@@ -97,7 +98,19 @@ export function ProjectViewShell({
           />
         )
       }
-      center={<WorkspaceCenter scroll={scrollCenter}>{center}</WorkspaceCenter>}
+      center={
+        <>
+          <AssistantContextBridge
+            context={{
+              projectKey: snapshot.project.key,
+              entityId: previewEntity.id,
+              flowId: resolvedChrome.flowId,
+              nodeId: selectedNode?.id
+            }}
+          />
+          <WorkspaceCenter scroll={scrollCenter}>{center}</WorkspaceCenter>
+        </>
+      }
       rightSidebar={
         rightSidebar ?? (
           <EntityInspector

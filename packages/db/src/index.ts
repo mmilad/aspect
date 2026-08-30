@@ -3,6 +3,7 @@ import { createDatabase, loadEnv, openDatabase } from "./client";
 import { createExampleProject, EXAMPLE_PROJECT_KEY } from "./example-signal-desk";
 import { ensureWorkflowPresets, findSeededWorkflowPreset, markWorkflowPresetDirty } from "./presets";
 import query from "./query";
+import assistantSessions from "./repositories/assistant-sessions";
 import entities from "./repositories/entities";
 import llmJsonSchemas from "./repositories/llm-json-schemas";
 import projects from "./repositories/projects";
@@ -22,7 +23,8 @@ const planer = {
   snapshots,
   query,
   workflows,
-  llmJsonSchemas
+  llmJsonSchemas,
+  assistantSessions
 };
 
 export default planer;
@@ -65,6 +67,7 @@ export type {
   EnsureLlmJsonSchemasResult,
   LlmJsonSchemaRecord
 } from "./repositories/llm-json-schemas";
+export type { AssistantSessionRecord, AssistantSessionRow } from "./repositories/assistant-sessions";
 export type {
   AdvanceWorkflowRunInput,
   AdvanceWorkflowRunResult,

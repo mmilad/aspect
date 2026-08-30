@@ -1,3 +1,4 @@
+import assistant from "./assistant";
 import domain from "./domain";
 import generator from "./generator";
 import legacy from "./legacy";
@@ -13,7 +14,8 @@ const core = {
   legacy,
   workflow,
   planning,
-  generator
+  generator,
+  assistant
 };
 
 export default core;
@@ -31,3 +33,4 @@ export type * from "./legacy";
 export type * from "./workflow";
 export type * from "./planning";
 export type * from "./generator";
+export type * from "./assistant";

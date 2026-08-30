@@ -1,3 +1,4 @@
+import assistantSessions from "./assistant-sessions";
 import entities from "./entities";
 import llmJsonSchemas from "./llm-json-schemas";
 import projects from "./projects";
@@ -13,8 +14,9 @@ const repositories = {
   tags,
   tasks,
   snapshots,
-  llmJsonSchemas
+  llmJsonSchemas,
+  assistantSessions
 };
 
 export default repositories;
-export { entities, relations, projects, tags, tasks, snapshots, llmJsonSchemas };
+export { entities, relations, projects, tags, tasks, snapshots, llmJsonSchemas, assistantSessions };

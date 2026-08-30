@@ -21,6 +21,7 @@ export default defineConfig({
       { find: "@projectplaner/core/legacy", replacement: path.join(root, "packages/core/src/legacy/index.ts") },
       { find: "@projectplaner/core/workflow", replacement: path.join(root, "packages/core/src/workflow/index.ts") },
       { find: "@projectplaner/core/planning", replacement: path.join(root, "packages/core/src/planning/index.ts") },
+      { find: "@projectplaner/core/assistant", replacement: path.join(root, "packages/core/src/assistant/index.ts") },
       { find: "@projectplaner/core/generator", replacement: path.join(root, "packages/core/src/generator/index.ts") },
       { find: "@projectplaner/core", replacement: path.join(root, "packages/core/src/index.ts") },
       { find: "@projectplaner/db", replacement: path.join(root, "packages/db/src/index.ts") }

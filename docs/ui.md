@@ -8,13 +8,17 @@ Shared 3-pane chrome via `ProjectShell` / `ProjectViewShell`:
 
 | Pane | Role |
 |------|------|
-| Left | Project nav (`ProjectLeftSidebar`: Workspace / Graph / Issues / Kanban, Create rail, filters) |
-| Center | Active workspace (stats hub, graph canvas, Issues, Kanban, flow editor, …) |
-| Right | Inspector (`components/inspector/`) — entity preview by default |
+| Left | Project nav, **Assistant** (New chat + session list), Create rail, filters |
+| Center | Inspect: workspace (graph, kanban, …). Assistant: chat (or a selected session view). |
+| Right | Inspect: entity/step/Describe. Assistant: inferred session buttons (Summary, Topics, Context, later Plans). |
 
-Flow editor (`WorkflowEditorShell`) uses the same shell: center is toolbar + React Flow (or Diagram Mermaid view); the **shell right pane** shows Author when **Describe** is on, step details when a node is selected, otherwise the flow entity. No nested palette or second inspector column.
+**Inspect** is entity / workflow step / Describe (`components/inspector/`). **Assistant** is a conversation document (`components/assistant/`) — **not a graph entity**. Left sidebar **Assistant** has **New chat** and the session list. Open a session (or Chat in the right rail) and the conversation occupies the **main pane**. Other session views light up as right-sidebar buttons.
+
+Flow editor (`WorkflowEditorShell`) uses the same shell: center is toolbar + React Flow (or Diagram Mermaid view); Inspect still shows Author when **Describe** is on, step details when a node is selected, otherwise the flow entity. Assistant is a sibling mode — it does not replace Describe. No nested palette or second inspector column.
 
 Add workflow steps via toolbar **Add** or canvas **right-click** context menu (connect-kind lives there too).
+
+New assistant UI uses shadcn primitives (`Button`, `Textarea`, `Breadcrumb`, `ScrollArea`) next to existing `GhostButton` / inspector controls.
 
 ## Surfaces
 
@@ -30,17 +34,21 @@ Add workflow steps via toolbar **Add** or canvas **right-click** context menu (c
 
 Project tabs carry aspect/selection context across Graph / Issues / Kanban. Create/delete project is **web UI + HTTP only** (not MCP).
 
-## Inspector folder
+## Right pane folders
 
 ```
-components/inspector/
-  index.tsx                 # InspectorHost
-  entity-inspector/         # Entity / selection preview
-  workflow-step-inspector/  # Selected workflow step editor
-  workflow-author-inspector/# Describe / brief generate (flow editor)
+components/inspector/     # Inspect mode
+  index.tsx               # InspectorHost (PaneFrame)
+  entity-inspector/
+  workflow-step-inspector/
+  workflow-author-inspector/
+
+components/assistant/     # Assistant mode
+  index.tsx               # AssistantHost — main chat / schema view
+  assistant-rail.tsx      # Right-sidebar session buttons
 ```
 
-Grow new right-pane kinds under this folder; avoid a second inspector inside center workspaces.
+Avoid a second inspector inside center workspaces.
 
 ## UX rules
 
@@ -48,6 +56,7 @@ Grow new right-pane kinds under this folder; avoid a second inspector inside cen
 - Status badges follow the process ladder (and decision/question sets where relevant).
 - Creation stays compact (left Create rail) with selection context.
 - Soft-deleted (`archived`) entities stay out of default graph/list views.
+- Assistant sessions archive; never hard-delete.
 
 ## Run
 

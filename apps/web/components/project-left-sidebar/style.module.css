@@ -69,6 +69,11 @@
   background: hsl(var(--muted));
 }
 
+.activeSession {
+  border-color: #0f766e;
+  background: #ccfbf1;
+}
+
 .contextHint {
   margin-bottom: 8px;
   overflow: hidden;

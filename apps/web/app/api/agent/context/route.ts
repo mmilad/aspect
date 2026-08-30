@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { Entity, EntityRelation } from "@projectplaner/core";
 import { expandTaskChainIds, selectCompactContextRelations } from "@projectplaner/core";
-import { listRelations } from "@projectplaner/db";
+import relations from "@projectplaner/db/relations";
 import { createWebPlanApi, withDb } from "../../../../lib/plan-api";
 
 function parseLimit(value: string | null, fallback: number): number {
@@ -161,7 +161,7 @@ export async function GET(request: Request) {
   try {
     return await withDb(async (db) => {
       const api = createWebPlanApi(db);
-      const relations = await listRelations(db, { projectKey });
+      const listedRelations = await relations.list(db, { projectKey });
 
       const search = query
         ? await api.entities.search({ projectKey, q: query, limit, select: "full" })
@@ -216,11 +216,11 @@ export async function GET(request: Request) {
           (task) =>
             seeds.size === 0 ||
             seeds.has(task.id) ||
-            relations.some((relation) => relation.sourceEntityId === task.id && seeds.has(relation.targetEntityId))
+            listedRelations.some((relation) => relation.sourceEntityId === task.id && seeds.has(relation.targetEntityId))
         )
         .slice(0, limit);
 
-      const neighborhoodIds = relatedEntityIds(seeds, relations, depth);
+      const neighborhoodIds = relatedEntityIds(seeds, listedRelations, depth);
       const neighborhoodEntities = (
         await Promise.all([...neighborhoodIds].map((id) => api.entities.get(id, { select: "full" })))
       )
@@ -235,7 +235,7 @@ export async function GET(request: Request) {
         byId.set(target.id, target);
       }
 
-      const neighborhoodRelations = relations.filter(
+      const neighborhoodRelations = listedRelations.filter(
         (relation) => neighborhoodIds.has(relation.sourceEntityId) && neighborhoodIds.has(relation.targetEntityId)
       );
       const chainIds = expandTaskChainIds(
@@ -244,7 +244,7 @@ export async function GET(request: Request) {
           ...openTasks.map((task) => task.id),
           ...(target ? [target.id] : [])
         ],
-        relations
+        listedRelations
       );
       const missingChainIds = [...chainIds].filter((id) => !byId.has(id));
       if (missingChainIds.length > 0) {
@@ -257,7 +257,7 @@ export async function GET(request: Request) {
           byId.set(entity.id, entity);
         }
       }
-      const compactRelations = selectCompactContextRelations(relations, {
+      const compactRelations = selectCompactContextRelations(listedRelations, {
         chainIds,
         neighborhoodIds,
         limit,

@@ -1,24 +1,23 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import {
-  createPlanEntity,
-  createPlanRelation,
+  createEntity,
+  createRelation,
   errorResult,
-  getPlanEntity,
-  listPlanEntities,
+  getEntity,
+  listEntities,
   nextWork,
   orientBriefing,
   packetRead,
   packetWrite,
-  runPlanWorkflow,
-  searchPlanEntities,
+  runWorkflow,
+  searchEntities,
   textResult,
-  updatePlanEntity
-} from "./plan";
-import { assertExpectedToolNames } from "./tools";
-import { USAGE_GUIDE } from "./usage";
+  updateEntity
+} from "./operations";
+import { assertExpectedToolNames } from "./catalog";
 
-export { EXPECTED_MCP_TOOLS, assertExpectedToolNames } from "./tools";
+export { EXPECTED_MCP_TOOLS, assertExpectedToolNames } from "./catalog";
 
 const entityTypeSchema = z.enum([
   "project",
@@ -72,16 +71,6 @@ export function createProjectplanerServer(): McpServer {
     version: "0.2.0"
   });
 
-  server.resource("usage", "projectplaner://usage", async (uri) => ({
-    contents: [
-      {
-        uri: uri.href,
-        mimeType: "text/markdown",
-        text: USAGE_GUIDE
-      }
-    ]
-  }));
-
   server.registerTool(
     "orient",
     {
@@ -120,7 +109,7 @@ export function createProjectplanerServer(): McpServer {
     },
     async (input) => {
       try {
-        return textResult(await searchPlanEntities(input));
+        return textResult(await searchEntities(input));
       } catch (error) {
         return errorResult(error);
       }
@@ -164,7 +153,7 @@ export function createProjectplanerServer(): McpServer {
     },
     async ({ id, includeBody, includeMetadata }) => {
       try {
-        return textResult(await getPlanEntity(id, { includeBody, includeMetadata }));
+        return textResult(await getEntity(id, { includeBody, includeMetadata }));
       } catch (error) {
         return errorResult(error);
       }
@@ -195,7 +184,7 @@ export function createProjectplanerServer(): McpServer {
     },
     async (input) => {
       try {
-        return textResult(await listPlanEntities(input));
+        return textResult(await listEntities(input));
       } catch (error) {
         return errorResult(error);
       }
@@ -227,7 +216,7 @@ export function createProjectplanerServer(): McpServer {
     },
     async (input) => {
       try {
-        return textResult(await createPlanEntity(input));
+        return textResult(await createEntity(input));
       } catch (error) {
         return errorResult(error);
       }
@@ -254,7 +243,7 @@ export function createProjectplanerServer(): McpServer {
     },
     async (input) => {
       try {
-        return textResult(await updatePlanEntity(input));
+        return textResult(await updateEntity(input));
       } catch (error) {
         return errorResult(error);
       }
@@ -277,7 +266,7 @@ export function createProjectplanerServer(): McpServer {
     },
     async (input) => {
       try {
-        return textResult(await createPlanRelation(input));
+        return textResult(await createRelation(input));
       } catch (error) {
         return errorResult(error);
       }
@@ -302,7 +291,7 @@ export function createProjectplanerServer(): McpServer {
     },
     async (input) => {
       try {
-        return textResult(await runPlanWorkflow(input));
+        return textResult(await runWorkflow(input));
       } catch (error) {
         return errorResult(error);
       }

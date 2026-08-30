@@ -13,17 +13,10 @@ import type {
 } from "@projectplaner/core";
 import fs from "node:fs/promises";
 import { createDatabase } from "./client";
-import {
-  createEntity,
-  createRelation,
-  createTask,
-  exportGenericPlan,
-  getEntity,
-  importGenericPlan,
-  listEntities,
-  listRelations,
-  updateEntity
-} from "./repository";
+import entities from "./repositories/entities";
+import relations from "./repositories/relations";
+import snapshots from "./repositories/snapshots";
+import tasks from "./repositories/tasks";
 
 type ParsedArgs = {
   positionals: string[];
@@ -302,15 +295,15 @@ function relationTouchesPacket(relation: EntityRelation, entityId: string, packe
 }
 
 async function readPackets(db: ReturnType<typeof createDatabase>, entityId: string, workflow?: string): Promise<Entity[]> {
-  const entity = await getEntity(db, entityId);
+  const entity = await entities.get(db, entityId);
   if (!entity) {
     throw new Error("Entity not found.");
   }
-  const references = await listEntities(db, { projectKey: "PLAN", type: "reference" });
+  const references = await entities.list(db, { projectKey: "PLAN", type: "reference" });
   const packetIds = new Set(references.filter((reference) => isOrientationPacket(reference, workflow)).map((reference) => reference.id));
-  const relations = await listRelations(db, { projectKey: "PLAN" });
+  const listedRelations = await relations.list(db, { projectKey: "PLAN" });
   const attachedIds = new Set(
-    relations
+    listedRelations
       .filter((relation) => relationTouchesPacket(relation, entityId, packetIds))
       .map((relation) => (relation.sourceEntityId === entityId ? relation.targetEntityId : relation.sourceEntityId))
   );
@@ -358,11 +351,11 @@ async function main(): Promise<void> {
 
   if (command === "presets-ensure") {
     const { ensureWorkflowPresets } = await import("./presets");
-    const { ensureLlmJsonSchemas } = await import("./llm-json-schemas");
+    const llmJsonSchemas = (await import("./repositories/llm-json-schemas")).default;
     const db = createDatabase();
     try {
       const result = await ensureWorkflowPresets(db, { force: forcePresets, only: onlyPresets });
-      const schemas = ensureLlmJsonSchemas(db, { force: forcePresets });
+      const schemas = llmJsonSchemas.ensure(db, { force: forcePresets });
       console.log(JSON.stringify({ ...result, llmJsonSchemas: schemas }, null, 2));
       return;
     } finally {
@@ -549,7 +542,7 @@ async function main(): Promise<void> {
   try {
 
     if (command === "orient") {
-      const snapshot = await import("./repository").then((mod) => mod.getProjectSnapshot(db, "PLAN"));
+      const snapshot = await snapshots.get(db, "PLAN");
       if (!snapshot) {
         throw new Error("PLAN project is missing.");
       }
@@ -578,11 +571,11 @@ async function main(): Promise<void> {
         throw new Error("--target must look like aspect:node_id or feature:feature_id.");
       }
 
-      const targetEntity = await getEntity(db, targetId);
+      const targetEntity = await entities.get(db, targetId);
       const task =
         targetEntity && targetEntity.type === targetType
           ? (
-              await createEntity(db, {
+              await entities.create(db, {
                 projectKey: "PLAN",
                 type: "task",
                 title,
@@ -595,7 +588,7 @@ async function main(): Promise<void> {
                 relations: [{ targetEntityId: targetId, type: linkType as TaskLinkType, isPrimary: true }]
               })
             ).entity
-          : await createTask(db, {
+          : await tasks.create(db, {
               projectKey: "PLAN",
               title,
               description: first(args.options, "description") ?? "",
@@ -632,7 +625,7 @@ async function main(): Promise<void> {
         );
       }
       if (type === "task" && target) {
-        const targetEntity = await getEntity(db, target);
+        const targetEntity = await entities.get(db, target);
         if (!targetEntity || (targetEntity.type !== "aspect" && targetEntity.type !== "feature")) {
           throw new Error("Task targets must be existing Aspect or Feature entities.");
         }
@@ -648,7 +641,7 @@ async function main(): Promise<void> {
       }
 
       const shouldCreateParentContainsChild = type === "aspect" && target && linkType === "contains";
-      const result = await createEntity(db, {
+      const result = await entities.create(db, {
         projectKey: "PLAN",
         type,
         title,
@@ -662,7 +655,7 @@ async function main(): Promise<void> {
       });
 
       if (shouldCreateParentContainsChild) {
-        await createRelation(db, {
+        await relations.create(db, {
           projectKey: "PLAN",
           sourceEntityId: target,
           targetEntityId: result.entity.id,
@@ -683,11 +676,11 @@ async function main(): Promise<void> {
       if (!id) {
         throw new Error("update-entity requires --id.");
       }
-      const entity = await getEntity(db, id);
+      const entity = await entities.get(db, id);
       if (!entity) {
         throw new Error("Entity not found.");
       }
-      const updated = await updateEntity(db, {
+      const updated = await entities.update(db, {
         id,
         patch: {
           key: first(args.options, "key") ?? entity.key,
@@ -708,7 +701,7 @@ async function main(): Promise<void> {
       if (!id) {
         throw new Error("get-entity requires --id.");
       }
-      console.log(JSON.stringify(await getEntity(db, id), null, 2));
+      console.log(JSON.stringify(await entities.get(db, id), null, 2));
       return;
     }
 
@@ -717,8 +710,8 @@ async function main(): Promise<void> {
       if (type && !entityTypes.has(type)) {
         throw new Error(`Unknown entity type "${type}".`);
       }
-      const entities = await listEntities(db, { projectKey: "PLAN", type, query: first(args.options, "query") });
-      for (const entity of entities) {
+      const listed = await entities.list(db, { projectKey: "PLAN", type, query: first(args.options, "query") });
+      for (const entity of listed) {
         console.log(`- ${entity.id} [${entity.type}/${entity.status}] ${entity.key ? `${entity.key} ` : ""}${entity.title}`);
       }
       return;
@@ -734,7 +727,7 @@ async function main(): Promise<void> {
       if (!relationTypes.has(type)) {
         throw new Error(`Unknown relation type "${type}".`);
       }
-      const relation = await createRelation(db, {
+      const relation = await relations.create(db, {
         projectKey: "PLAN",
         sourceEntityId,
         targetEntityId,
@@ -748,13 +741,13 @@ async function main(): Promise<void> {
     }
 
     if (command === "list-relations") {
-      const relations = await listRelations(db, {
+      const listedRelations = await relations.list(db, {
         projectKey: "PLAN",
         sourceEntityId: first(args.options, "from"),
         targetEntityId: first(args.options, "to"),
         type: first(args.options, "type") as EntityRelationType | undefined
       });
-      for (const relation of relations) {
+      for (const relation of listedRelations) {
         console.log(`- ${relation.id} ${relation.sourceEntityId} -[${relation.type}]-> ${relation.targetEntityId}`);
       }
       return;
@@ -775,22 +768,22 @@ async function main(): Promise<void> {
       if (!entityId) {
         throw new Error("packet-write requires --entity.");
       }
-      const target = await getEntity(db, entityId);
+      const target = await entities.get(db, entityId);
       if (!target) {
         throw new Error("Entity not found.");
       }
       const metadata = normalizePacketMetadata(await parseMetadata(args.options), entityId, first(args.options, "workflow"));
       const existingId = first(args.options, "id");
       const packet = existingId
-        ? await updateEntity(db, {
+        ? await entities.update(db, {
             id: existingId,
             patch: {
               metadata,
-              title: first(args.options, "title") ?? (await getEntity(db, existingId))?.title ?? "Orientation Packet"
+              title: first(args.options, "title") ?? (await entities.get(db, existingId))?.title ?? "Orientation Packet"
             }
           })
         : (
-            await createEntity(db, {
+            await entities.create(db, {
               projectKey: "PLAN",
               type: "reference",
               title: first(args.options, "title") ?? `Orientation Packet for ${target.key ?? target.title}`,
@@ -802,9 +795,9 @@ async function main(): Promise<void> {
       if (packet.type !== "reference") {
         throw new Error("Packet entity must be a reference.");
       }
-      const existingRelations = await listRelations(db, { projectKey: "PLAN", sourceEntityId: entityId, targetEntityId: packet.id });
+      const existingRelations = await relations.list(db, { projectKey: "PLAN", sourceEntityId: entityId, targetEntityId: packet.id });
       if (existingRelations.length === 0) {
-        await createRelation(db, {
+        await relations.create(db, {
           projectKey: "PLAN",
           sourceEntityId: entityId,
           targetEntityId: packet.id,
@@ -822,7 +815,7 @@ async function main(): Promise<void> {
       if (!out) {
         throw new Error("export requires --out.");
       }
-      await fs.writeFile(out, `${JSON.stringify(await exportGenericPlan(db, "PLAN"), null, 2)}\n`, "utf8");
+      await fs.writeFile(out, `${JSON.stringify(await snapshots.export(db, "PLAN"), null, 2)}\n`, "utf8");
       console.log(`Exported PLAN to ${out}.`);
       return;
     }
@@ -832,7 +825,7 @@ async function main(): Promise<void> {
       if (!from) {
         throw new Error("import requires --from.");
       }
-      await importGenericPlan(db, JSON.parse(await fs.readFile(from, "utf8")) as Awaited<ReturnType<typeof exportGenericPlan>>);
+      await snapshots.import(db, JSON.parse(await fs.readFile(from, "utf8")) as Awaited<ReturnType<typeof snapshots.export>>);
       console.log(`Imported PLAN from ${from}.`);
       return;
     }

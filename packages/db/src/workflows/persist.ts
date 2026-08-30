@@ -11,22 +11,7 @@ import {
 } from "@projectplaner/core";
 import type { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
-
-function parseJson<T>(value: string, fallback: T): T {
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return fallback;
-  }
-}
-
-function run(db: DatabaseSync, sql: string, values: (string | number | null)[] = []): void {
-  db.prepare(sql).run(...values);
-}
-
-function compactJson(value: unknown): string {
-  return JSON.stringify(value ?? {});
-}
+import { compactUnknownJson as compactJson, parseJson, run } from "../storage";
 
 export type WorkflowTriggerKind = "manual" | "api" | "entity_status" | "schedule" | "webhook";
 
@@ -55,7 +40,7 @@ export interface WorkflowTrigger {
   config: JsonRecord;
 }
 
-export interface WorkflowRun {
+export interface WorkflowRunRecord {
   id: string;
   workflowId: string;
   triggerId: string | null;
@@ -340,7 +325,7 @@ export function createWorkflowRun(
     bag?: JsonRecord;
     triggerId?: string | null;
   }
-): WorkflowRun {
+): WorkflowRunRecord {
   ensureWorkflowDef(db, input.workflowId, input.projectId);
   const id = `wrun_${randomUUID()}`;
   const snapshot = JSON.stringify(input.graph);
@@ -488,7 +473,7 @@ export function listWorkflowNodeRuns(db: DatabaseSync, runId: string): WorkflowN
   }));
 }
 
-export function getWorkflowRun(db: DatabaseSync, runId: string): WorkflowRun | null {
+export function getWorkflowRun(db: DatabaseSync, runId: string): WorkflowRunRecord | null {
   const row = db
     .prepare(
       `SELECT id, workflow_id, trigger_id, version_id, status, definition_snapshot_json, bag_json, error, started_at, finished_at
@@ -532,3 +517,17 @@ export function getWorkflowRun(db: DatabaseSync, runId: string): WorkflowRun | n
     finishedAt: row.finished_at
   };
 }
+
+const persist = {
+  loadGraph: loadWorkflowGraph,
+  saveGraph: saveWorkflowGraph,
+  getOrMigrateGraph: getOrMigrateWorkflowGraph,
+  listTriggers: listWorkflowTriggers,
+  createRun: createWorkflowRun,
+  updateRun: updateWorkflowRun,
+  recordNodeRun: recordWorkflowNodeRun,
+  listNodeRuns: listWorkflowNodeRuns,
+  getRun: getWorkflowRun
+};
+
+export default persist;

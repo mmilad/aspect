@@ -6,7 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { EXPECTED_MCP_TOOLS, assertExpectedToolNames } from "./tools";
+import { EXPECTED_MCP_TOOLS, assertExpectedToolNames } from "./catalog";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 

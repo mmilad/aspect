@@ -6,10 +6,10 @@ import { describe, it } from "node:test";
 import {
   createDatabase,
   createExampleProject,
-  deleteProject,
-  EXAMPLE_PROJECT_KEY,
-  getProjectSnapshot
+  EXAMPLE_PROJECT_KEY
 } from "./index";
+import projects from "./repositories/projects";
+import snapshots from "./repositories/snapshots";
 
 describe("Signal Desk example project", () => {
   function withTempDb(run: (db: ReturnType<typeof createDatabase>) => Promise<void>) {
@@ -33,7 +33,7 @@ describe("Signal Desk example project", () => {
       assert.equal(project.key, EXAMPLE_PROJECT_KEY);
       assert.ok(project.entityCount >= 20);
 
-      const snapshot = await getProjectSnapshot(db, EXAMPLE_PROJECT_KEY);
+      const snapshot = await snapshots.get(db, EXAMPLE_PROJECT_KEY);
       assert.ok(snapshot);
       assert.equal(snapshot.project.title, "Signal Desk");
 
@@ -66,7 +66,7 @@ describe("Signal Desk example project", () => {
 
       await assert.rejects(() => createExampleProject(db), /already exists/i);
 
-      await deleteProject(db, EXAMPLE_PROJECT_KEY);
+      await projects.remove(db, EXAMPLE_PROJECT_KEY);
       const again = await createExampleProject(db);
       assert.equal(again.project.key, EXAMPLE_PROJECT_KEY);
     })

@@ -4,11 +4,9 @@ import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 import {
-  createDatabase,
-  createEntity,
-  getEntity,
-  updateEntity
+  createDatabase
 } from "./index";
+import entities from "./repositories/entities";
 
 describe("parent status rollup", () => {
   function withTempDb(run: (db: ReturnType<typeof createDatabase>) => Promise<void>) {
@@ -34,7 +32,7 @@ describe("parent status rollup", () => {
   it(
     "update_task status rolls Feature then Aspect to in_progress",
     withTempDb(async (db) => {
-      const aspect = await createEntity(db, {
+      const aspect = await entities.create(db, {
         projectKey: "PLAN",
         type: "aspect",
         title: "Domain",
@@ -42,7 +40,7 @@ describe("parent status rollup", () => {
         skipRollup: true
       });
 
-      const feature = await createEntity(db, {
+      const feature = await entities.create(db, {
         projectKey: "PLAN",
         type: "feature",
         title: "Child feature",
@@ -57,7 +55,7 @@ describe("parent status rollup", () => {
         ]
       });
 
-      const task = await createEntity(db, {
+      const task = await entities.create(db, {
         projectKey: "PLAN",
         type: "task",
         title: "Do the thing",
@@ -72,13 +70,13 @@ describe("parent status rollup", () => {
         ]
       });
 
-      await updateEntity(db, {
+      await entities.update(db, {
         id: task.entity.id,
         patch: { status: "in_progress" }
       });
 
-      const updatedFeature = await getEntity(db, feature.entity.id);
-      const updatedAspect = await getEntity(db, aspect.entity.id);
+      const updatedFeature = await entities.get(db, feature.entity.id);
+      const updatedAspect = await entities.get(db, aspect.entity.id);
       assert.equal(updatedFeature?.status, "in_progress");
       assert.equal(updatedAspect?.status, "in_progress");
     })
@@ -87,7 +85,7 @@ describe("parent status rollup", () => {
   it(
     "all done children roll parent to done",
     withTempDb(async (db) => {
-      const aspect = await createEntity(db, {
+      const aspect = await entities.create(db, {
         projectKey: "PLAN",
         type: "aspect",
         title: "Done domain",
@@ -95,7 +93,7 @@ describe("parent status rollup", () => {
         skipRollup: true
       });
 
-      const feature = await createEntity(db, {
+      const feature = await entities.create(db, {
         projectKey: "PLAN",
         type: "feature",
         title: "Done feature",
@@ -110,7 +108,7 @@ describe("parent status rollup", () => {
         ]
       });
 
-      const task = await createEntity(db, {
+      const task = await entities.create(db, {
         projectKey: "PLAN",
         type: "task",
         title: "Finish",
@@ -125,13 +123,13 @@ describe("parent status rollup", () => {
         ]
       });
 
-      await updateEntity(db, {
+      await entities.update(db, {
         id: task.entity.id,
         patch: { status: "done" }
       });
 
-      const updatedFeature = await getEntity(db, feature.entity.id);
-      const updatedAspect = await getEntity(db, aspect.entity.id);
+      const updatedFeature = await entities.get(db, feature.entity.id);
+      const updatedAspect = await entities.get(db, aspect.entity.id);
       assert.equal(updatedFeature?.status, "done");
       assert.equal(updatedAspect?.status, "done");
     })

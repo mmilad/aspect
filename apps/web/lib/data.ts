@@ -1,32 +1,26 @@
 import type { Entity, EntityRelation, Tag } from "@projectplaner/core";
 import { getTagsForEntity } from "@projectplaner/core";
-import {
-  getProjectSnapshot,
-  getProjectStats,
-  listLlmJsonSchemas,
-  listProjects,
-  listRelations,
-  type LlmJsonSchemaRecord,
-  type ProjectStats,
-  type ProjectSummary
-} from "@projectplaner/db";
+import llmJsonSchemas, { type LlmJsonSchemaRecord } from "@projectplaner/db/llm-json-schemas";
+import projects, { type ProjectStats, type ProjectSummary } from "@projectplaner/db/projects";
+import relations from "@projectplaner/db/relations";
+import snapshots from "@projectplaner/db/snapshots";
 import { createWebPlanApi, withDb } from "./plan-api";
 
 export async function loadProject(key = "PLAN") {
-  return withDb(async (db) => getProjectSnapshot(db, key));
+  return withDb(async (db) => snapshots.get(db, key));
 }
 
 export async function loadProjects(): Promise<ProjectSummary[]> {
-  return withDb(async (db) => listProjects(db));
+  return withDb(async (db) => projects.list(db));
 }
 
 export async function loadProjectStats(key: string): Promise<ProjectStats | null> {
-  return withDb(async (db) => getProjectStats(db, key));
+  return withDb(async (db) => projects.stats(db, key));
 }
 
 export async function loadLlmJsonSchemas(key: string): Promise<LlmJsonSchemaRecord[]> {
   return withDb(async (db) =>
-    listLlmJsonSchemas(db, key).filter((schema) => schema.status === "active")
+    llmJsonSchemas.list(db, key).filter((schema) => schema.status === "active")
   );
 }
 
@@ -53,7 +47,7 @@ export type EntityDetailData = {
 
 export async function loadEntityDetail(projectKey: string, entityId: string): Promise<EntityDetailData | null> {
   return withDb(async (db) => {
-    const snapshot = await getProjectSnapshot(db, projectKey);
+    const snapshot = await snapshots.get(db, projectKey);
     if (!snapshot) {
       return null;
     }
@@ -65,8 +59,8 @@ export async function loadEntityDetail(projectKey: string, entityId: string): Pr
     }
 
     const [outgoing, incoming] = await Promise.all([
-      listRelations(db, { projectKey, sourceEntityId: entityId }),
-      listRelations(db, { projectKey, targetEntityId: entityId })
+      relations.list(db, { projectKey, sourceEntityId: entityId }),
+      relations.list(db, { projectKey, targetEntityId: entityId })
     ]);
 
     const relatedIds = [
@@ -84,7 +78,7 @@ export async function loadEntityDetail(projectKey: string, entityId: string): Pr
         .map((item) => [item.id, item as Entity])
     );
 
-    const relations: EntityDetailRelation[] = [
+    const detailRelations: EntityDetailRelation[] = [
       ...outgoing.map((relation) => ({
         relation,
         direction: "outgoing" as const,
@@ -105,7 +99,7 @@ export async function loadEntityDetail(projectKey: string, entityId: string): Pr
     return {
       project: snapshot.project,
       entity: entity as Entity,
-      relations,
+      relations: detailRelations,
       tags: getTagsForEntity({ type: entity.type, id: entity.id }, snapshot),
       notes,
       references,

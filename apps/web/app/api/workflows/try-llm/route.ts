@@ -5,7 +5,7 @@ import {
   readLlmChatConfigFromEnv,
   resolveWorkflowLlmSystemPrompt
 } from "@projectplaner/core";
-import { getLlmJsonSchemaByKey } from "@projectplaner/db";
+import llmJsonSchemas from "@projectplaner/db/llm-json-schemas";
 import { withDb } from "../../../../lib/plan-api";
 
 function isJsonObject(value: unknown): value is Record<string, unknown> {
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
   const format = body.format ?? (schemaKey ? "json_schema" : "text");
   let jsonSchema = isJsonObject(body.jsonSchema) ? body.jsonSchema : undefined;
   if (!jsonSchema && schemaKey) {
-    jsonSchema = await withDb(async (db) => getLlmJsonSchemaByKey(db, schemaKey, projectKey)?.schema);
+    jsonSchema = await withDb(async (db) => llmJsonSchemas.getByKey(db, schemaKey, projectKey)?.schema);
     jsonSchema ??= getLlmJsonSchemaPreset(schemaKey)?.schema;
   }
   if (format === "json_schema" && !jsonSchema) {

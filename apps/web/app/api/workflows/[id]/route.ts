@@ -1,15 +1,8 @@
 import path from "node:path";
 import { NextResponse } from "next/server";
-import {
-  openDatabase,
-  getEntity,
-  getOrMigrateWorkflowGraph,
-  listWorkflowTriggers,
-  markWorkflowPresetDirty,
-  runWorkflow,
-  saveWorkflowGraph,
-  updateEntity
-} from "@projectplaner/db";
+import { openDatabase, markWorkflowPresetDirty } from "@projectplaner/db";
+import entities from "@projectplaner/db/entities";
+import workflows from "@projectplaner/db/workflows";
 import {
   parseWorkflowGraph,
   writeWorkflowGraph,
@@ -26,11 +19,11 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   const { id } = await context.params;
   const db = await openDb();
   try {
-    const entity = await getEntity(db, id);
+    const entity = await entities.get(db, id);
     if (!entity || entity.type !== "flow") {
       return NextResponse.json({ error: "Workflow flow not found." }, { status: 404 });
     }
-    const graph = getOrMigrateWorkflowGraph(db, {
+    const graph = workflows.persist.getOrMigrateGraph(db, {
       workflowId: entity.id,
       projectId: entity.projectId,
       metadata: entity.metadata as JsonRecord
@@ -39,7 +32,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     return NextResponse.json({
       entity,
       graph: graph ?? (fallback && fallback.ok ? fallback.graph : null),
-      triggers: listWorkflowTriggers(db, entity.id)
+      triggers: workflows.persist.listTriggers(db, entity.id)
     });
   } catch (error) {
     return NextResponse.json(
@@ -56,14 +49,14 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
   const body = (await request.json()) as { graph?: WorkflowGraph };
   const db = await openDb();
   try {
-    const entity = await getEntity(db, id);
+    const entity = await entities.get(db, id);
     if (!entity || entity.type !== "flow") {
       return NextResponse.json({ error: "Workflow flow not found." }, { status: 404 });
     }
     if (!body.graph) {
       return NextResponse.json({ error: "graph is required." }, { status: 400 });
     }
-    const graph = saveWorkflowGraph(db, {
+    const graph = workflows.persist.saveGraph(db, {
       workflowId: entity.id,
       projectId: entity.projectId,
       graph: body.graph
@@ -72,7 +65,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     if (typeof metadata.presetKey === "string") {
       metadata = { ...metadata, presetDirty: true };
     }
-    const updated = await updateEntity(db, { id: entity.id, patch: { metadata } });
+    const updated = await entities.update(db, { id: entity.id, patch: { metadata } });
     await markWorkflowPresetDirty(db, entity.id);
     return NextResponse.json({ entity: updated, graph });
   } catch (error) {
@@ -99,7 +92,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   }
   const db = await openDb();
   try {
-    const started = await runWorkflow(db, {
+    const started = await workflows.run(db, {
       id,
       goal: body.goal,
       bag: body.bag as Record<string, unknown> | undefined
@@ -131,7 +124,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   }
   const db = await openDb();
   try {
-    const result = await runWorkflow(db, {
+    const result = await workflows.run(db, {
       id,
       runId: body.runId,
       llmWrites: body.llmWrites,

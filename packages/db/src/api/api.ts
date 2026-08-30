@@ -1,7 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import type { Entity, EntityRelationType, EntityType, JsonRecord, TaskPriority } from "@projectplaner/core";
-import { createEntity, getEntity } from "../repositories/entities";
-import { createRelation } from "../repositories/relations";
+import entities from "../repositories/entities";
+import relations from "../repositories/relations";
 import { rollupParentStatus } from "../rollup";
 
 type EntityOfType<T extends EntityType> = Entity & { type: T };
@@ -60,7 +60,7 @@ export class ProjectApi {
 
   async createAspect(input: CreateAspectInput): Promise<AspectHandle> {
     const parent = input.parentId ? await this.requireEntity(input.parentId, ["aspect", "project"]) : null;
-    const created = await createEntity(this.db, {
+    const created = await entities.create(this.db, {
       projectKey: this.projectKey,
       type: "aspect",
       title: input.title,
@@ -73,7 +73,7 @@ export class ProjectApi {
     });
 
     if (parent) {
-      await createRelation(this.db, {
+      await relations.create(this.db, {
         projectKey: this.projectKey,
         sourceEntityId: parent.id,
         targetEntityId: created.entity.id,
@@ -92,7 +92,7 @@ export class ProjectApi {
       ...(input.metadata ?? {}),
       ...(input.acceptanceShape ? { acceptanceShape: input.acceptanceShape } : {})
     };
-    const created = await createEntity(this.db, {
+    const created = await entities.create(this.db, {
       projectKey: this.projectKey,
       type: "feature",
       title: input.title,
@@ -103,7 +103,7 @@ export class ProjectApi {
       metadata,
       skipRollup: true
     });
-    await createRelation(this.db, {
+    await relations.create(this.db, {
       projectKey: this.projectKey,
       sourceEntityId: parent.id,
       targetEntityId: created.entity.id,
@@ -117,7 +117,7 @@ export class ProjectApi {
   async createTask(input: CreateSemanticTaskInput): Promise<TaskHandle> {
     const target = await this.requireEntity(input.targetId, ["aspect", "feature"]);
     const linkType = input.linkType ?? (target.type === "feature" ? "implements" : "affects");
-    const created = await createEntity(this.db, {
+    const created = await entities.create(this.db, {
       projectKey: this.projectKey,
       type: "task",
       title: input.title,
@@ -136,7 +136,7 @@ export class ProjectApi {
   }
 
   async requireEntity<T extends EntityType>(id: string, allowed: T[]): Promise<EntityOfType<T>> {
-    const entity = await getEntity(this.db, id);
+    const entity = await entities.get(this.db, id);
     if (!entity || !allowed.includes(entity.type as T)) {
       throw new Error(`Expected ${allowed.join(" or ")} entity: ${id}`);
     }

@@ -4,7 +4,10 @@ import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { compileListQuery, createPlanApi } from "@projectplaner/core";
-import { createDatabase, createSqliteEntityStore, executePlan, importGenericPlan } from "./index";
+import { createDatabase } from "./index";
+import query from "./query";
+import entities from "./repositories/entities";
+import snapshots from "./repositories/snapshots";
 
 describe("executePlan SQL", () => {
   it("returns the same unblocked aspect-linked tasks as PlanApi sugar", async () => {
@@ -13,7 +16,7 @@ describe("executePlan SQL", () => {
     const db = createDatabase(dbPath);
 
     const projectId = "proj_query_test";
-    await importGenericPlan(db, {
+    await snapshots.import(db, {
       project: {
         id: projectId,
         key: "PLAN",
@@ -231,10 +234,10 @@ describe("executePlan SQL", () => {
       { type: "task" }
     );
 
-    const sqlIds = (await executePlan(db, plan)).map((item) => item.id).sort();
+    const sqlIds = (await query.execute(db, plan)).map((item) => item.id).sort();
     assert.deepEqual(sqlIds, ["task_open", "task_resolved_blockers"].sort());
 
-    const api = createPlanApi(createSqliteEntityStore(db));
+    const api = createPlanApi(query.createStore(db));
     const listed = await api.tasks.list({
       projectKey: "PLAN",
       unblocked: true,
@@ -257,7 +260,7 @@ describe("archived snapshot exclusion", () => {
     const db = createDatabase(dbPath);
     const projectId = "proj_archive_test";
 
-    await importGenericPlan(db, {
+    await snapshots.import(db, {
       project: {
         id: projectId,
         key: "PLAN",
@@ -308,18 +311,16 @@ describe("archived snapshot exclusion", () => {
       tagAssignments: []
     });
 
-    const { getEntity, getProjectSnapshot, listEntities } = await import("./repository");
-
-    const listed = await listEntities(db, { projectKey: "PLAN" });
+    const listed = await entities.list(db, { projectKey: "PLAN" });
     assert.deepEqual(
       listed.map((item) => item.id),
       ["aspect_live"]
     );
 
-    const withArchived = await listEntities(db, { projectKey: "PLAN", includeArchived: true });
+    const withArchived = await entities.list(db, { projectKey: "PLAN", includeArchived: true });
     assert.equal(withArchived.length, 2);
 
-    const snapshot = await getProjectSnapshot(db, "PLAN");
+    const snapshot = await snapshots.get(db, "PLAN");
     assert.ok(snapshot);
     assert.deepEqual(
       snapshot.nodes.map((node) => node.id),
@@ -328,7 +329,7 @@ describe("archived snapshot exclusion", () => {
     assert.equal(snapshot.relations.length, 0);
     assert.equal(snapshot.entityRelations.length, 0);
 
-    const archived = await getEntity(db, "aspect_archived");
+    const archived = await entities.get(db, "aspect_archived");
     assert.equal(archived?.status, "archived");
 
     db.close();

@@ -16,16 +16,12 @@ import {
   parseWorkflowGraph
 } from "@projectplaner/core";
 import {
-  advanceWorkflowRun,
-  createDatabase,
-  createEntity,
-  createWorkflowRun,
-  ensureLlmJsonSchemas,
-  getLlmJsonSchemaByKey,
-  listLlmJsonSchemas,
-  listWorkflowNodeRuns,
-  saveWorkflowGraph
+  createDatabase
 } from "./index";
+import entities from "./repositories/entities";
+import llmJsonSchemas from "./repositories/llm-json-schemas";
+import persist from "./workflows/persist";
+import { advanceWorkflowRun } from "./workflows/execute";
 
 describe("llm_json_schemas", () => {
   function withTempDb(run: (db: ReturnType<typeof createDatabase>) => Promise<void> | void) {
@@ -52,28 +48,28 @@ describe("llm_json_schemas", () => {
     "creates tables and seeds catalog schemas once",
     withTempDb((db) => {
       const keys = LLM_JSON_SCHEMA_PRESETS.map((preset) => preset.key);
-      const first = ensureLlmJsonSchemas(db, { projectKey: "PLAN" });
+      const first = llmJsonSchemas.ensure(db, { projectKey: "PLAN" });
       assert.deepEqual(first.seeded, keys);
       assert.deepEqual(first.skipped, []);
 
-      const second = ensureLlmJsonSchemas(db, { projectKey: "PLAN" });
+      const second = llmJsonSchemas.ensure(db, { projectKey: "PLAN" });
       assert.deepEqual(second.seeded, []);
       assert.deepEqual(second.skipped, keys);
 
-      const row = getLlmJsonSchemaByKey(db, WORKFLOW_IR_V1_KEY, "PLAN");
+      const row = llmJsonSchemas.getByKey(db, WORKFLOW_IR_V1_KEY, "PLAN");
       assert.ok(row);
       assert.equal(row.version, 1);
       assert.equal(row.status, "active");
       assert.deepEqual(row.schema, WORKFLOW_IR_V1_SCHEMA);
-      assert.equal(listLlmJsonSchemas(db, "PLAN").length, keys.length);
+      assert.equal(llmJsonSchemas.list(db, "PLAN").length, keys.length);
     })
   );
 
   it(
     "force reseeds and bumps version when schema_json changes",
     withTempDb((db) => {
-      ensureLlmJsonSchemas(db, { projectKey: "PLAN" });
-      const before = getLlmJsonSchemaByKey(db, WORKFLOW_IR_V1_KEY, "PLAN");
+      llmJsonSchemas.ensure(db, { projectKey: "PLAN" });
+      const before = llmJsonSchemas.getByKey(db, WORKFLOW_IR_V1_KEY, "PLAN");
       assert.ok(before);
 
       db.prepare(`UPDATE llm_json_schemas SET schema_json = ? WHERE id = ?`).run(
@@ -81,10 +77,10 @@ describe("llm_json_schemas", () => {
         before.id
       );
 
-      const force = ensureLlmJsonSchemas(db, { projectKey: "PLAN", force: true });
+      const force = llmJsonSchemas.ensure(db, { projectKey: "PLAN", force: true });
       assert.deepEqual(force.reseeded, [WORKFLOW_IR_V1_KEY]);
 
-      const after = getLlmJsonSchemaByKey(db, WORKFLOW_IR_V1_KEY, "PLAN");
+      const after = llmJsonSchemas.getByKey(db, WORKFLOW_IR_V1_KEY, "PLAN");
       assert.ok(after);
       assert.equal(after.version, 2);
       assert.deepEqual(after.schema, WORKFLOW_IR_V1_SCHEMA);
@@ -102,11 +98,11 @@ describe("llm_json_schemas", () => {
   it(
     "LLM node schemaKey resolves from SQLite and snapshots on node_run",
     withTempDb(async (db) => {
-      ensureLlmJsonSchemas(db, { projectKey: "PLAN" });
-      const seeded = getLlmJsonSchemaByKey(db, WORKFLOW_IR_V1_KEY, "PLAN");
+      llmJsonSchemas.ensure(db, { projectKey: "PLAN" });
+      const seeded = llmJsonSchemas.getByKey(db, WORKFLOW_IR_V1_KEY, "PLAN");
       assert.ok(seeded);
 
-      const flow = await createEntity(db, {
+      const flow = await entities.create(db, {
         projectKey: "PLAN",
         type: "flow",
         title: "IR draft",
@@ -153,7 +149,7 @@ describe("llm_json_schemas", () => {
       if (!parsed.ok) {
         return;
       }
-      saveWorkflowGraph(db, {
+      persist.saveGraph(db, {
         workflowId: flow.entity.id,
         projectId: flow.entity.projectId,
         graph: parsed.graph
@@ -164,7 +160,7 @@ describe("llm_json_schemas", () => {
         startNodeId: "start",
         keys: {}
       });
-      const run = createWorkflowRun(db, {
+      const run = persist.createRun(db, {
         workflowId: flow.entity.id,
         projectId: flow.entity.projectId,
         graph: parsed.graph,
@@ -176,7 +172,7 @@ describe("llm_json_schemas", () => {
       assert.deepEqual(paused.step.llm?.jsonSchema, WORKFLOW_IR_V1_SCHEMA);
       assert.equal(paused.step.llm?.jsonSchemaId, seeded.id);
 
-      const nodeRuns = listWorkflowNodeRuns(db, run.id);
+      const nodeRuns = persist.listNodeRuns(db, run.id);
       const waiting = nodeRuns.find((row) => row.nodeId === "draft");
       assert.ok(waiting);
       assert.equal(waiting.input.schemaKey, WORKFLOW_IR_V1_KEY);

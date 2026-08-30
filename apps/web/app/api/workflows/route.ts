@@ -1,12 +1,8 @@
 import path from "node:path";
 import { NextResponse } from "next/server";
-import {
-  openDatabase,
-  createEntity,
-  getOrMigrateWorkflowGraph,
-  saveWorkflowGraph,
-  updateEntity
-} from "@projectplaner/db";
+import { openDatabase } from "@projectplaner/db";
+import entities from "@projectplaner/db/entities";
+import workflows from "@projectplaner/db/workflows";
 import {
   scaffoldWorkflowFromBrief,
   writeWorkflowGraph,
@@ -33,7 +29,7 @@ export async function POST(request: Request) {
   const db = await openDb();
 
   try {
-    const created = await createEntity(db, {
+    const created = await entities.create(db, {
       projectKey: body.projectKey ?? "PLAN",
       type: "flow",
       title,
@@ -54,19 +50,19 @@ export async function POST(request: Request) {
     });
 
     const graph = scaffoldWorkflowFromBrief({ brief, title });
-    saveWorkflowGraph(db, {
+    workflows.persist.saveGraph(db, {
       workflowId: created.entity.id,
       projectId: created.entity.projectId,
       graph
     });
     const metadata = writeWorkflowGraph((created.entity.metadata ?? {}) as JsonRecord, graph);
-    const entity = await updateEntity(db, {
+    const entity = await entities.update(db, {
       id: created.entity.id,
       patch: { metadata }
     });
 
     // Ensure tables are preferred on next load.
-    getOrMigrateWorkflowGraph(db, {
+    workflows.persist.getOrMigrateGraph(db, {
       workflowId: entity.id,
       projectId: entity.projectId,
       metadata: entity.metadata as JsonRecord

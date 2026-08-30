@@ -6,16 +6,14 @@ import { describe, it } from "node:test";
 import { createContextBag, createStepGraph, parseWorkflowGraph } from "@projectplaner/core";
 import {
   Api,
-  advanceWorkflowRun,
   createDatabase,
-  createEntity,
-  createWorkflowRun,
-  ensureWorkflowPresets,
-  getEntity,
-  listRelations,
-  loadWorkflowGraph,
-  saveWorkflowGraph
+  ensureWorkflowPresets
 } from "./index";
+import entities from "./repositories/entities";
+import relations from "./repositories/relations";
+import persist from "./workflows/persist";
+import workflows from "./workflows";
+import { advanceWorkflowRun } from "./workflows/execute";
 
 describe("advanceWorkflowRun create_step", () => {
   it("pauses on LLM then completes pin path", async () => {
@@ -45,7 +43,7 @@ describe("advanceWorkflowRun create_step", () => {
       if (!parsed.ok) {
         return;
       }
-      saveWorkflowGraph(db, {
+      persist.saveGraph(db, {
         workflowId: flowRow.id,
         projectId: flowRow.project_id,
         graph: parsed.graph
@@ -60,7 +58,7 @@ describe("advanceWorkflowRun create_step", () => {
         }
       });
 
-      const run = createWorkflowRun(db, {
+      const run = persist.createRun(db, {
         workflowId: flowRow.id,
         projectId: flowRow.project_id,
         graph: parsed.graph,
@@ -116,8 +114,7 @@ describe("advanceWorkflowRun create_step", () => {
       );
       await ensureWorkflowPresets(db, { projectKey: "PLAN", only: ["create_step"] });
 
-      const { runWorkflow } = await import("./workflow-runtime");
-      const started = await runWorkflow(db, {
+      const started = await workflows.run(db, {
         key: "create_step",
         bag: {
           stepInstructions: "Create an LLM writer node."
@@ -143,7 +140,7 @@ describe("advanceWorkflowRun create_step", () => {
         ""
       );
 
-      const flow = await createEntity(db, {
+      const flow = await entities.create(db, {
         projectKey: "PLAN",
         type: "flow",
         title: "Pin persistence",
@@ -152,13 +149,13 @@ describe("advanceWorkflowRun create_step", () => {
         slug: "pin-persistence"
       });
 
-      saveWorkflowGraph(db, {
+      persist.saveGraph(db, {
         workflowId: flow.entity.id,
         projectId: "project_test",
         graph: createStepGraph
       });
 
-      const loaded = loadWorkflowGraph(db, flow.entity.id);
+      const loaded = persist.loadGraph(db, flow.entity.id);
       assert.ok(loaded);
       assert.ok(loaded.variables?.some((variable) => variable.name === "stepInstructions"));
       const toLlm = loaded.edges.find((edge) => edge.id === "e1");
@@ -186,7 +183,7 @@ describe("advanceWorkflowRun create_step", () => {
         ""
       );
 
-      const flow = await createEntity(db, {
+      const flow = await entities.create(db, {
         projectKey: "PLAN",
         type: "flow",
         title: "Waypoint persistence",
@@ -221,13 +218,13 @@ describe("advanceWorkflowRun create_step", () => {
         return;
       }
 
-      saveWorkflowGraph(db, {
+      persist.saveGraph(db, {
         workflowId: flow.entity.id,
         projectId: "project_test",
         graph: parsed.graph
       });
 
-      const loaded = loadWorkflowGraph(db, flow.entity.id);
+      const loaded = persist.loadGraph(db, flow.entity.id);
       assert.ok(loaded);
       const edge = loaded.edges.find((item) => item.id === "e1");
       assert.deepEqual(edge?.waypoints, [
@@ -254,8 +251,7 @@ describe("runWorkflow goal_planning", () => {
         ""
       );
       await ensureWorkflowPresets(db, { projectKey: "PLAN", only: ["goal_planning", "thinking"] });
-      const { runWorkflow } = await import("./workflow-runtime");
-      const started = await runWorkflow(db, {
+      const started = await workflows.run(db, {
         key: "goal_planning",
         bag: { task: "Trading card register" }
       });
@@ -265,7 +261,7 @@ describe("runWorkflow goal_planning", () => {
       const plan = started.step.bag.keys.plan as { schema?: string } | undefined;
       assert.equal(plan?.schema, "projectplaner.plan.v1");
 
-      const polled = await runWorkflow(db, { runId: started.run.id });
+      const polled = await workflows.run(db, { runId: started.run.id });
       assert.equal(polled.run.id, started.run.id);
       assert.equal(polled.step.kind, "pending_llm");
       assert.equal((polled.step.bag.keys.plan as { schema?: string } | undefined)?.schema, "projectplaner.plan.v1");
@@ -293,14 +289,13 @@ describe("runWorkflow goal_planning", () => {
         targetId: aspect.entity!.id,
         title: "Plan the trading card app"
       });
-      const { runWorkflow } = await import("./workflow-runtime");
-      const started = await runWorkflow(db, {
+      const started = await workflows.run(db, {
         key: "goal_planning",
         bag: { task: "Trading card register", targetTaskId: task.entity!.id }
       });
       assert.equal(started.step.kind, "pending_llm");
       const frontierId = String(started.step.bag.keys.frontierId);
-      const done = await runWorkflow(db, {
+      const done = await workflows.run(db, {
         runId: started.run.id,
         llmWrites: {
           classify: {
@@ -314,13 +309,13 @@ describe("runWorkflow goal_planning", () => {
       assert.equal(done.step.kind, "completed", done.step.message);
       const planEntityId = done.step.bag.keys.planEntityId;
       assert.equal(typeof planEntityId, "string");
-      const holder = await getEntity(db, String(planEntityId));
+      const holder = await entities.get(db, String(planEntityId));
       assert.equal(holder?.type, "reference");
       assert.equal(holder?.metadata.kind, "plan.v1");
       assert.equal(typeof holder?.metadata.workflow, "undefined");
       const document = holder?.metadata.document as { schema?: string } | undefined;
       assert.equal(document?.schema, "projectplaner.plan.v1");
-      const linked = await listRelations(db, { sourceEntityId: task.entity!.id, type: "references" });
+      const linked = await relations.list(db, { sourceEntityId: task.entity!.id, type: "references" });
       assert.ok(linked.some((relation) => relation.targetEntityId === planEntityId));
     } finally {
       db.close();

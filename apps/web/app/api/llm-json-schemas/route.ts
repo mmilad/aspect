@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createLlmJsonSchema, listLlmJsonSchemas } from "@projectplaner/db";
+import llmJsonSchemas from "@projectplaner/db/llm-json-schemas";
 import { withDb } from "../../../lib/plan-api";
 
 function isJsonObject(value: unknown): value is Record<string, unknown> {
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
   const projectKey = url.searchParams.get("projectKey") ?? "PLAN";
 
   return withDb(async (db) => {
-    const schemas = listLlmJsonSchemas(db, projectKey)
+    const schemas = llmJsonSchemas.list(db, projectKey)
       .filter((row) => row.status === "active")
       .map(schemaResponse);
     return NextResponse.json({ schemas });
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
 
   return withDb(async (db) => {
     try {
-      const created = createLlmJsonSchema(db, {
+      const created = llmJsonSchemas.create(db, {
         projectKey,
         key,
         title,

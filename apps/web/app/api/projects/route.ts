@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { createProject, deleteProject, listProjects, type CreateProjectInput } from "@projectplaner/db";
+import projects, { type CreateProjectInput } from "@projectplaner/db/projects";
 import { withDb } from "../../../lib/plan-api";
 
 export async function GET() {
   return withDb(async (db) => {
-    const projects = await listProjects(db);
-    return NextResponse.json({ projects });
+    const listed = await projects.list(db);
+    return NextResponse.json({ projects: listed });
   });
 }
 
@@ -14,7 +14,7 @@ export async function POST(request: Request) {
 
   try {
     return await withDb(async (db) => {
-      const result = await createProject(db, body);
+      const result = await projects.create(db, body);
       return NextResponse.json(result, { status: 201 });
     });
   } catch (error) {
@@ -34,7 +34,7 @@ export async function DELETE(request: Request) {
 
   try {
     return await withDb(async (db) => {
-      const result = await deleteProject(db, key);
+      const result = await projects.remove(db, key);
       return NextResponse.json(result);
     });
   } catch (error) {

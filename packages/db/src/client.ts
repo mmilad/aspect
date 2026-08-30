@@ -4,7 +4,7 @@ import { DatabaseSync } from "node:sqlite";
 import { runMigrations } from "./migrate";
 import { migrateEntityStatuses } from "./migrate-status";
 import { ensureWorkflowPresets } from "./presets";
-import { ensureLlmJsonSchemas } from "./llm-json-schemas";
+import llmJsonSchemas from "./repositories/llm-json-schemas";
 
 let loadedEnv = false;
 
@@ -104,6 +104,6 @@ export async function openDatabase(
     force: options?.forcePresets,
     only: options?.onlyPresets
   });
-  ensureLlmJsonSchemas(sqlite, { force: options?.forcePresets });
+  llmJsonSchemas.ensure(sqlite, { force: options?.forcePresets });
   return sqlite;
 }

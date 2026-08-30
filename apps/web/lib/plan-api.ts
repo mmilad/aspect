@@ -1,6 +1,7 @@
 import path from "node:path";
 import { createPlanApi, type EntityFilter, type EntityType } from "@projectplaner/core";
-import { openDatabase, createSqliteEntityStore } from "@projectplaner/db";
+import { openDatabase } from "@projectplaner/db";
+import query from "@projectplaner/db/query";
 import type { DatabaseSync } from "node:sqlite";
 
 export async function openDb() {
@@ -8,7 +9,7 @@ export async function openDb() {
 }
 
 export function createWebPlanApi(db: DatabaseSync) {
-  return createPlanApi(createSqliteEntityStore(db));
+  return createPlanApi(query.createStore(db));
 }
 
 export async function withDb<T>(fn: (db: DatabaseSync) => Promise<T>): Promise<T> {

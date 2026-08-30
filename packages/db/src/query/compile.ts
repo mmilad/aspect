@@ -1,14 +1,10 @@
-import type {
-  CompiledPredicate,
-  EntityOrderBy,
-  EntityStore,
-  QueryPlan
-} from "@projectplaner/core";
+import type { CompiledPredicate, EntityOrderBy, EntityStore, QueryPlan } from "@projectplaner/core";
 import type { Entity } from "@projectplaner/core";
 import type { DatabaseSync } from "node:sqlite";
-import { compileSelect, type SqlFragment, type SqlValue } from "./query-builder";
-import { getEntity, listRelations } from "./repository";
-import { mapEntityRow, type EntityRow } from "./storage";
+import { compileSelect, type SqlFragment, type SqlValue } from "./builder";
+import entities from "../repositories/entities";
+import relations from "../repositories/relations";
+import { mapEntityRow, type EntityRow } from "../storage";
 
 function asList(value: unknown): SqlValue[] {
   if (Array.isArray(value)) {
@@ -55,14 +51,10 @@ function columnForField(alias: string, field: string): string {
   }
 }
 
-function compileField(
-  alias: string,
-  predicate: Extract<CompiledPredicate, { kind: "field" }>
-): SqlFragment {
+function compileField(alias: string, predicate: Extract<CompiledPredicate, { kind: "field" }>): SqlFragment {
   const column = columnForField(alias, predicate.field);
 
   if (predicate.field === "metadata.disabled") {
-    // COALESCE so missing disabled is false — avoid NULL polluting OR/NOT (SQL 3-valued logic).
     const truthy = `COALESCE(json_extract(${alias}.metadata_json, '$.disabled'), 0) IN (1, 'true')`;
     if (predicate.op === "eq") {
       return { sql: predicate.value ? truthy : `NOT (${truthy})`, values: [] };
@@ -110,10 +102,7 @@ function nextAlias(prefix: string): string {
   return `${prefix}${aliasCounter}`;
 }
 
-function compileRel(
-  entityAlias: string,
-  predicate: Extract<CompiledPredicate, { kind: "rel" }>
-): SqlFragment {
+function compileRel(entityAlias: string, predicate: Extract<CompiledPredicate, { kind: "rel" }>): SqlFragment {
   const typeValues: SqlValue[] = predicate.types ? [...predicate.types] : [];
   const typePlaceholders =
     predicate.types && predicate.types.length > 0 ? predicate.types.map(() => "?").join(", ") : "";
@@ -222,17 +211,13 @@ function orderClause(orderBy: EntityOrderBy[]): string {
   return orderBy
     .map((order) => {
       const column =
-        order.field === "sortOrder"
-          ? "entities.sort_order"
-          : order.field === "title"
-            ? "entities.title"
-            : "entities.status";
+        order.field === "sortOrder" ? "entities.sort_order" : order.field === "title" ? "entities.title" : "entities.status";
       return `${column} ${order.dir === "desc" ? "DESC" : "ASC"}`;
     })
     .join(", ");
 }
 
-export async function executePlan(db: DatabaseSync, plan: QueryPlan): Promise<Entity[]> {
+export async function execute(db: DatabaseSync, plan: QueryPlan): Promise<Entity[]> {
   aliasCounter = 0;
   const whereFrag = compilePredicate(plan.where, "entities");
   const query = compileSelect({
@@ -252,16 +237,14 @@ export async function executePlan(db: DatabaseSync, plan: QueryPlan): Promise<En
   return rows.map(mapEntityRow);
 }
 
-export function createSqliteEntityStore(db: DatabaseSync): EntityStore {
+export function createStore(db: DatabaseSync): EntityStore {
   return {
     getById(id: string) {
-      return getEntity(db, id);
+      return entities.get(db, id);
     },
-    execute(plan: QueryPlan) {
-      return executePlan(db, plan);
-    },
+    execute: (plan: QueryPlan) => execute(db, plan),
     listRelations(projectKey: string) {
-      return listRelations(db, { projectKey });
+      return relations.list(db, { projectKey });
     }
   };
 }

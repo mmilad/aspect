@@ -1,6 +1,7 @@
 import type { Entity, EntityRelation, EntityStatus, EntityType, JsonRecord } from "@projectplaner/core";
 import type { DatabaseSync } from "node:sqlite";
-import { importGenericPlan, listProjects, type GenericPlanExport, type ProjectSummary } from "./repository";
+import snapshots, { type GenericPlanExport } from "./repositories/snapshots";
+import projects, { type ProjectSummary } from "./repositories/projects";
 
 export const EXAMPLE_PROJECT_KEY = "DEMO";
 
@@ -306,9 +307,9 @@ export async function createExampleProject(db: DatabaseSync): Promise<{ project:
     throw new Error(`Example project ${EXAMPLE_PROJECT_KEY} already exists. Delete it to recreate.`);
   }
 
-  await importGenericPlan(db, buildSignalDeskExamplePlan());
+  await snapshots.import(db, buildSignalDeskExamplePlan());
 
-  const project = (await listProjects(db)).find((item) => item.key === EXAMPLE_PROJECT_KEY);
+  const project = (await projects.list(db)).find((item) => item.key === EXAMPLE_PROJECT_KEY);
   if (!project) {
     throw new Error("Example project imported but could not be reloaded.");
   }

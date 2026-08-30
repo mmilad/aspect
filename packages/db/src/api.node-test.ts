@@ -5,13 +5,12 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import {
   Api,
-  createDatabase,
-  createEntity,
-  createTask,
-  getProjectSnapshot,
-  listEntities,
-  listRelations
+  createDatabase
 } from "./index";
+import entities from "./repositories/entities";
+import relations from "./repositories/relations";
+import snapshots from "./repositories/snapshots";
+import tasks from "./repositories/tasks";
 
 function withTempDb(run: (db: ReturnType<typeof createDatabase>) => Promise<void>) {
   return async () => {
@@ -56,9 +55,9 @@ describe("project-scoped db Api", () => {
       assert.equal(task.entity?.type, "task");
       assert.equal(task.entity?.metadata.priority, "medium");
 
-      const relations = await listRelations(db, { projectKey: "PLAN" });
+      const listedRelations = await relations.list(db, { projectKey: "PLAN" });
       assert.ok(
-        relations.some(
+        listedRelations.some(
           (relation) =>
             relation.sourceEntityId === aspect.entity!.id &&
             relation.targetEntityId === feature.entity!.id &&
@@ -67,7 +66,7 @@ describe("project-scoped db Api", () => {
         )
       );
       assert.ok(
-        relations.some(
+        listedRelations.some(
           (relation) =>
             relation.sourceEntityId === task.entity!.id &&
             relation.targetEntityId === feature.entity!.id &&
@@ -104,17 +103,17 @@ describe("project-scoped db Api", () => {
   );
 
   it(
-    "keeps compatibility repository exports available",
+    "uses entity, snapshot, and legacy task helpers",
     withTempDb(async (db) => {
-      const aspect = await createEntity(db, {
+      const aspect = await entities.create(db, {
         projectKey: "PLAN",
         type: "aspect",
         title: "Compatibility aspect"
       });
-      const listed = await listEntities(db, { projectKey: "PLAN", type: "aspect" });
+      const listed = await entities.list(db, { projectKey: "PLAN", type: "aspect" });
       assert.ok(listed.some((entity) => entity.id === aspect.entity.id));
 
-      const snapshot = await getProjectSnapshot(db, "PLAN");
+      const snapshot = await snapshots.get(db, "PLAN");
       assert.ok(snapshot);
       assert.ok(snapshot.nodes.some((node) => node.id === aspect.entity.id));
 
@@ -126,7 +125,7 @@ describe("project-scoped db Api", () => {
         `INSERT INTO entities (id, project_id, type, key, slug, title, summary, body, status, sort_order, metadata_json)
          VALUES (?, ?, ?, NULL, ?, ?, '', '', ?, 0, '{}')`
       ).run("legacy_aspect", "project_plan", "aspect", "legacy", "Legacy", "planned");
-      const task = await createTask(db, {
+      const task = await tasks.create(db, {
         projectKey: "PLAN",
         title: "Legacy task helper still works",
         description: "",

@@ -1,6 +1,7 @@
 import path from "node:path";
 import { NextResponse } from "next/server";
-import { openDatabase, runWorkflow } from "@projectplaner/db";
+import { openDatabase } from "@projectplaner/db";
+import workflows from "@projectplaner/db/workflows";
 import { drainPendingLlm, shouldDrainPendingLlm, workflowRunJson } from "../../../../lib/drain-pending-llm";
 
 async function openDb() {
@@ -25,7 +26,7 @@ export async function GET(request: Request) {
   }
   const db = await openDb();
   try {
-    const started = await runWorkflow(db, { runId });
+    const started = await workflows.run(db, { runId });
     return NextResponse.json(
       workflowRunJson({ ...started, turns: [], llmConfigured: false })
     );
@@ -60,7 +61,7 @@ export async function POST(request: Request) {
 
   const db = await openDb();
   try {
-    const started = await runWorkflow(db, {
+    const started = await workflows.run(db, {
       id: body.id,
       key: body.key,
       projectKey: body.projectKey,

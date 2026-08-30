@@ -23,22 +23,17 @@ import {
   type WorkflowStepResult
 } from "@projectplaner/core";
 import type { DatabaseSync } from "node:sqlite";
-import { createEntity, createRelation, getEntity, listEntities, listRelations, updateEntity } from "./repository";
-import { findSeededWorkflowPreset } from "./presets";
-import { rollupParentStatus } from "./rollup";
-import { getLlmJsonSchemaByKey } from "./llm-json-schemas";
-import { createSqliteEntityStore, executePlan } from "./query";
-import {
-  createWorkflowRun,
-  getOrMigrateWorkflowGraph,
-  getWorkflowRun,
-  listWorkflowNodeRuns,
-  recordWorkflowNodeRun,
-  updateWorkflowRun,
+import { findSeededWorkflowPreset } from "../presets";
+import { rollupParentStatus } from "../rollup";
+import llmJsonSchemas from "../repositories/llm-json-schemas";
+import entities from "../repositories/entities";
+import relations from "../repositories/relations";
+import sqliteQuery from "../query";
+import persist, {
   type WorkflowNodeRun,
-  type WorkflowRun,
+  type WorkflowRunRecord,
   type WorkflowRunStatus
-} from "./workflows";
+} from "./persist";
 
 function asEntityType(value: unknown, fallback: EntityType): EntityType {
   return typeof value === "string" ? (value as EntityType) : fallback;
@@ -119,13 +114,13 @@ export function createSqliteWorkflowAdapters(
   db: DatabaseSync,
   projectKey = "PLAN"
 ): WorkflowAdapters {
-  const store = createSqliteEntityStore(db);
+  const store = sqliteQuery.createStore(db);
   const api = createPlanApi(store);
 
   return {
-    getEntity: (id) => getEntity(db, id),
-    listEntities: (query: EntityListQuery, options) =>
-      executePlan(db, compileListQuery({ ...query, projectKey: query.projectKey ?? projectKey }, options)),
+    getEntity: (id) => entities.get(db, id),
+    listEntities: (listQuery: EntityListQuery, options) =>
+      sqliteQuery.execute(db, compileListQuery({ ...listQuery, projectKey: listQuery.projectKey ?? projectKey }, options)),
     searchEntities: async (input) => {
       const parts: EntityFilter[] = [];
       if (input.types?.length === 1) {
@@ -169,16 +164,16 @@ export function createSqliteWorkflowAdapters(
       });
     },
     neighborhood: async (input) => {
-      const entities = await listEntities(db, {
+      const graphEntities = await entities.list(db, {
         projectKey,
         includeArchived: input.includeArchived === true
       });
-      const relations = await listRelations(db, { projectKey });
-      return walkNeighborhood(input.id, input.depth, entities, relations, input.select ?? "compact");
+      const graphRelations = await relations.list(db, { projectKey });
+      return walkNeighborhood(input.id, input.depth, graphEntities, graphRelations, input.select ?? "compact");
     },
     loadContext: async ({ query, types, limit, mode }) => {
       if (mode === "all") {
-        const rows = await executePlan(
+        const rows = await sqliteQuery.execute(
           db,
           compileListQuery(
             { projectKey, limit },
@@ -218,7 +213,7 @@ export function createSqliteWorkflowAdapters(
           typeof args.linkFrom === "string" && args.linkFrom.trim() ? args.linkFrom.trim() : "";
         const resultKey = writeResultKey(args, "aspectId");
 
-        const created = await createEntity(db, {
+        const created = await entities.create(db, {
           projectKey,
           type: asEntityType(args.type, "aspect"),
           title,
@@ -232,11 +227,11 @@ export function createSqliteWorkflowAdapters(
         });
 
         if (linkFrom) {
-          const source = await getEntity(db, linkFrom);
+          const source = await entities.get(db, linkFrom);
           if (!source) {
             throw new Error(`create_entity linkFrom '${linkFrom}' not found.`);
           }
-          await createRelation(db, {
+          await relations.create(db, {
             projectKey,
             sourceEntityId: linkFrom,
             targetEntityId: created.entity.id,
@@ -257,7 +252,7 @@ export function createSqliteWorkflowAdapters(
             ? args.reason.trim()
             : "Workflow write: update_entity";
         const resultKey = writeResultKey(args, "entityId");
-        const patch: Parameters<typeof updateEntity>[1]["patch"] = {};
+        const patch: Parameters<typeof entities.update>[1]["patch"] = {};
         if (typeof args.title === "string") {
           patch.title = args.title;
         }
@@ -267,7 +262,7 @@ export function createSqliteWorkflowAdapters(
         if (typeof args.status === "string") {
           patch.status = asStatus(args.status, "planned");
         }
-        const current = await getEntity(db, id);
+        const current = await entities.get(db, id);
         if (!current) {
           throw new Error(`update_entity target ${id} not found.`);
         }
@@ -279,7 +274,7 @@ export function createSqliteWorkflowAdapters(
             updatedBy: "workflow"
           }
         };
-        const updated = await updateEntity(db, { id, patch });
+        const updated = await entities.update(db, { id, patch });
         return { values: { [resultKey]: updated.id } };
       }
 
@@ -305,7 +300,7 @@ export function createSqliteWorkflowAdapters(
       throw new Error(`Unsupported write action: ${action}`);
     },
     resolveLlmJsonSchema: (key: string) => {
-      const row = getLlmJsonSchemaByKey(db, key, projectKey);
+      const row = llmJsonSchemas.getByKey(db, key, projectKey);
       if (!row) {
         return null;
       }
@@ -317,9 +312,9 @@ export function createSqliteWorkflowAdapters(
       };
     },
     resolveSubworkflow: async (workflowId: string) => {
-      const direct = await getEntity(db, workflowId);
+      const direct = await entities.get(db, workflowId);
       if (direct?.type === "flow") {
-        return getOrMigrateWorkflowGraph(db, {
+        return persist.getOrMigrateGraph(db, {
           workflowId: direct.id,
           projectId: direct.projectId,
           metadata: direct.metadata as JsonRecord
@@ -329,11 +324,11 @@ export function createSqliteWorkflowAdapters(
       if (!seeded) {
         return null;
       }
-      const flow = await getEntity(db, seeded.id);
+      const flow = await entities.get(db, seeded.id);
       if (!flow) {
         return null;
       }
-      return getOrMigrateWorkflowGraph(db, {
+      return persist.getOrMigrateGraph(db, {
         workflowId: flow.id,
         projectId: flow.projectId,
         metadata: flow.metadata as JsonRecord
@@ -377,7 +372,7 @@ export interface AdvanceWorkflowRunInput {
 }
 
 export interface AdvanceWorkflowRunResult {
-  run: WorkflowRun;
+  run: WorkflowRunRecord;
   step: WorkflowStepResult;
   nodeRuns: WorkflowNodeRun[];
 }
@@ -389,12 +384,12 @@ export async function advanceWorkflowRun(
   db: DatabaseSync,
   input: AdvanceWorkflowRunInput
 ): Promise<AdvanceWorkflowRunResult> {
-  const run = getWorkflowRun(db, input.runId);
+  const run = persist.getRun(db, input.runId);
   if (!run) {
     throw new Error(`Workflow run ${input.runId} not found.`);
   }
 
-  const flow = await getEntity(db, run.workflowId);
+  const flow = await entities.get(db, run.workflowId);
   const projectKey =
     input.projectKey ??
     (flow
@@ -409,8 +404,8 @@ export async function advanceWorkflowRun(
   let bag = asBag(run.bag);
   bag = { ...bag, runId: run.id };
 
-  const entities = await listEntities(db, { projectKey });
-  const relations = await listRelations(db, { projectKey });
+  const graphEntities = await entities.list(db, { projectKey });
+  const graphRelations = await relations.list(db, { projectKey });
   const adapters = createSqliteWorkflowAdapters(db, projectKey);
 
   let step: WorkflowStepResult;
@@ -420,8 +415,8 @@ export async function advanceWorkflowRun(
       graph,
       bag,
       adapters,
-      entities,
-      relations,
+      entities: graphEntities,
+      relations: graphRelations,
       llmWrites: input.llmWrites,
       userRoute: input.userRoute
     });
@@ -431,8 +426,8 @@ export async function advanceWorkflowRun(
         graph,
         bag,
         adapters,
-        entities,
-        relations,
+        entities: graphEntities,
+        relations: graphRelations,
         maxSteps: input.maxSteps
       });
     }
@@ -441,14 +436,14 @@ export async function advanceWorkflowRun(
       graph,
       bag,
       adapters,
-      entities,
-      relations,
+      entities: graphEntities,
+      relations: graphRelations,
       maxSteps: input.maxSteps
     });
   }
 
   const status = mapRunStatus(step);
-  updateWorkflowRun(db, {
+  persist.updateRun(db, {
     id: run.id,
     status,
     bag: step.bag as unknown as JsonRecord,
@@ -457,7 +452,7 @@ export async function advanceWorkflowRun(
   });
 
   if (step.nodeId) {
-    recordWorkflowNodeRun(db, {
+    persist.recordNodeRun(db, {
       runId: run.id,
       nodeId: step.nodeId,
       status:
@@ -487,7 +482,7 @@ export async function advanceWorkflowRun(
     });
   }
 
-  const updated = getWorkflowRun(db, run.id);
+  const updated = persist.getRun(db, run.id);
   if (!updated) {
     throw new Error(`Workflow run ${input.runId} missing after update.`);
   }
@@ -495,7 +490,7 @@ export async function advanceWorkflowRun(
   return {
     run: updated,
     step,
-    nodeRuns: listWorkflowNodeRuns(db, run.id)
+    nodeRuns: persist.listNodeRuns(db, run.id)
   };
 }
 
@@ -520,7 +515,7 @@ export async function resolveWorkflowFlow(
   const key = input.key?.trim();
 
   if (id) {
-    const entity = await getEntity(db, id);
+    const entity = await entities.get(db, id);
     if (!entity || entity.type !== "flow") {
       throw new Error(`Workflow flow not found for id '${id}'.`);
     }
@@ -544,7 +539,7 @@ export async function resolveWorkflowFlow(
     .get(projectKey, key) as { id: string } | undefined;
 
   if (byPreset) {
-    const entity = await getEntity(db, byPreset.id);
+    const entity = await entities.get(db, byPreset.id);
     if (entity) {
       return entity;
     }
@@ -563,7 +558,7 @@ export async function resolveWorkflowFlow(
     .get(projectKey, key) as { id: string } | undefined;
 
   if (byKey) {
-    const entity = await getEntity(db, byKey.id);
+    const entity = await entities.get(db, byKey.id);
     if (entity) {
       return entity;
     }
@@ -606,7 +601,7 @@ export async function runWorkflow(
   input: RunWorkflowInput
 ): Promise<RunWorkflowResult & { note?: string }> {
   if (input.runId) {
-    const existing = getWorkflowRun(db, input.runId);
+    const existing = persist.getRun(db, input.runId);
     if (!existing) {
       throw new Error(`Workflow run ${input.runId} not found.`);
     }
@@ -616,7 +611,7 @@ export async function runWorkflow(
         throw new Error("runId does not belong to the resolved workflow.");
       }
     }
-    const flow = await getEntity(db, existing.workflowId);
+    const flow = await entities.get(db, existing.workflowId);
     if (!flow || flow.type !== "flow") {
       throw new Error("Workflow flow missing for run.");
     }
@@ -640,7 +635,7 @@ export async function runWorkflow(
             ? ((existing.bag as { cursor: string }).cursor)
             : null
         },
-        nodeRuns: listWorkflowNodeRuns(db, existing.id),
+        nodeRuns: persist.listNodeRuns(db, existing.id),
         note: pauseNote({
           kind: existing.status === "pending_llm" ? "pending_llm" : existing.status === "pending_user" ? "pending_user" : "advanced",
           bag: asBag(existing.bag),
@@ -660,7 +655,7 @@ export async function runWorkflow(
 
   const flow = await resolveWorkflowFlow(db, input);
   const graph =
-    getOrMigrateWorkflowGraph(db, {
+    persist.getOrMigrateGraph(db, {
       workflowId: flow.id,
       projectId: flow.projectId,
       metadata: flow.metadata as JsonRecord
@@ -680,7 +675,7 @@ export async function runWorkflow(
     startNodeId: start.id,
     keys: input.bag
   });
-  const run = createWorkflowRun(db, {
+  const run = persist.createRun(db, {
     workflowId: flow.id,
     projectId: flow.projectId,
     graph,

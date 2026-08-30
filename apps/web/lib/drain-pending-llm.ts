@@ -6,7 +6,7 @@ import {
   workflowPresetAllowsDrainLlm,
   type WorkflowLlmPending
 } from "@projectplaner/core";
-import { runWorkflow, type RunWorkflowResult } from "@projectplaner/db";
+import { runWorkflow, type RunWorkflowResult } from "@projectplaner/db/workflows";
 
 export type LlmDrainTurn = {
   turn: number;

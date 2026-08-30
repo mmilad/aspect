@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getProjectStats } from "@projectplaner/db";
+import projects from "@projectplaner/db/projects";
 import { withDb } from "../../../../../lib/plan-api";
 
 export async function GET(
@@ -9,7 +9,7 @@ export async function GET(
   const { key } = await context.params;
 
   return withDb(async (db) => {
-    const stats = await getProjectStats(db, key);
+    const stats = await projects.stats(db, key);
     if (!stats) {
       return NextResponse.json({ error: "Project not found." }, { status: 404 });
     }

@@ -14,6 +14,14 @@
     "paths": {
       "@projectplaner/core": ["packages/core/src/index.ts"],
       "@projectplaner/db": ["packages/db/src/index.ts"],
+      "@projectplaner/db/entities": ["packages/db/src/repositories/entities.ts"],
+      "@projectplaner/db/relations": ["packages/db/src/repositories/relations.ts"],
+      "@projectplaner/db/projects": ["packages/db/src/repositories/projects.ts"],
+      "@projectplaner/db/snapshots": ["packages/db/src/repositories/snapshots.ts"],
+      "@projectplaner/db/tasks": ["packages/db/src/repositories/tasks.ts"],
+      "@projectplaner/db/query": ["packages/db/src/query/index.ts"],
+      "@projectplaner/db/workflows": ["packages/db/src/workflows/index.ts"],
+      "@projectplaner/db/llm-json-schemas": ["packages/db/src/repositories/llm-json-schemas.ts"],
       "@projectplaner/mcp": ["packages/mcp/src/index.ts"],
       "@projectplaner/agent": ["apps/agent/src/index.ts"]
     }

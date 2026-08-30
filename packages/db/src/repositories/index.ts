@@ -1,10 +1,20 @@
-export * as entities from "./entities";
-export * as llmJsonSchemas from "./llm-json-schemas";
-export * as projects from "./projects";
-export * as relations from "./relations";
-export * as tags from "./tags";
-export * as workflows from "./workflows";
+import entities from "./entities";
+import llmJsonSchemas from "./llm-json-schemas";
+import projects from "./projects";
+import relations from "./relations";
+import snapshots from "./snapshots";
+import tags from "./tags";
+import tasks from "./tasks";
 
-export * from "./entities";
-export * from "./relations";
-export * from "./projects";
+const repositories = {
+  entities,
+  relations,
+  projects,
+  tags,
+  tasks,
+  snapshots,
+  llmJsonSchemas
+};
+
+export default repositories;
+export { entities, relations, projects, tags, tasks, snapshots, llmJsonSchemas };

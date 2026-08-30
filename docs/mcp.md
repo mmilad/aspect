@@ -26,8 +26,8 @@ Serialize Projectplaner tool calls (no parallel DB tools).
 4. Writes always include `reason`. Prefer `run_workflow` for mutations.
 5. End handoffs with `packet_write`.
 
-Full session rules: [`../AGENTS.md`](../AGENTS.md). Implementation: `packages/mcp/src/server.ts`.
+Full session rules: [`../AGENTS.md`](../AGENTS.md) and the `orient` tool. Implementation: `packages/mcp/src/server.ts` (ops in `packages/mcp/src/operations/`).
 
 ## Restart
 
-Customize → MCPs → **projectplaner** → toggle off/on (or remove and re-add) after MCP/db code changes.
+Customize → MCPs → **projectplaner** → toggle off/on (or remove and re-add) after MCP/db code changes so discovery matches `server.ts`.

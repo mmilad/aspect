@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { createProjectplanerServer, listRegisteredToolDefs, listRegisteredToolNames } from "./server";
-import { EXPECTED_MCP_TOOLS, assertExpectedToolNames } from "./tools";
+import { EXPECTED_MCP_TOOLS, assertExpectedToolNames } from "./catalog";
 
 type ZodLike = {
   shape?: Record<string, { isOptional?: () => boolean }>;

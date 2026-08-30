@@ -6,7 +6,8 @@ import {
   type ProcessStatus
 } from "@projectplaner/core";
 import type { DatabaseSync } from "node:sqlite";
-import { getEntity, listEntities, listRelations, updateEntity } from "./repository";
+import entities from "./repositories/entities";
+import relations from "./repositories/relations";
 
 function processChildrenStatuses(parent: Entity, entities: Entity[], relations: EntityRelation[]): string[] {
   const statuses: string[] = [];
@@ -98,10 +99,10 @@ export async function findProcessParent(
   db: DatabaseSync,
   entity: Entity
 ): Promise<Entity | null> {
-  const relations = await listRelations(db, {});
+  const graphRelations = await relations.list(db, {});
 
   if (entity.type === "task") {
-    const link = relations.find(
+    const link = graphRelations.find(
       (relation) =>
         relation.sourceEntityId === entity.id &&
         (relation.type === "affects" ||
@@ -110,7 +111,7 @@ export async function findProcessParent(
           relation.type === "investigates") &&
         relation.isPrimary
     ) ??
-      relations.find(
+      graphRelations.find(
         (relation) =>
           relation.sourceEntityId === entity.id &&
           (relation.type === "affects" ||
@@ -121,47 +122,47 @@ export async function findProcessParent(
     if (!link) {
       return null;
     }
-    const parent = await getEntity(db, link.targetEntityId);
+    const parent = await entities.get(db, link.targetEntityId);
     return parent && isProcessEntityType(parent.type) ? parent : null;
   }
 
   if (entity.type === "feature") {
-    const link = relations.find(
+    const link = graphRelations.find(
       (relation) =>
         relation.sourceEntityId === entity.id &&
         (relation.type === "implements" || relation.type === "affects" || relation.type === "supports") &&
         relation.isPrimary
     ) ??
-      relations.find(
+      graphRelations.find(
         (relation) =>
           relation.sourceEntityId === entity.id &&
           (relation.type === "implements" || relation.type === "affects" || relation.type === "supports")
       );
     if (link) {
-      const parent = await getEntity(db, link.targetEntityId);
+      const parent = await entities.get(db, link.targetEntityId);
       if (parent && isProcessEntityType(parent.type)) {
         return parent;
       }
     }
-    const contained = relations.find(
+    const contained = graphRelations.find(
       (relation) => relation.type === "contains" && relation.targetEntityId === entity.id && relation.isPrimary
     );
     if (contained) {
-      const parent = await getEntity(db, contained.sourceEntityId);
+      const parent = await entities.get(db, contained.sourceEntityId);
       return parent && isProcessEntityType(parent.type) ? parent : null;
     }
     return null;
   }
 
   if (entity.type === "aspect") {
-    const contained = relations.find(
+    const contained = graphRelations.find(
       (relation) =>
         relation.type === "contains" && relation.targetEntityId === entity.id && relation.isPrimary
     );
     if (!contained) {
       return null;
     }
-    const parent = await getEntity(db, contained.sourceEntityId);
+    const parent = await entities.get(db, contained.sourceEntityId);
     return parent && parent.type === "aspect" ? parent : null;
   }
 
@@ -191,7 +192,7 @@ export async function rollupParentStatus(
   const updatedIds: string[] = [];
   const derived: RollupParentResult["derived"] = [];
 
-  let current = await getEntity(db, entityId);
+  let current = await entities.get(db, entityId);
   if (!current || !isProcessEntityType(current.type)) {
     return { updatedIds, derived };
   }
@@ -204,16 +205,16 @@ export async function rollupParentStatus(
       break;
     }
 
-    const entities = await listEntities(db, { projectKey });
-    const relations = await listRelations(db, { projectKey });
-    const childStatuses = processChildrenStatuses(parent, entities, relations);
+    const graphEntities = await entities.list(db, { projectKey });
+    const listedRelations = await relations.list(db, { projectKey });
+    const childStatuses = processChildrenStatuses(parent, graphEntities, listedRelations);
     const next = deriveParentProcessStatus(childStatuses, parent.status);
     if (!next || next === parent.status) {
       current = parent;
       continue;
     }
 
-    await updateEntity(db, {
+    await entities.update(db, {
       id: parent.id,
       patch: { status: next },
       skipRollup: true

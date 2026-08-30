@@ -149,6 +149,8 @@ function configForType(type: WorkflowNodeType): Record<string, unknown> {
     case "get":
     case "set":
       return { variable: "scratch" };
+    case "template":
+      return { template: "Hello {{name}}" };
     default:
       return {};
   }

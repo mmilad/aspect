@@ -117,6 +117,7 @@ export const WORKFLOW_STEP_DRAFT_V1_SCHEMA: Record<string, unknown> = {
                   "push",
                   "assistant_session",
                   "assistant_window",
+                  "template",
                   "subworkflow",
                   "wait"
                 ]
@@ -190,7 +191,8 @@ export const WORKFLOW_NODE_PLAN_V1_SCHEMA: Record<string, unknown> = {
         "push",
         "create_workflow_node",
         "assistant_session",
-        "assistant_window"
+        "assistant_window",
+        "template"
       ]
     },
     id: { type: "string" },

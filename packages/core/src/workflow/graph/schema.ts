@@ -15,6 +15,7 @@ import {
   type WorkflowNodeType
 } from "../nodes/_shared/types";
 import { getNodeModel } from "../nodes/registry";
+import { isPureDataNodeType } from "../nodes/_shared/pure";
 import { applyQueryPorts } from "../nodes/query/catalog";
 import { derivedWrites, normalizeNodePorts } from "../bag/ports";
 import { parseVariables, syncVariablePorts, usesPinFrame } from "./variables";
@@ -236,11 +237,12 @@ export function validateTopology(graph: WorkflowGraph, errors: string[]): void {
       }
     } else {
       const target = nodeById.get(edge.target);
-      if (target?.type === "get") {
-        errors.push(`Edge ${edge.id}: get cannot be an exec target.`);
+      if (target && isPureDataNodeType(target.type)) {
+        errors.push(`Edge ${edge.id}: ${target.type} cannot be an exec target.`);
       }
-      if (target?.type === "reroute") {
-        errors.push(`Edge ${edge.id}: reroute cannot be an exec target.`);
+      const source = nodeById.get(edge.source);
+      if (source && isPureDataNodeType(source.type)) {
+        errors.push(`Edge ${edge.id}: ${source.type} cannot have exec out-edges.`);
       }
     }
     if (edge.targetPin === "continue") {

@@ -1,5 +1,6 @@
 import type { WorkflowEdge, WorkflowGraph } from "../../workflow/graph/types";
 import type { WorkflowNode } from "../../workflow/nodes/_shared/types";
+import { isPureDataNodeType } from "../../workflow/nodes/_shared/pure";
 
 const COL_X = 340;
 const ROW_Y = 150;
@@ -15,7 +16,7 @@ function isExecEdge(edge: WorkflowEdge): boolean {
 }
 
 function isPureDataNode(node: WorkflowNode): boolean {
-  return node.type === "reroute" || node.type === "get";
+  return isPureDataNodeType(node.type);
 }
 
 function isSpineExit(edge: WorkflowEdge): boolean {
@@ -78,7 +79,7 @@ function placeReroutes(
   graph: WorkflowGraph,
   positions: Map<string, { x: number; y: number }>
 ): void {
-  const knots = graph.nodes.filter((node) => node.type === "reroute");
+  const knots = graph.nodes.filter((node) => node.type === "reroute" || node.type === "template");
   const pending = new Set(knots.map((node) => node.id));
   let guard = knots.length + 2;
   while (pending.size > 0 && guard > 0) {

@@ -131,6 +131,11 @@ function describeNode(node: WorkflowNode): string {
     }
     case "wait":
       return `Wait (“${title}”).`;
+    case "template": {
+      const pins = Object.keys(node.data.inputs ?? {});
+      const pinText = pins.length > 0 ? `: fills ${pins.map((pin) => `\`${pin}\``).join(", ")}` : "";
+      return `Template (“${title}”)${pinText} into a string.`;
+    }
     default:
       return `Step (“${title}”, ${node.type}).`;
   }

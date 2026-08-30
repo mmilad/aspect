@@ -20,6 +20,7 @@ import { pushNode } from "./push/model";
 import { getNode } from "./get/model";
 import { rerouteNode } from "./reroute/model";
 import { setNode } from "./set/model";
+import { templateNode } from "./template/model";
 import { startNode } from "./start/model";
 import { subworkflowNode } from "./subworkflow/model";
 import { switchNode } from "./switch/model";
@@ -55,6 +56,7 @@ export const workflowNodeModels: Record<WorkflowNodeType, WorkflowNodeModel> = {
   push: pushNode,
   get: getNode,
   set: setNode,
+  template: templateNode,
   reroute: rerouteNode
 };
 

@@ -30,6 +30,7 @@ export const workflowStepToneByType: Record<WorkflowNodeType, string> = {
   assistant_window: "border-teal-700 bg-teal-50 text-teal-950",
   get: "border-pink-600 bg-pink-50 text-pink-950",
   set: "border-pink-700 bg-pink-100 text-pink-950",
+  template: "border-pink-500 bg-pink-50 text-pink-950",
   reroute: "border-stone-600 bg-stone-50 text-stone-900"
 };
 

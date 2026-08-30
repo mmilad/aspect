@@ -90,6 +90,7 @@ export type { WorkflowInspectorField } from "./_shared/inspector";
 export { getDataPath, setDataPath } from "./_shared/inspector";
 
 export { getNodeModel, workflowNodeModels } from "./registry";
+export { isPureDataNodeType } from "./_shared/pure";
 export { walkNeighborhood } from "./query/neighborhood";
 
 import * as catalog from "./query/catalog";
@@ -97,6 +98,7 @@ import * as inspector from "./_shared/inspector";
 import * as neighborhood from "./query/neighborhood";
 import * as registry from "./registry";
 import * as sharedTypes from "./_shared/types";
+import { isPureDataNodeType } from "./_shared/pure";
 
 const nodes = {
   get getNodeModel() {
@@ -131,7 +133,8 @@ const nodes = {
   workflowRetryOnValues: sharedTypes.workflowRetryOnValues,
   workflowRerouteNodeTypes: sharedTypes.workflowRerouteNodeTypes,
   workflowVariableNodeTypes: sharedTypes.workflowVariableNodeTypes,
-  workflowWorkNodeTypes: sharedTypes.workflowWorkNodeTypes
+  workflowWorkNodeTypes: sharedTypes.workflowWorkNodeTypes,
+  isPureDataNodeType
 };
 
 export default nodes;

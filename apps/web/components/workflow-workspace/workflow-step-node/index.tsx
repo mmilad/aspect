@@ -183,7 +183,7 @@ export function WorkflowStepNode({ data, selected }: NodeProps<FlowRfNode>) {
   const execInDesc = model.execInputDescriptions?.(node) ?? {};
   const execOutDesc = model.execOutputDescriptions?.(node) ?? {};
   const isControl = CONTROL_TYPES.has(node.type);
-  const isVariable = node.type === "get" || node.type === "set";
+  const isVariable = node.type === "get" || node.type === "set" || node.type === "template";
   const title = isVariable && node.data.variable ? node.data.variable : node.data.title;
   const pinRows = Math.max(dataInputs.length, dataOutputs.length);
   const showExecOutLabels = execOutputs.length > 1;

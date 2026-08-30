@@ -20,6 +20,7 @@ import {
 import type { WorkflowContextBag, WorkflowGraph } from "../graph/types";
 import { resolveLlmOutputContracts } from "../llm/llm-outputs";
 import { getNodeModel } from "../nodes/registry";
+import { isPureDataNodeType } from "../nodes/_shared/pure";
 import type { WorkflowNode } from "../nodes/_shared/types";
 import { mapPortValuesToBag } from "../bag/ports";
 import { validateValueAgainstShape } from "../bag/shapes";
@@ -159,8 +160,9 @@ export class WorkflowRun {
       return result;
     }
 
-    if (node.type === "get" || node.type === "reroute") {
-      const result = fail(bag, cursor, `${node.type === "get" ? "Get" : "Reroute"} ${node.id} is not an executable step.`);
+    if (isPureDataNodeType(node.type)) {
+      const label = node.type === "get" ? "Get" : node.type === "reroute" ? "Reroute" : "Template";
+      const result = fail(bag, cursor, `${label} ${node.id} is not an executable step.`);
       this._bag = result.bag;
       return result;
     }

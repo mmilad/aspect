@@ -144,6 +144,7 @@ describe("workflow_ir_v1 JSON Schema preset", () => {
     expect(fragment.properties.nodes.items.properties.type.enum).toContain("math");
     expect(fragment.properties.nodes.items.properties.type.enum).toContain("query");
     expect(fragment.properties.nodes.items.properties.type.enum).toContain("push");
+    expect(fragment.properties.nodes.items.properties.type.enum).toContain("template");
   });
 
   it("describes a workflow node plan JSON response", () => {
@@ -157,6 +158,7 @@ describe("workflow_ir_v1 JSON Schema preset", () => {
     expect(properties.nodeType.enum).toContain("query");
     expect(properties.nodeType.enum).toContain("push");
     expect(properties.nodeType.enum).toContain("create_workflow_node");
+    expect(properties.nodeType.enum).toContain("template");
     expect(properties.config.type).toBe("object");
   });
 

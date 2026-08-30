@@ -36,10 +36,11 @@ Authoring is **Start inputs, End outputs, named locals (Get/Set), and data wires
 | `input` | Function inputs | **Start** data outputs |
 | `output` | Return values | **End** data inputs (wire in to return) |
 | `local` | My Blueprint locals | **Get** (pure, data out) / **Set** (exec in/out + data in `value`) |
+| — | Format text | **Template** (pure, no exec): declared data inputs + `data.template` with `{{pin}}` → string pin `text` |
 
 MCP/HTTP `bag` is the **input variable map** (same JSON field). No `goal` unless declared as an input.
 
-Work/control **data pins** come from `inputs` / `outputContracts` (port contracts). Exec stays `in:{pin}` / `out:{pin}`; data uses `data:in:{port}` / `data:out:{port}`. Edges with `kind: "data"` are skipped on the exec walk. Get is not an exec target.
+Work/control **data pins** come from `inputs` / `outputContracts` (port contracts). Exec stays `in:{pin}` / `out:{pin}`; data uses `data:in:{port}` / `data:out:{port}`. Edges with `kind: "data"` are skipped on the exec walk. Get and Template are not exec targets.
 
 Shapes color data wires: string/pink, bool/red, number/green, object/blue, array/cyan, any/gray. The editor only allows same-type data wires (`any`/`unknown` to `any`/`unknown`, not string to `any`). Runtime assignability stays permissive.
 

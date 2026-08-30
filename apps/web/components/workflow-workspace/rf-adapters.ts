@@ -9,6 +9,7 @@ import type {
 import workflow from "@projectplaner/core/workflow";
 
 const { emptyWorkflowGraph, parse: parseWorkflowGraph, parseWaypoints } = workflow.graph;
+const { isPureDataNodeType } = workflow.nodes;
 const { isShapeConnectable, serializeShapeSlim } = workflow.bag;
 import type { CSSProperties } from "react";
 import { MarkerType, type Connection, type Edge, type Node } from "@xyflow/react";
@@ -304,16 +305,13 @@ export function isValidWorkflowConnection(
   if ((sourceNode.type === "end" || sourceNode.type === "error_end") && !srcData) {
     return false;
   }
-  if (sourceNode.type === "get" && !srcData) {
-    return false;
-  }
-  if (sourceNode.type === "reroute" && !srcData) {
+  if (isPureDataNodeType(sourceNode.type) && !srcData) {
     return false;
   }
   if (targetNode.type === "get") {
     return false;
   }
-  if (targetNode.type === "reroute" && !srcData) {
+  if (isPureDataNodeType(targetNode.type) && !srcData) {
     return false;
   }
   const connectionId = "id" in connection && typeof connection.id === "string" ? connection.id : undefined;

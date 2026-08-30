@@ -1,3 +1,4 @@
+import { renderBagTemplate } from "../bag/template";
 import { findVariable, pinKey, usesPinFrame } from "./variables";
 import type { WorkflowContextBag, WorkflowGraph, WorkflowRunFrame } from "./types";
 import type { WorkflowNode } from "../nodes/_shared/types";
@@ -85,6 +86,23 @@ function readSourcePin(
       return frame.outputs[name];
     }
     return frame.locals[name];
+  }
+  if (source.type === "template") {
+    const outGuard = pinKey(source.id, sourcePin || "text");
+    if (seen.has(outGuard)) {
+      return undefined;
+    }
+    seen.add(outGuard);
+    const portIds = Object.keys(source.data.inputs ?? {});
+    const keys: Record<string, unknown> = {};
+    for (const portId of portIds) {
+      const value = resolveDataInputFromFrame(graph, frame, source, portId, seen);
+      if (value !== undefined) {
+        keys[portId] = value;
+      }
+    }
+    const body = typeof source.data.template === "string" ? source.data.template : "";
+    return renderBagTemplate(body, { keys, allowedKeys: portIds }).text;
   }
   return frame.pins[pinKey(source.id, sourcePin)];
 }

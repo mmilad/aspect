@@ -32,7 +32,7 @@ export const workflowWorkNodeTypes = [
   "assistant_window"
 ] as const;
 
-export const workflowVariableNodeTypes = ["get", "set"] as const;
+export const workflowVariableNodeTypes = ["get", "set", "template"] as const;
 
 /** Visual data knots — created from the canvas, not the add palette. */
 export const workflowRerouteNodeTypes = ["reroute"] as const;
@@ -396,6 +396,8 @@ export interface WorkflowNodeData {
   executionPolicy?: WorkflowExecutionPolicy;
   /** Get/Set: graph variable name. */
   variable?: string;
+  /** Template node body (`{{pin}}` tokens). Not a bag port. */
+  template?: string;
   [key: string]: unknown;
 }
 

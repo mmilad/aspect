@@ -27,6 +27,13 @@ import {
   WORKFLOW_STEP_LIST_V1_SCHEMA,
   getLlmJsonSchemaPreset
 } from "./llm-json-schemas";
+import { PLAN_V1_KEY, PLAN_V1_SCHEMA } from "./plan-v1";
+import {
+  PLAN_CLASSIFY_V1_KEY,
+  PLAN_CLASSIFY_V1_SCHEMA,
+  PLAN_EXPAND_V1_KEY,
+  PLAN_EXPAND_V1_SCHEMA
+} from "./plan-v1-writes";
 
 describe("workflow_ir_v1 JSON Schema preset", () => {
   it("is the catalog entry a generator can import by key", () => {
@@ -58,7 +65,10 @@ describe("workflow_ir_v1 JSON Schema preset", () => {
       THOUGHT_DECISION_V1_KEY,
       THOUGHT_VALIDATION_V1_KEY,
       THOUGHT_REFLECTION_V1_KEY,
-      THOUGHT_FINALIZE_V1_KEY
+      THOUGHT_FINALIZE_V1_KEY,
+      PLAN_V1_KEY,
+      PLAN_CLASSIFY_V1_KEY,
+      PLAN_EXPAND_V1_KEY
     ]);
     expect(WORKFLOW_IR_V1_SCHEMA.required).toEqual(["title", "steps"]);
     const steps = (WORKFLOW_IR_V1_SCHEMA.properties as { steps: { items: { properties: { type: { enum: string[] } } } } })
@@ -83,6 +93,9 @@ describe("workflow_ir_v1 JSON Schema preset", () => {
     expect(getLlmJsonSchemaPreset(THOUGHT_FINALIZE_V1_KEY)?.schema).toEqual(
       THOUGHT_FINALIZE_V1_SCHEMA
     );
+    expect(getLlmJsonSchemaPreset(PLAN_V1_KEY)?.schema).toEqual(PLAN_V1_SCHEMA);
+    expect(getLlmJsonSchemaPreset(PLAN_CLASSIFY_V1_KEY)?.schema).toEqual(PLAN_CLASSIFY_V1_SCHEMA);
+    expect(getLlmJsonSchemaPreset(PLAN_EXPAND_V1_KEY)?.schema).toEqual(PLAN_EXPAND_V1_SCHEMA);
 
     const analysis = THOUGHT_ANALYSIS_V1_SCHEMA.properties as {
       analysisTrace: { properties: { kind: { const: string }; nodeId: { const: string } } };

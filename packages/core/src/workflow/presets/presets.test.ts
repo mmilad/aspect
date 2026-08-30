@@ -9,7 +9,8 @@ import {
   ensureAspectPreset,
   listParkedWorkflowPresets,
   listWorkflowPresets,
-  resolveWorkflowKind
+  resolveWorkflowKind,
+  workflowPresetAllowsDrainLlm
 } from "./index";
 
 describe("workflow presets", () => {
@@ -24,6 +25,8 @@ describe("workflow presets", () => {
     expect(presets.some((preset) => preset.presetKey === "rollup_parent_status")).toBe(true);
     expect(presets.some((preset) => preset.presetKey === "create_step")).toBe(true);
     expect(presets.some((preset) => preset.presetKey === "create_workflow")).toBe(true);
+    expect(presets.some((preset) => preset.presetKey === "thinking")).toBe(true);
+    expect(presets.some((preset) => preset.presetKey === "goal_planning")).toBe(true);
   });
 
   it("assigns a closed kind to every catalog pack", () => {
@@ -65,6 +68,21 @@ describe("workflow presets", () => {
         expect(parsed.graph.version).toBe(WORKFLOW_SCHEMA_VERSION);
       }
     }
+  });
+
+  it("parses parked packs without seeding them", () => {
+    expect(listParkedWorkflowPresets().some((preset) => preset.presetKey === "goal_planning")).toBe(false);
+    for (const preset of listParkedWorkflowPresets()) {
+      const parsed = parseWorkflowGraph(preset.graph);
+      expect(parsed.ok, `${preset.presetKey}: ${parsed.ok ? "" : parsed.errors.join("; ")}`).toBe(true);
+    }
+  });
+
+  it("refuses drainLlm for goal_planning and allows it for thinking", () => {
+    expect(workflowPresetAllowsDrainLlm("goal_planning")).toBe(false);
+    expect(workflowPresetAllowsDrainLlm("thinking")).toBe(true);
+    expect(workflowPresetAllowsDrainLlm("create_task")).toBe(true);
+    expect(workflowPresetAllowsDrainLlm(null)).toBe(true);
   });
 
   it("ensure_aspect graph parses into the current workflow graph version", () => {

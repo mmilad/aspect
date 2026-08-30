@@ -12,6 +12,8 @@ Schema version **4**: pin-and-variable graphs (`graph.variables` present). Mutat
 | `rollup_parent_status` | Derive parent process status and recurse |
 | `create_step` | Pin-variable proof graph: interpret instructions → create one node → QA |
 | `create_workflow` | Plan a sequential spine (min 2, unique titles, no max), run create_step per item, assemble a chained fragment |
+| `thinking` | Bounded decide/validate loop (may drainLlm in Run) |
+| `goal_planning` | plan.v1 classify/expand/Thinking nest. **Do not drainLlm** — start pauses; poll `runId`. Optional `targetTaskId`: on halt, seal `bag.plan` onto a Reference (`metadata.kind: plan.v1`) the Task `references`. |
 
 Prefer `run_workflow` over raw `create_entity` / `update_entity` when a matching mutation preset is seeded.
 

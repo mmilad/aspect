@@ -1,7 +1,7 @@
 import path from "node:path";
 import { NextResponse } from "next/server";
 import { openDatabase, runWorkflow } from "@projectplaner/db";
-import { drainPendingLlm, workflowRunJson } from "../../../../lib/drain-pending-llm";
+import { drainPendingLlm, shouldDrainPendingLlm, workflowRunJson } from "../../../../lib/drain-pending-llm";
 
 async function openDb() {
   return openDatabase(process.env.PROJECTPLANER_DB_PATH ?? path.resolve(process.cwd(), "../../projectplaner.db"));
@@ -15,9 +15,29 @@ async function openDb() {
  *   optional: goal, bag, projectKey
  *
  * Resume / poll:
- *   { runId: "wrun_…" }
- *   optional: llmWrites, userRoute
+ *   POST { runId } with optional llmWrites / userRoute
+ *   GET  ?runId=wrun_…  (snapshot; does not drain)
  */
+export async function GET(request: Request) {
+  const runId = new URL(request.url).searchParams.get("runId")?.trim();
+  if (!runId) {
+    return NextResponse.json({ error: "Provide runId." }, { status: 400 });
+  }
+  const db = await openDb();
+  try {
+    const started = await runWorkflow(db, { runId });
+    return NextResponse.json(
+      workflowRunJson({ ...started, turns: [], llmConfigured: false })
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Could not load workflow run.";
+    const status = /not found/i.test(message) ? 404 : 400;
+    return NextResponse.json({ error: message }, { status });
+  } finally {
+    db.close();
+  }
+}
+
 export async function POST(request: Request) {
   const body = (await request.json()) as {
     id?: string;
@@ -50,7 +70,8 @@ export async function POST(request: Request) {
       llmWrites: body.llmWrites,
       userRoute: body.userRoute
     });
-    const result = body.drainLlm ? await drainPendingLlm(db, started) : { ...started, turns: [], llmConfigured: false };
+    const drain = shouldDrainPendingLlm(body.drainLlm, started.flow.metadata?.presetKey);
+    const result = drain ? await drainPendingLlm(db, started) : { ...started, turns: [], llmConfigured: false };
     return NextResponse.json(workflowRunJson(result));
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not run workflow.";

@@ -3,6 +3,7 @@ import {
   chatCompletions,
   llmWritesFromPending,
   readLlmChatConfigFromEnv,
+  workflowPresetAllowsDrainLlm,
   type WorkflowLlmPending
 } from "@projectplaner/core";
 import { runWorkflow, type RunWorkflowResult } from "@projectplaner/db";
@@ -94,10 +95,24 @@ export function workflowRunJson(result: DrainedWorkflowResult) {
     turns: result.turns,
     llmConfigured: result.llmConfigured,
     bag: {
+      plan: keys.plan,
+      stop: keys.stop,
+      frontierId: keys.frontierId,
       result: keys.result,
       iterations: keys.iterations,
       decision: keys.decision,
       validation: keys.validation
     }
   };
+}
+
+export function shouldDrainPendingLlm(
+  requested: boolean | undefined,
+  presetKey: unknown
+): boolean {
+  if (!requested) {
+    return false;
+  }
+  const key = typeof presetKey === "string" ? presetKey : null;
+  return workflowPresetAllowsDrainLlm(key);
 }

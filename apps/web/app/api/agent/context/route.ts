@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { Entity, EntityRelation } from "@projectplaner/core";
+import { expandTaskChainIds, selectCompactContextRelations } from "@projectplaner/core";
 import { listRelations } from "@projectplaner/db";
 import { createWebPlanApi, withDb } from "../../../../lib/plan-api";
 
@@ -12,6 +13,9 @@ function parseLimit(value: string | null, fallback: number): number {
 }
 
 function parseDepth(value: string | null, fallback: number): number {
+  if (value == null || value.trim() === "") {
+    return fallback;
+  }
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 0) {
     return fallback;
@@ -234,6 +238,31 @@ export async function GET(request: Request) {
       const neighborhoodRelations = relations.filter(
         (relation) => neighborhoodIds.has(relation.sourceEntityId) && neighborhoodIds.has(relation.targetEntityId)
       );
+      const chainIds = expandTaskChainIds(
+        [
+          ...neighborhoodIds,
+          ...openTasks.map((task) => task.id),
+          ...(target ? [target.id] : [])
+        ],
+        relations
+      );
+      const missingChainIds = [...chainIds].filter((id) => !byId.has(id));
+      if (missingChainIds.length > 0) {
+        const extras = (
+          await Promise.all(missingChainIds.map((id) => api.entities.get(id, { select: "full" })))
+        )
+          .map(asEntity)
+          .filter((entity): entity is Entity => Boolean(entity));
+        for (const entity of extras) {
+          byId.set(entity.id, entity);
+        }
+      }
+      const compactRelations = selectCompactContextRelations(relations, {
+        chainIds,
+        neighborhoodIds,
+        limit,
+        anchorIds: seeds
+      }).map((relation) => compactRelation(relation, byId));
       const orientationPackets = neighborhoodEntities.filter(isOrientationPacket);
       const projectEntity = [...byId.values()].find((entity) => entity.type === "project");
 
@@ -273,7 +302,7 @@ export async function GET(request: Request) {
           score: match.score,
           ...compactEntity(match.entity)
         })),
-        relations: neighborhoodRelations.slice(0, limit).map((relation) => compactRelation(relation, byId)),
+        relations: compactRelations,
         openTasks: openTasks.map(compactTask),
         orientationPackets: orientationPackets.map(compactPacket),
         workflow

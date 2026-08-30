@@ -5,6 +5,7 @@ import {
   runWorkflowUntilPause,
   stepWorkflow,
   type Entity,
+  type EntityRelationType,
   type EntityStatus,
   type EntityType,
   type JsonRecord,
@@ -13,7 +14,7 @@ import {
   type WorkflowStepResult
 } from "@projectplaner/core";
 import type { DatabaseSync } from "node:sqlite";
-import { createEntity, getEntity, listEntities, listRelations, updateEntity } from "./repository";
+import { createEntity, createRelation, getEntity, listEntities, listRelations, updateEntity } from "./repository";
 import { findSeededWorkflowPreset } from "./presets";
 import { rollupParentStatus } from "./rollup";
 import { getLlmJsonSchemaByKey } from "./llm-json-schemas";
@@ -47,6 +48,32 @@ function writeResultKey(args: Record<string, unknown>, fallback: string): string
   return fallback;
 }
 
+function asRelationType(value: unknown, fallback: EntityRelationType): EntityRelationType {
+  return typeof value === "string" && value.trim() ? (value.trim() as EntityRelationType) : fallback;
+}
+
+function createEntityMetadata(args: Record<string, unknown>, reason: string): JsonRecord {
+  const extra =
+    args.metadata && typeof args.metadata === "object" && !Array.isArray(args.metadata)
+      ? (args.metadata as JsonRecord)
+      : {};
+  const metadata: JsonRecord = {
+    ...extra,
+    narrative: {
+      reason,
+      updatedAt: new Date().toISOString(),
+      updatedBy: "workflow"
+    }
+  };
+  if (typeof args.kind === "string" && args.kind.trim()) {
+    metadata.kind = args.kind.trim();
+  }
+  if (args.document !== undefined) {
+    metadata.document = args.document;
+  }
+  return metadata;
+}
+
 /** Build runtime adapters that read/write the living SQLite graph. */
 export function createSqliteWorkflowAdapters(
   db: DatabaseSync,
@@ -67,6 +94,8 @@ export function createSqliteWorkflowAdapters(
           typeof args.parentAspectId === "string" && args.parentAspectId.trim()
             ? args.parentAspectId.trim()
             : undefined;
+        const linkFrom =
+          typeof args.linkFrom === "string" && args.linkFrom.trim() ? args.linkFrom.trim() : "";
         const resultKey = writeResultKey(args, "aspectId");
 
         const created = await createEntity(db, {
@@ -76,17 +105,24 @@ export function createSqliteWorkflowAdapters(
           summary: typeof args.summary === "string" ? args.summary : "",
           key: typeof args.key === "string" ? args.key : null,
           status: asStatus(args.status, "planned"),
-          metadata: {
-            narrative: {
-              reason,
-              updatedAt: new Date().toISOString(),
-              updatedBy: "workflow"
-            }
-          },
+          metadata: createEntityMetadata(args, reason),
           relations: parentAspectId
             ? [{ targetEntityId: parentAspectId, type: "supports" as const }]
             : undefined
         });
+
+        if (linkFrom) {
+          const source = await getEntity(db, linkFrom);
+          if (!source) {
+            throw new Error(`create_entity linkFrom '${linkFrom}' not found.`);
+          }
+          await createRelation(db, {
+            projectKey,
+            sourceEntityId: linkFrom,
+            targetEntityId: created.entity.id,
+            type: asRelationType(args.linkType, "references")
+          });
+        }
 
         return { values: { [resultKey]: created.entity.id } };
       }

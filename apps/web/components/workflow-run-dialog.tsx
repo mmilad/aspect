@@ -5,6 +5,7 @@ import {
   describeRunInput,
   missingRequiredRunInputs,
   seedRunInputBag,
+  workflowPresetAllowsDrainLlm,
   workflowRunInputs,
   type WorkflowGraph
 } from "@projectplaner/core";
@@ -35,7 +36,15 @@ type RunResult = {
   note?: string;
   llmConfigured?: boolean;
   turns?: Array<{ turn: number; nodeId: string; schemaKey?: string }>;
-  bag?: { result?: unknown; iterations?: unknown; decision?: unknown; validation?: unknown };
+  bag?: {
+    plan?: unknown;
+    stop?: unknown;
+    frontierId?: unknown;
+    result?: unknown;
+    iterations?: unknown;
+    decision?: unknown;
+    validation?: unknown;
+  };
   llmWrites?: string[];
 };
 
@@ -53,6 +62,7 @@ export function RunWorkflowDialog({
   onRan?: (summary: string) => void;
 }) {
   const [graph, setGraph] = useState<WorkflowGraph | null>(graphOverride ?? null);
+  const [presetKey, setPresetKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(!graphOverride);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [bagText, setBagText] = useState("{}");
@@ -74,7 +84,16 @@ export function RunWorkflowDialog({
     void (async () => {
       try {
         const response = await fetch(`/api/workflows/${flowId}`);
-        const payload = (await response.json()) as { graph?: WorkflowGraph; error?: string };
+        const payload = (await response.json()) as {
+          graph?: WorkflowGraph;
+          entity?: { metadata?: { presetKey?: unknown } };
+          error?: string;
+        };
+        if (!cancelled) {
+          const key =
+            typeof payload.entity?.metadata?.presetKey === "string" ? payload.entity.metadata.presetKey : null;
+          setPresetKey(key);
+        }
         if (!response.ok || !payload.graph) {
           throw new Error(payload.error ?? "Could not load workflow graph.");
         }
@@ -110,6 +129,7 @@ export function RunWorkflowDialog({
   }, [onClose]);
 
   const inputs = useMemo(() => (graph ? workflowRunInputs(graph) : []), [graph]);
+  const allowDrain = workflowPresetAllowsDrainLlm(presetKey);
   const parsed = parseBag(bagText);
   const missing = parsed.error ? [] : missingRequiredRunInputs(inputs, parsed.keys);
   const resultText = result
@@ -154,7 +174,7 @@ export function RunWorkflowDialog({
           action: "run",
           goal,
           bag: parsed.keys,
-          drainLlm: true
+          drainLlm: allowDrain
         })
       });
       const payload = (await response.json()) as {
@@ -164,7 +184,7 @@ export function RunWorkflowDialog({
         note?: string;
         llmConfigured?: boolean;
         turns?: Array<{ turn: number; nodeId: string; schemaKey?: string }>;
-        bag?: { result?: unknown; iterations?: unknown; decision?: unknown; validation?: unknown };
+        bag?: RunResult["bag"];
       };
       if (!response.ok || !payload.run) {
         throw new Error(payload.error ?? "Run failed.");
@@ -251,6 +271,11 @@ export function RunWorkflowDialog({
                   </ul>
                 )}
               </div>
+              {!allowDrain ? (
+                <p className="text-[11px] text-muted-foreground">
+                  This preset pauses on LLM. Copy runId and resume with llmWrites; hosts must not drain.
+                </p>
+              ) : null}
               <FormLabel label="Run bag (JSON)">
                 <TextArea
                   className="min-h-36 font-mono text-[11px]"

@@ -27,6 +27,11 @@ export interface WorkflowPreset {
   graph: WorkflowGraph;
   /** Optional Aspect/Feature slug or key (e.g. FEAT-24) to link via supports at install. */
   supportsTargetSlug?: string;
+  /**
+   * When false, hosts must not drain pending_llm in one HTTP call.
+   * Omitted/true: Run may send drainLlm (Thinking, create_workflow, …).
+   */
+  drainLlm?: boolean;
 }
 
 export interface EnsureWorkflowPresetsOptions {

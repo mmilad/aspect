@@ -5,11 +5,14 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { createContextBag, createStepGraph, parseWorkflowGraph } from "@projectplaner/core";
 import {
+  Api,
   advanceWorkflowRun,
   createDatabase,
   createEntity,
   createWorkflowRun,
   ensureWorkflowPresets,
+  getEntity,
+  listRelations,
   loadWorkflowGraph,
   saveWorkflowGraph
 } from "./index";
@@ -231,6 +234,94 @@ describe("advanceWorkflowRun create_step", () => {
         { x: 80, y: 48 },
         { x: 160, y: -20 }
       ]);
+    } finally {
+      db.close();
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("runWorkflow goal_planning", () => {
+  it("pauses on classify with plan.v1 and snapshot poll keeps the same runId", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "projectplaner-goal-planning-"));
+    const dbPath = path.join(dir, "test.db");
+    const db = createDatabase(dbPath);
+    try {
+      db.prepare(`INSERT INTO projects (id, key, title, description) VALUES (?, ?, ?, ?)`).run(
+        "project_test",
+        "PLAN",
+        "Plan",
+        ""
+      );
+      await ensureWorkflowPresets(db, { projectKey: "PLAN", only: ["goal_planning", "thinking"] });
+      const { runWorkflow } = await import("./workflow-runtime");
+      const started = await runWorkflow(db, {
+        key: "goal_planning",
+        bag: { task: "Trading card register" }
+      });
+      assert.equal(started.flow.metadata.presetKey, "goal_planning");
+      assert.equal(started.step.kind, "pending_llm");
+      assert.equal(started.step.nodeId, "classify");
+      const plan = started.step.bag.keys.plan as { schema?: string } | undefined;
+      assert.equal(plan?.schema, "projectplaner.plan.v1");
+
+      const polled = await runWorkflow(db, { runId: started.run.id });
+      assert.equal(polled.run.id, started.run.id);
+      assert.equal(polled.step.kind, "pending_llm");
+      assert.equal((polled.step.bag.keys.plan as { schema?: string } | undefined)?.schema, "projectplaner.plan.v1");
+    } finally {
+      db.close();
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("seals plan.v1 onto a Reference the Task references", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "projectplaner-goal-persist-"));
+    const dbPath = path.join(dir, "test.db");
+    const db = createDatabase(dbPath);
+    try {
+      db.prepare(`INSERT INTO projects (id, key, title, description) VALUES (?, ?, ?, ?)`).run(
+        "project_test",
+        "PLAN",
+        "Plan",
+        ""
+      );
+      await ensureWorkflowPresets(db, { projectKey: "PLAN", only: ["goal_planning", "thinking"] });
+      const api = new Api(db).getProject("PLAN");
+      const aspect = await api.createAspect({ title: "Goal planning persist" });
+      const task = await api.createTask({
+        targetId: aspect.entity!.id,
+        title: "Plan the trading card app"
+      });
+      const { runWorkflow } = await import("./workflow-runtime");
+      const started = await runWorkflow(db, {
+        key: "goal_planning",
+        bag: { task: "Trading card register", targetTaskId: task.entity!.id }
+      });
+      assert.equal(started.step.kind, "pending_llm");
+      const frontierId = String(started.step.bag.keys.frontierId);
+      const done = await runWorkflow(db, {
+        runId: started.run.id,
+        llmWrites: {
+          classify: {
+            nodeId: frontierId,
+            status: "atomic",
+            reason: "The brief is already one leaf.",
+            acceptance: ["One inspectable plan document exists"]
+          }
+        }
+      });
+      assert.equal(done.step.kind, "completed", done.step.message);
+      const planEntityId = done.step.bag.keys.planEntityId;
+      assert.equal(typeof planEntityId, "string");
+      const holder = await getEntity(db, String(planEntityId));
+      assert.equal(holder?.type, "reference");
+      assert.equal(holder?.metadata.kind, "plan.v1");
+      assert.equal(typeof holder?.metadata.workflow, "undefined");
+      const document = holder?.metadata.document as { schema?: string } | undefined;
+      assert.equal(document?.schema, "projectplaner.plan.v1");
+      const linked = await listRelations(db, { sourceEntityId: task.entity!.id, type: "references" });
+      assert.ok(linked.some((relation) => relation.targetEntityId === planEntityId));
     } finally {
       db.close();
       fs.rmSync(dir, { recursive: true, force: true });

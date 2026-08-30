@@ -16,7 +16,7 @@ import {
   type JsonRecord,
   type WorkflowGraph
 } from "@projectplaner/core";
-import { drainPendingLlm, workflowRunJson } from "../../../../lib/drain-pending-llm";
+import { drainPendingLlm, shouldDrainPendingLlm, workflowRunJson } from "../../../../lib/drain-pending-llm";
 
 async function openDb() {
   return openDatabase(process.env.PROJECTPLANER_DB_PATH ?? path.resolve(process.cwd(), "../../projectplaner.db"));
@@ -104,7 +104,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       goal: body.goal,
       bag: body.bag as Record<string, unknown> | undefined
     });
-    const result = body.drainLlm ? await drainPendingLlm(db, started) : { ...started, turns: [], llmConfigured: false };
+    const result = shouldDrainPendingLlm(body.drainLlm, started.flow.metadata?.presetKey)
+      ? await drainPendingLlm(db, started)
+      : { ...started, turns: [], llmConfigured: false };
     return NextResponse.json(workflowRunJson(result));
   } catch (error) {
     return NextResponse.json(

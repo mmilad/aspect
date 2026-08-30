@@ -51,7 +51,13 @@ async function main(): Promise<number> {
 
   try {
     const adapter = await resolveAdapter(args);
-    const bag = args.goal ? { goal: args.goal } : undefined;
+    const bag =
+      args.goal || args.taskId
+        ? {
+            ...(args.goal ? { goal: args.goal, task: args.goal } : {}),
+            ...(args.taskId ? { targetTaskId: args.taskId } : {})
+          }
+        : undefined;
     const { response, llmSteps, history } = await runWorkflowLoop({
       client,
       adapter,

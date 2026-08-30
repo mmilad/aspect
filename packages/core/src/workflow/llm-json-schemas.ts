@@ -3,6 +3,9 @@
  * Seeded into llm_json_schemas; generators import the same objects.
  */
 
+import { PLAN_CLASSIFY_V1_KEY, PLAN_CLASSIFY_V1_SCHEMA, PLAN_EXPAND_V1_KEY, PLAN_EXPAND_V1_SCHEMA } from "./plan-v1-writes";
+import { PLAN_V1_KEY, PLAN_V1_SCHEMA } from "./plan-v1";
+
 export type LlmJsonSchemaPreset = {
   key: string;
   title: string;
@@ -477,6 +480,27 @@ export const LLM_JSON_SCHEMA_PRESETS: LlmJsonSchemaPreset[] = [
     title: "Thought Finalize v1",
     description: "Thinking workflow accepted result and iteration count.",
     schema: THOUGHT_FINALIZE_V1_SCHEMA
+  },
+  {
+    key: PLAN_V1_KEY,
+    title: "Plan document v1",
+    description:
+      "Queryable planning document (plans/tasks/todos, questions, decisions, trace, stop). Classify before expand; not a chat transcript.",
+    schema: PLAN_V1_SCHEMA
+  },
+  {
+    key: PLAN_CLASSIFY_V1_KEY,
+    title: "Plan classify v1",
+    description:
+      "LLM write that classifies one plan frontier node (atomic / question / decision / subplan / dropped).",
+    schema: PLAN_CLASSIFY_V1_SCHEMA
+  },
+  {
+    key: PLAN_EXPAND_V1_KEY,
+    title: "Plan expand v1",
+    description:
+      "LLM write that expands a needs_subplan parent into 3–8 child drafts. Runner mints ids; titles must not restate the parent.",
+    schema: PLAN_EXPAND_V1_SCHEMA
   }
 ];
 

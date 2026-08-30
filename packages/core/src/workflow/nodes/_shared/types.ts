@@ -102,6 +102,9 @@ export interface WorkflowAssignAuto {
     taskFrom: string;
     contextFrom: string;
   };
+  plan?: {
+    op: "seed" | "pickFrontier" | "applyClassify" | "applyExpand" | "prepareThink" | "applyDecide" | "halt";
+  };
 }
 
 export interface WorkflowAutoConfig {

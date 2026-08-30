@@ -4,6 +4,8 @@ export type CliArgs = {
   flowId?: string;
   /** Optional bag seed for goal-planning / other flows. */
   goal?: string;
+  /** Graph Task id to attach a sealed plan.v1 document to on halt. */
+  taskId?: string;
   baseUrl?: string;
   /** Use packaged fixtures dir, or a custom path when value is a string. */
   fixtures?: string | true;
@@ -30,6 +32,10 @@ export function parseArgs(argv: string[]): CliArgs {
     }
     if (token === "--goal") {
       args.goal = argv[++i];
+      continue;
+    }
+    if (token === "--task-id") {
+      args.taskId = argv[++i];
       continue;
     }
     if (token === "--base-url") {
@@ -74,6 +80,7 @@ export function printHelp(): void {
     "  -w, --workflow <key>     Preset/workflow key to run",
     "      --flow <id>          Flow entity id to run",
     "      --goal <text>        Optional bag/goal seed",
+    "      --task-id <id>       Seal plan.v1 onto this Task on halt",
     "      --base-url <url>     Override PROJECTPLANER_API_BASE_URL",
     "      --fixtures [dir]     Auto-resume pending_llm from fixture JSON",
     "      --llm-hook <cmd>     Live path: prompt on stdin → JSON llmWrites on stdout",

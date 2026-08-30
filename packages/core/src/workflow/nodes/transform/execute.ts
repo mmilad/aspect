@@ -10,6 +10,20 @@ import {
   type RankedTaskCandidate
 } from "../../runtime/helpers";
 import type { NodeExecuteContext, WorkflowStepResult } from "../../runtime/types";
+import {
+  applyPlanClassify,
+  applyPlanDecide,
+  applyPlanExpand,
+  haltPlanDocument,
+  pickPlanFrontier,
+  planDocumentPersistRoute,
+  planDocumentTitle,
+  PLAN_DOCUMENT_PERSIST_REASON,
+  prepareThinkingInputs,
+  seedRootPlan
+} from "../../plan-v1-apply";
+import type { PlanBrief, PlanBudget, PlanDocument } from "../../plan-v1";
+import { validatePlanClassify, validatePlanExpand } from "../../plan-v1-writes";
 
 async function runFilter(ctx: NodeExecuteContext): Promise<WorkflowStepResult> {
   const filter = ctx.node.data.auto?.filter;
@@ -105,9 +119,37 @@ async function runAssign(ctx: NodeExecuteContext): Promise<WorkflowStepResult> {
     });
   }
 
-  if (!assign.set && !assign.pickFirst && !assign.neighborhoodOf && !assign.composeTaskPrompt) {
+  if (assign.plan) {
+    const planResult = runPlanAssign(ctx, assign.plan.op);
+    if (!planResult.ok) {
+      if (assign.plan.op === "applyClassify" || assign.plan.op === "applyExpand") {
+        const retry = applyRetryValues(ctx.read("plan") as PlanDocument, asFrontierId(ctx), planResult.error);
+        for (const key of writes) {
+          if (key in retry) {
+            values[key] = retry[key];
+          }
+        }
+      } else {
+        return ctx.fail(planResult.error);
+      }
+    } else {
+      for (const key of writes) {
+        if (key in planResult.values) {
+          values[key] = planResult.values[key];
+        }
+      }
+    }
+  }
+
+  if (
+    !assign.set &&
+    !assign.pickFirst &&
+    !assign.neighborhoodOf &&
+    !assign.composeTaskPrompt &&
+    !assign.plan
+  ) {
     return ctx.fail(
-      `Assign requires auto.assign.set (or pickFirst/neighborhoodOf/composeTaskPrompt) on node ${ctx.node.id}.`
+      `Assign requires auto.assign.set (or pickFirst/neighborhoodOf/composeTaskPrompt/plan) on node ${ctx.node.id}.`
     );
   }
 
@@ -128,4 +170,132 @@ export async function executeTransform(ctx: NodeExecuteContext): Promise<Workflo
     return runAssign(ctx);
   }
   return runFilter(ctx);
+}
+
+function asBrief(ctx: NodeExecuteContext): PlanBrief {
+  const task = ctx.read("task");
+  const success = ctx.read("success");
+  const constraints = ctx.read("constraints");
+  const context = ctx.read("context");
+  return {
+    task: typeof task === "string" && task.trim() ? task.trim() : "Untitled goal",
+    success: typeof success === "string" && success.trim() ? success.trim() : "A inspectable plan.v1 document.",
+    constraints: Array.isArray(constraints)
+      ? constraints.filter((item): item is string => typeof item === "string")
+      : [],
+    context: context && typeof context === "object" && !Array.isArray(context) ? (context as Record<string, unknown>) : {}
+  };
+}
+
+function asFrontierId(ctx: NodeExecuteContext): string {
+  const frontierId = ctx.read("frontierId");
+  return typeof frontierId === "string" ? frontierId : "";
+}
+
+function applyRetryValues(
+  plan: PlanDocument,
+  frontierId: string,
+  error: string
+): Record<string, unknown> {
+  return { plan, route: "retry", applyError: error, frontierId };
+}
+
+function asBudget(raw: unknown): Partial<PlanBudget> | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return null;
+  }
+  const record = raw as Record<string, unknown>;
+  const budget: Partial<PlanBudget> = {};
+  if (typeof record.maxDepth === "number") {
+    budget.maxDepth = record.maxDepth;
+  }
+  if (typeof record.maxNodes === "number") {
+    budget.maxNodes = record.maxNodes;
+  }
+  if (typeof record.maxLlmTurns === "number") {
+    budget.maxLlmTurns = record.maxLlmTurns;
+  }
+  return budget;
+}
+
+function runPlanAssign(
+  ctx: NodeExecuteContext,
+  op: "seed" | "pickFrontier" | "applyClassify" | "applyExpand" | "prepareThink" | "applyDecide" | "halt"
+): { ok: true; values: Record<string, unknown> } | { ok: false; error: string } {
+  if (op === "seed") {
+    const plan = seedRootPlan(asBrief(ctx), asBudget(ctx.read("budget")));
+    return { ok: true, values: { plan } };
+  }
+  const current = ctx.read("plan") as PlanDocument | undefined;
+  if (!current || typeof current !== "object") {
+    return { ok: false, error: "plan assign requires bag.plan." };
+  }
+  if (op === "pickFrontier") {
+    const frontierId = pickPlanFrontier(current);
+    return {
+      ok: true,
+      values: {
+        plan: current,
+        frontierId: frontierId ?? "",
+        route: frontierId ? "classify" : "halt",
+        applyError: ""
+      }
+    };
+  }
+  if (op === "applyClassify") {
+    const frontierId = asFrontierId(ctx);
+    const parsed = validatePlanClassify(ctx.read("classify"));
+    if (!parsed.ok) {
+      return { ok: true, values: applyRetryValues(current, frontierId, parsed.errors.join("; ")) };
+    }
+    const applied = applyPlanClassify(current, parsed.write, frontierId);
+    if (!applied.ok) {
+      return { ok: true, values: applyRetryValues(current, frontierId, applied.error) };
+    }
+    return {
+      ok: true,
+      values: {
+        plan: applied.plan,
+        route: parsed.write.status,
+        frontierId,
+        applyError: ""
+      }
+    };
+  }
+  if (op === "applyExpand") {
+    const frontierId = asFrontierId(ctx);
+    const parsed = validatePlanExpand(ctx.read("expand"));
+    if (!parsed.ok) {
+      return { ok: true, values: applyRetryValues(current, frontierId, parsed.errors.join("; ")) };
+    }
+    const applied = applyPlanExpand(current, parsed.write, frontierId);
+    if (!applied.ok) {
+      return { ok: true, values: applyRetryValues(current, frontierId, applied.error) };
+    }
+    return { ok: true, values: { plan: applied.plan, route: "ok", applyError: "", frontierId } };
+  }
+  if (op === "prepareThink") {
+    const frontierId = asFrontierId(ctx);
+    return prepareThinkingInputs(current, frontierId);
+  }
+  if (op === "applyDecide") {
+    const frontierId = asFrontierId(ctx);
+    const applied = applyPlanDecide(current, { nodeId: frontierId, thought: ctx.read("thoughtDecision") });
+    if (!applied.ok) {
+      return applied;
+    }
+    return { ok: true, values: { plan: applied.plan } };
+  }
+  const halted = haltPlanDocument(current);
+  return {
+    ok: true,
+    values: {
+      plan: halted.plan,
+      stop: halted.stop,
+      persistRoute: planDocumentPersistRoute(ctx.read("targetTaskId")),
+      planTitle: planDocumentTitle(halted.plan),
+      planSummary: halted.stop.message,
+      planReason: PLAN_DOCUMENT_PERSIST_REASON
+    }
+  };
 }

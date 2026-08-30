@@ -3,6 +3,7 @@
  * Storage-agnostic — adapters live in packages/db (or future backends).
  */
 export * from "./entities";
+export * from "./compact-relations";
 export * from "./paths";
 export * from "./search";
 export * from "./status";

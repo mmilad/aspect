@@ -1,5 +1,5 @@
 import type { Entity, EntityRelation } from "../../domain/types";
-import type { BagShape } from "../types";
+import type { BagShape } from "../nodes";
 import type { WorkflowContextBag, WorkflowGraph } from "../graph/types";
 import type { WorkflowNode } from "../nodes/_shared/types";
 import type { WorkflowAdapters } from "./adapters";

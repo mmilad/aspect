@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { WORKFLOW_NODE_PLAN_V1_KEY, WORKFLOW_NODE_QA_V1_KEY } from "../../llm-json-schemas";
-import { parseWorkflowGraph, WORKFLOW_SCHEMA_VERSION } from "../../schema";
+import { WORKFLOW_NODE_PLAN_V1_KEY, WORKFLOW_NODE_QA_V1_KEY } from "../../llm/llm-json-schemas";
+import { parseWorkflowGraph, type WorkflowGraph } from "../../graph";
+import { WORKFLOW_SCHEMA_VERSION } from "../../nodes";
 import { createStepGraph } from "../../presets";
-import { WorkflowRun } from "../../runtime/workflow";
-import type { WorkflowGraph } from "../../types";
+import { WorkflowRun } from "../../runtime";
 
 const STRING = { kind: "primitive" as const, type: "string" as const };
 const NUMBER = { kind: "primitive" as const, type: "number" as const };

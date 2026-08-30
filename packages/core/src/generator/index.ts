@@ -3,3 +3,5 @@
  * (playbook prompts, runnable workflow steps, and later feature/task prompts).
  */
 export * from "./workflow";
+export * from "./views";
+export * from "./author";

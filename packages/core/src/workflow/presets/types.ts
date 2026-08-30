@@ -1,5 +1,5 @@
 import type { EntityStatus } from "../../domain/types";
-import type { WorkflowGraph } from "../types";
+import type { WorkflowGraph } from "../graph";
 
 /** Closed role for packs and seeded Flow entities. Not a freeform tag. */
 export const workflowPresetKinds = [

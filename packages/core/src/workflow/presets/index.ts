@@ -1,13 +1,13 @@
-import { authorWorkflowPreset } from "./author-workflow";
-import { createStepPreset } from "./create-step";
-import { createWorkflowPreset } from "./create-workflow";
-import { ensureAspectPreset } from "./ensure-aspect";
+import { authorWorkflowPreset } from "./author_workflow/preset";
+import { createStepPreset } from "./create_step/preset";
+import { createWorkflowPreset } from "./create_workflow/preset";
+import { ensureAspectPreset } from "./ensure_aspect/preset";
 import { listCrudPresets, parseMutationPresetKey, presetKeyFor } from "./crud";
-import { nextWorkPreset } from "./next-work";
-import { onboardingPreset } from "./onboarding";
-import { rollupParentStatusPreset } from "./rollup-parent-status";
-import { thinkingPreset } from "./thinking";
-import { goalPlanningPreset } from "./goal-planning";
+import { nextWorkPreset } from "./next_work/preset";
+import { onboardingPreset } from "./onboarding/preset";
+import { rollupParentStatusPreset } from "./rollup_parent_status/preset";
+import { thinkingPreset } from "./thinking/preset";
+import { goalPlanningPreset } from "./goal_planning/preset";
 import {
   workflowPresetKinds,
   type WorkflowPreset,
@@ -21,10 +21,14 @@ export type {
   WorkflowPresetKind
 } from "./types";
 export { workflowPresetKinds } from "./types";
-export { authorWorkflowGraph, authorWorkflowPreset } from "./author-workflow";
-export { createStepGraph, createStepPreset } from "./create-step";
-export { createWorkflowGraph, createWorkflowPreset } from "./create-workflow";
-export { ensureAspectGraph, ensureAspectPreset } from "./ensure-aspect";
+export { authorWorkflowGraph } from "./author_workflow/graph";
+export { authorWorkflowPreset } from "./author_workflow/preset";
+export { createStepGraph } from "./create_step/graph";
+export { createStepPreset } from "./create_step/preset";
+export { createWorkflowGraph } from "./create_workflow/graph";
+export { createWorkflowPreset } from "./create_workflow/preset";
+export { ensureAspectGraph } from "./ensure_aspect/graph";
+export { ensureAspectPreset } from "./ensure_aspect/preset";
 export {
   listCrudPresetKeys,
   listCrudPresets,
@@ -32,11 +36,14 @@ export {
   presetKeyFor,
   type MutationOp
 } from "./crud";
-export { nextWorkPreset } from "./next-work";
-export { onboardingPreset } from "./onboarding";
-export { rollupParentStatusGraph, rollupParentStatusPreset } from "./rollup-parent-status";
-export { thinkingGraph, thinkingPreset } from "./thinking";
-export { goalPlanningGraph, goalPlanningPreset } from "./goal-planning";
+export { nextWorkPreset } from "./next_work/preset";
+export { onboardingPreset } from "./onboarding/preset";
+export { rollupParentStatusGraph } from "./rollup_parent_status/graph";
+export { rollupParentStatusPreset } from "./rollup_parent_status/preset";
+export { thinkingGraph } from "./thinking/graph";
+export { thinkingPreset } from "./thinking/preset";
+export { goalPlanningGraph } from "./goal_planning/graph";
+export { goalPlanningPreset } from "./goal_planning/preset";
 
 /** Seeded packs: mutation/rollup plus the pin-variable proof graph. */
 export function listWorkflowPresets(): WorkflowPreset[] {

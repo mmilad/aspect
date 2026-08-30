@@ -1,4 +1,4 @@
-import { parseBagShape } from "../../shapes";
+import { parseBagShape } from "../../bag/shapes";
 import {
   workflowNodeTypes,
   workflowRetryOnValues,

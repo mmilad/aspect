@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { WORKFLOW_IR_V1_KEY, WORKFLOW_IR_V1_SCHEMA } from "../../llm-json-schemas";
-import { createContextBag, parseWorkflowGraph, WORKFLOW_SCHEMA_VERSION } from "../../schema";
-import { runWorkflowUntilPause } from "../../../generator/workflow/runtime/step";
+import { WORKFLOW_IR_V1_KEY, WORKFLOW_IR_V1_SCHEMA } from "../../llm/llm-json-schemas";
+import { createContextBag, parseWorkflowGraph } from "../../graph";
+import { WORKFLOW_SCHEMA_VERSION } from "../../nodes";
+import { runWorkflowUntilPause } from "../../runtime";
 import { parseLlmConfig } from "./schema";
 
 const irGraph = {

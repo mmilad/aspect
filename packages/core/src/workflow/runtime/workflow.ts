@@ -4,7 +4,7 @@ import {
   shouldStrictValidateOutputs,
   validateNodeInputs,
   validateNodeOutputs
-} from "../contracts";
+} from "../bag/contracts";
 import {
   applyBagWrites,
   cloneContextBag,
@@ -18,11 +18,11 @@ import {
   writeOutputPins
 } from "../graph/schema";
 import type { WorkflowContextBag, WorkflowGraph } from "../graph/types";
-import { resolveLlmOutputContracts } from "../llm-outputs";
+import { resolveLlmOutputContracts } from "../llm/llm-outputs";
 import { getNodeModel } from "../nodes/registry";
 import type { WorkflowNode } from "../nodes/_shared/types";
-import { mapPortValuesToBag } from "../ports";
-import { validateValueAgainstShape } from "../shapes";
+import { mapPortValuesToBag } from "../bag/ports";
+import { validateValueAgainstShape } from "../bag/shapes";
 import type { WorkflowAdapters } from "./adapters";
 import { advanceCursor, fail } from "./helpers";
 import type { NodeExecuteContext, WorkflowStepResult } from "./types";

@@ -1,6 +1,6 @@
 import type { BagShape } from "../_shared/types";
 import type { WorkflowNodeModel } from "../_shared/model";
-import { derivedWrites } from "../../ports";
+import { derivedWrites } from "../../bag/ports";
 import { executeTransform } from "./execute";
 import { transformInspectorFields } from "./inspector";
 import { parseTransformNodeConfig } from "./schema";

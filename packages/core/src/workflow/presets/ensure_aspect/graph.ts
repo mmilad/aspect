@@ -1,0 +1,212 @@
+import type { WorkflowGraph } from "../../graph";
+import { WORKFLOW_SCHEMA_VERSION } from "../../nodes";
+import { identityBindings } from "../bindings";
+
+const STRING = { kind: "primitive" as const, type: "string" as const };
+const BOOLEAN = { kind: "primitive" as const, type: "boolean" as const };
+const NUMBER = { kind: "primitive" as const, type: "number" as const };
+const ENTITY_ARRAY = { kind: "array" as const, items: { kind: "ref" as const, ref: "Entity" } };
+const STRING_OR_NULL = {
+  kind: "union" as const,
+  options: [STRING, { kind: "primitive" as const, type: "null" as const }]
+};
+const CANDIDATE_ITEM = {
+  kind: "object" as const,
+  fields: {
+    id: STRING,
+    title: STRING,
+    status: STRING,
+    summary: STRING
+  }
+};
+const CANDIDATES = { kind: "array" as const, items: CANDIDATE_ITEM };
+
+/**
+ * Ensure Aspect — search for a similar aspect before create_entity.
+ * Prefer reuse; create only when needed. Keep LLM context slim via map.
+ * Ports are fixed; bindings are identity (UI may remap bag keys).
+ */
+export const ensureAspectGraph: WorkflowGraph = {
+  version: WORKFLOW_SCHEMA_VERSION,
+  nodes: [
+    {
+      id: "start",
+      type: "start",
+      position: { x: 40, y: 160 },
+      data: {
+        title: "Start",
+        writes: ["title", "summary", "key", "reason", "parentAspectId"],
+        writeBindings: identityBindings(["title", "summary", "key", "reason", "parentAspectId"]),
+        outputContracts: {
+          title: { required: true, shape: STRING },
+          summary: { required: false, shape: STRING },
+          key: { required: false, shape: STRING },
+          reason: { required: true, shape: STRING },
+          parentAspectId: { required: false, shape: STRING }
+        }
+      }
+    },
+    {
+      id: "load",
+      type: "context",
+      position: { x: 260, y: 160 },
+      data: {
+        title: "Search aspects",
+        reads: ["title"],
+        inputs: {
+          title: { required: true, shape: STRING }
+        },
+        inputBindings: identityBindings(["title"]),
+        writes: ["matches"],
+        writeBindings: identityBindings(["matches"]),
+        auto: {
+          loadContext: {
+            mode: "query",
+            queryFrom: "title",
+            types: ["aspect"],
+            limit: 12
+          }
+        },
+        outputContracts: {
+          matches: { required: true, shape: ENTITY_ARRAY }
+        }
+      }
+    },
+    {
+      id: "slim",
+      type: "map",
+      position: { x: 480, y: 160 },
+      data: {
+        title: "Slim candidates",
+        reads: ["matches"],
+        inputs: {
+          matches: { required: true, shape: ENTITY_ARRAY }
+        },
+        inputBindings: identityBindings(["matches"]),
+        writes: ["candidates"],
+        writeBindings: identityBindings(["candidates"]),
+        map: {
+          from: "matches",
+          as: "candidates",
+          mode: "array",
+          fields: [
+            { from: "id", as: "id" },
+            { from: "title", as: "title" },
+            { from: "status", as: "status" },
+            { from: "summary", as: "summary" }
+          ]
+        },
+        outputContracts: {
+          candidates: { required: true, shape: CANDIDATES }
+        }
+      }
+    },
+    {
+      id: "decide",
+      type: "llm",
+      position: { x: 700, y: 160 },
+      data: {
+        title: "Reuse or create?",
+        reads: ["title", "summary", "key", "candidates"],
+        inputs: {
+          title: { required: true, shape: STRING },
+          summary: { required: false, shape: STRING },
+          key: { required: false, shape: STRING },
+          candidates: { required: true, shape: CANDIDATES }
+        },
+        inputBindings: identityBindings(["title", "summary", "key", "candidates"]),
+        writes: ["aspectId", "createNew", "confidence"],
+        writeBindings: identityBindings(["aspectId", "createNew", "confidence"]),
+        outputContracts: {
+          aspectId: { required: false, shape: STRING_OR_NULL },
+          createNew: { required: true, shape: BOOLEAN },
+          confidence: { required: true, shape: NUMBER }
+        },
+        llm: {
+          inputKeys: ["title", "summary", "key", "candidates"],
+          outputSchema: ["aspectId", "createNew", "confidence"],
+          instructions: [
+            "You decide whether an existing Aspect already covers the proposal.",
+            "Proposal title: {{title}}.",
+            "Rules: prefer the smallest truthful existing Aspect; only create when none fit.",
+            "If reusing: set createNew=false and aspectId to that candidate id.",
+            "If creating: set createNew=true and aspectId to null (or empty string).",
+            "confidence is 0-1. Do not invent ids that are not in candidates.",
+            "Declared bag reads:",
+            "{{@reads}}"
+          ].join("\n"),
+          tools: []
+        }
+      }
+    },
+    {
+      id: "route",
+      type: "branch",
+      position: { x: 920, y: 160 },
+      data: {
+        title: "Create new?",
+        reads: ["createNew"],
+        inputs: {
+          createNew: { required: true, shape: BOOLEAN }
+        },
+        inputBindings: identityBindings(["createNew"]),
+        branch: { on: "createNew" }
+      }
+    },
+    {
+      id: "create",
+      type: "write",
+      position: { x: 1140, y: 40 },
+      data: {
+        title: "Create aspect",
+        reads: ["title", "summary", "key", "reason", "parentAspectId"],
+        inputs: {
+          title: { required: true, shape: STRING },
+          summary: { required: false, shape: STRING },
+          key: { required: false, shape: STRING },
+          reason: { required: true, shape: STRING },
+          parentAspectId: { required: false, shape: STRING }
+        },
+        inputBindings: identityBindings(["title", "summary", "key", "reason", "parentAspectId"]),
+        writes: ["aspectId"],
+        writeBindings: identityBindings(["aspectId"]),
+        outputContracts: {
+          aspectId: { required: true, shape: STRING }
+        },
+        write: {
+          action: "create_entity",
+          argsFromBag: {
+            title: "title",
+            summary: "summary",
+            key: "key",
+            reason: "reason",
+            parentAspectId: "parentAspectId"
+          },
+          defaults: { type: "aspect", status: "planned", resultAs: "aspectId" }
+        }
+      }
+    },
+    {
+      id: "end_reuse",
+      type: "end",
+      position: { x: 1140, y: 280 },
+      data: { title: "End (reused)" }
+    },
+    {
+      id: "end_create",
+      type: "end",
+      position: { x: 1360, y: 40 },
+      data: { title: "End (created)" }
+    }
+  ],
+  edges: [
+    { id: "e1", source: "start", target: "load", kind: "next" },
+    { id: "e2", source: "load", target: "slim", kind: "next" },
+    { id: "e3", source: "slim", target: "decide", kind: "next" },
+    { id: "e4", source: "decide", target: "route", kind: "next" },
+    { id: "e5", source: "route", target: "create", kind: "route", label: "true" },
+    { id: "e6", source: "route", target: "end_reuse", kind: "route", label: "false" },
+    { id: "e7", source: "create", target: "end_create", kind: "next" }
+  ]
+};
+

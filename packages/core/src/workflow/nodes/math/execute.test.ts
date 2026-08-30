@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { parseWorkflowGraph, WORKFLOW_SCHEMA_VERSION } from "../../schema";
-import { WorkflowRun } from "../../runtime/workflow";
-import type { WorkflowGraph } from "../../types";
+import { parseWorkflowGraph, type WorkflowGraph } from "../../graph";
+import { WORKFLOW_SCHEMA_VERSION } from "../../nodes";
+import { WorkflowRun } from "../../runtime";
 
 const NUMBER = { kind: "primitive" as const, type: "number" as const };
 

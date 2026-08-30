@@ -1,4 +1,4 @@
-import { parseBagShape } from "../shapes";
+import { parseBagShape } from "../bag/shapes";
 import { isRecord } from "../nodes/_shared/schema";
 import type { BagShape } from "../nodes/_shared/types";
 import type { WorkflowGraph, WorkflowVariable, WorkflowVariableRole } from "./types";

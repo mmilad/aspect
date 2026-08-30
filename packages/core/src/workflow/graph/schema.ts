@@ -15,7 +15,7 @@ import {
   type WorkflowNodeType
 } from "../nodes/_shared/types";
 import { getNodeModel } from "../nodes/registry";
-import { derivedWrites, normalizeNodePorts } from "../ports";
+import { derivedWrites, normalizeNodePorts } from "../bag/ports";
 import { parseVariables, syncVariablePorts, usesPinFrame } from "./variables";
 import type {
   WorkflowContextBag,

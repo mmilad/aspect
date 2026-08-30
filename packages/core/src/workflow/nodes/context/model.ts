@@ -1,6 +1,6 @@
 import type { BagShape } from "../_shared/types";
 import type { WorkflowNodeModel } from "../_shared/model";
-import { derivedWrites } from "../../ports";
+import { derivedWrites } from "../../bag/ports";
 import { executeContext } from "./execute";
 import { contextInspectorFields } from "./inspector";
 import { parseContextNodeConfig } from "./schema";

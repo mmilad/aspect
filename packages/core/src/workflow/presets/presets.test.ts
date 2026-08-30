@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
-import {
-  bagViewAtNode,
-  parseWorkflowGraph,
-  serializeShapeSlim,
-  WORKFLOW_SCHEMA_VERSION
-} from "../schema";
+import { bagViewAtNode, serializeShapeSlim } from "../bag";
+import { parseWorkflowGraph } from "../graph";
+import { WORKFLOW_SCHEMA_VERSION } from "../nodes";
 import {
   ensureAspectPreset,
   listParkedWorkflowPresets,

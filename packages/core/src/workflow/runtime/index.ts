@@ -17,6 +17,7 @@ export {
   type WorkflowWriteCall
 } from "./adapters";
 export { WorkflowRun, workflowGraphFromMetadata } from "./workflow";
+export { runWorkflowUntilPause, stepWorkflow } from "./step";
 export {
   advanceCursor,
   applyBagWrites,

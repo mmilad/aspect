@@ -3,7 +3,7 @@ import { getNodeModel } from "../registry";
 import { isPosition, isRecord, normalizeNodeType } from "../_shared/schema";
 import type { BagShape, WorkflowNode, WorkflowNodeData, WorkflowNodeType } from "../_shared/types";
 import type { NodeExecuteContext, WorkflowStepResult } from "../../runtime/types";
-import { isShapeAssignable, parseBagShape, parseShapeSlim, serializeShapeSlim } from "../../shapes";
+import { isShapeAssignable, parseBagShape, parseShapeSlim, serializeShapeSlim } from "../../bag/shapes";
 
 type NodePlan = {
   id?: string;

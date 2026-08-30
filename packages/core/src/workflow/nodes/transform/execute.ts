@@ -21,9 +21,9 @@ import {
   PLAN_DOCUMENT_PERSIST_REASON,
   prepareThinkingInputs,
   seedRootPlan
-} from "../../plan-v1-apply";
-import type { PlanBrief, PlanBudget, PlanDocument } from "../../plan-v1";
-import { validatePlanClassify, validatePlanExpand } from "../../plan-v1-writes";
+} from "../../../planning";
+import type { PlanBrief, PlanBudget, PlanDocument } from "../../../planning";
+import { validatePlanClassify, validatePlanExpand } from "../../../planning";
 
 async function runFilter(ctx: NodeExecuteContext): Promise<WorkflowStepResult> {
   const filter = ctx.node.data.auto?.filter;

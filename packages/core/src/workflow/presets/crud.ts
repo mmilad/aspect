@@ -1,4 +1,5 @@
-import { WORKFLOW_SCHEMA_VERSION, type WorkflowGraph } from "../types";
+import type { WorkflowGraph } from "../graph";
+import { WORKFLOW_SCHEMA_VERSION } from "../nodes";
 import type { EntityType } from "../../domain/types";
 import { identityBindings } from "./bindings";
 import type { WorkflowPreset } from "./types";

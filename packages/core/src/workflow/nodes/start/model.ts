@@ -1,6 +1,6 @@
 import type { BagShape } from "../_shared/types";
 import type { WorkflowNodeModel } from "../_shared/model";
-import { derivedWrites, resolveWriteBindings } from "../../ports";
+import { derivedWrites, resolveWriteBindings } from "../../bag/ports";
 import { executeStart } from "./execute";
 import { startInspectorFields } from "./inspector";
 import { parseStartConfig } from "./schema";

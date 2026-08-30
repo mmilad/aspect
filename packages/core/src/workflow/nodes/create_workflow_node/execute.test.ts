@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { parseWorkflowGraph, WORKFLOW_SCHEMA_VERSION } from "../../schema";
-import { WorkflowRun } from "../../runtime/workflow";
-import type { WorkflowGraph, WorkflowNodeType } from "../../types";
+import { parseWorkflowGraph, type WorkflowGraph } from "../../graph";
+import { WORKFLOW_SCHEMA_VERSION, type WorkflowNodeType } from "../../nodes";
+import { WorkflowRun } from "../../runtime";
 import { workflowNodeTypes } from "../_shared/types";
 
 const JSON_SHAPE = { kind: "any" as const };

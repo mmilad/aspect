@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { parseWorkflowGraph, WORKFLOW_SCHEMA_VERSION } from "../schema";
+import { parseWorkflowGraph } from "./schema";
+import { WORKFLOW_SCHEMA_VERSION } from "../nodes";
 import { initFrameFromRunInputs, resolveDataInput, writeOutputPins } from "./frame";
 import type { WorkflowContextBag } from "./types";
 

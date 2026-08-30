@@ -1,15 +1,15 @@
-import { resolveWorkflowLlmSystemPrompt } from "../../llm-defaults";
-import { resolveLlmNodeFormat } from "../../llm-format";
-import { resolveLlmOutputContracts } from "../../llm-outputs";
+import { resolveWorkflowLlmSystemPrompt } from "../../llm/llm-defaults";
+import { resolveLlmNodeFormat } from "../../llm/llm-format";
+import { resolveLlmOutputContracts } from "../../llm/llm-outputs";
 import { usesPinFrame } from "../../graph/variables";
 import { resolveDataInput } from "../../graph/frame";
 import {
   pickBagByInputPorts,
   resolveInputBindings,
   derivedReads
-} from "../../ports";
-import { slimShapesForReads, serializeShapeSlim } from "../../shapes";
-import { renderBagTemplate } from "../../template";
+} from "../../bag/ports";
+import { slimShapesForReads, serializeShapeSlim } from "../../bag/shapes";
+import { renderBagTemplate } from "../../bag/template";
 import type { NodeExecuteContext, WorkflowLlmPending, WorkflowStepResult } from "../../runtime/types";
 
 export async function executeLlm(ctx: NodeExecuteContext): Promise<WorkflowStepResult> {

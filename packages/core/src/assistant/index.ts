@@ -1,21 +1,28 @@
 export type {
   AssistantContext,
+  AssistantContextPack,
   AssistantMessage,
   AssistantMessageRole,
   AssistantPatch,
+  AssistantReply,
+  AssistantRoute,
   AssistantSession,
+  AssistantSessionPrior,
   AssistantSessionRecord,
   AssistantSessionStatus,
   AssistantSummary,
   AssistantTopic,
   AssistantTopicDraft,
-  AssistantTurnOutput
+  AssistantTurnOutput,
+  AssistantTurnStart,
+  AssistantTurnWindow
 } from "./types";
 export type { AssistantBlock, AssistantProperty, AssistantView } from "./views";
 
 export {
   emptySession,
   parseContext,
+  parseContextPack,
   parseMessage,
   parsePatch,
   parseSession,
@@ -25,8 +32,16 @@ export {
   titleFromSession
 } from "./parse";
 export { appendMessage, newMessage } from "./messages";
-export { mergeSession, mergeSessionUnknown, normalizeSession } from "./merge";
+export { mergeSession, mergeSessionUnknown, normalizeSession, applyContextPack, commitAssistantTurn } from "./merge";
 export { ASSISTANT_TURN_SCHEMA, ASSISTANT_TURN_SCHEMA_NAME } from "./schema";
+export { ASSISTANT_CONTEXT_V1_KEY, ASSISTANT_CONTEXT_V1_SCHEMA } from "./context-pack";
+export {
+  DEFAULT_ASSISTANT_WINDOW_SIZE,
+  priorFromSession,
+  requireAssistantSession,
+  resolveWindowSize,
+  sliceRecentTurns
+} from "./window";
 export {
   ASSISTANT_CATALOG,
   ASSISTANT_ITEM_VIEWS,
@@ -36,16 +51,25 @@ export {
 } from "./views";
 
 import { appendMessage, newMessage } from "./messages";
-import { mergeSession, mergeSessionUnknown, normalizeSession } from "./merge";
+import { mergeSession, mergeSessionUnknown, normalizeSession, applyContextPack, commitAssistantTurn } from "./merge";
 import {
   emptySession,
   parseContext,
+  parseContextPack,
   parsePatch,
   parseSession,
   parseTurnOutput,
   titleFromSession
 } from "./parse";
 import { ASSISTANT_TURN_SCHEMA, ASSISTANT_TURN_SCHEMA_NAME } from "./schema";
+import { ASSISTANT_CONTEXT_V1_KEY, ASSISTANT_CONTEXT_V1_SCHEMA } from "./context-pack";
+import {
+  DEFAULT_ASSISTANT_WINDOW_SIZE,
+  priorFromSession,
+  requireAssistantSession,
+  resolveWindowSize,
+  sliceRecentTurns
+} from "./window";
 import views from "./views";
 import { getDataPath, pathIsNonempty, setDataPath } from "../json-path";
 
@@ -59,10 +83,20 @@ const assistant = {
   merge: mergeSession,
   mergeUnknown: mergeSessionUnknown,
   normalize: normalizeSession,
+  applyContextPack,
+  commitAssistantTurn,
+  parseContextPack,
   appendMessage,
   newMessage,
   schema: ASSISTANT_TURN_SCHEMA,
   schemaName: ASSISTANT_TURN_SCHEMA_NAME,
+  contextPackKey: ASSISTANT_CONTEXT_V1_KEY,
+  contextPackSchema: ASSISTANT_CONTEXT_V1_SCHEMA,
+  defaultWindowSize: DEFAULT_ASSISTANT_WINDOW_SIZE,
+  priorFromSession,
+  requireAssistantSession,
+  resolveWindowSize,
+  sliceRecentTurns,
   views,
   path: { get: getDataPath, set: setDataPath, nonempty: pathIsNonempty }
 };

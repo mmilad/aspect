@@ -1,5 +1,12 @@
+import { appendMessage } from "./messages";
 import { parsePatch } from "./parse";
-import type { AssistantPatch, AssistantSession, AssistantTopic, AssistantTopicDraft } from "./types";
+import type {
+  AssistantContextPack,
+  AssistantPatch,
+  AssistantSession,
+  AssistantTopic,
+  AssistantTopicDraft
+} from "./types";
 
 function newTopicId(): string {
   const uuid = globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
@@ -98,4 +105,33 @@ export function normalizeSession(session: AssistantSession): AssistantSession {
 
 export function mergeSessionUnknown(session: AssistantSession, raw: unknown): AssistantSession {
   return mergeSession(session, parsePatch(raw));
+}
+
+/** Replace standing fields with the Turn A pack. Does not touch messages. */
+export function applyContextPack(session: AssistantSession, pack: AssistantContextPack): AssistantSession {
+  const next: AssistantSession = {
+    ...session,
+    summary: pack.summary,
+    topics: pack.topics.map(withId),
+    context: {
+      ...pack.context,
+      projectKey: pack.context.projectKey || session.context.projectKey
+    }
+  };
+  if (pack.currentTopic) {
+    next.currentTopic = withId(pack.currentTopic);
+  } else {
+    delete next.currentTopic;
+  }
+  return normalizeSession(next);
+}
+
+/** Append this turn’s messages and apply the pack as the next standing picture. */
+export function commitAssistantTurn(
+  session: AssistantSession,
+  message: string,
+  pack: AssistantContextPack,
+  reply: string
+): AssistantSession {
+  return appendMessage(applyContextPack(appendMessage(session, "user", message), pack), "assistant", reply);
 }

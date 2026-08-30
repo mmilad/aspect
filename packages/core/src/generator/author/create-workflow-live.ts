@@ -43,6 +43,13 @@ export function llmWritesFromPending(
   pending: WorkflowLlmPending,
   raw: string
 ): Record<string, unknown> {
+  if (pending.format === "text") {
+    const keys = pending.outputSchema ?? [];
+    if (keys.length === 1) {
+      return { [keys[0]!]: raw };
+    }
+    throw new Error("Text LLM writes need a single outputSchema key.");
+  }
   const parsedJson = extractJsonObject(raw);
   if (!parsedJson || typeof parsedJson !== "object" || Array.isArray(parsedJson)) {
     throw new Error("LLM JSON must be an object.");

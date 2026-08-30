@@ -1,5 +1,6 @@
 import type {
   AssistantContext,
+  AssistantContextPack,
   AssistantMessage,
   AssistantPatch,
   AssistantSession,
@@ -174,6 +175,43 @@ export function parsePatch(value: unknown): AssistantPatch {
     patch.context = context;
   }
   return patch;
+}
+
+export function parseContextPack(value: unknown, fallbackProjectKey = ""): AssistantContextPack | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const summary = parseSummary(value.summary);
+  if (!summary) {
+    return null;
+  }
+  if (typeof value.topicChanged !== "boolean") {
+    return null;
+  }
+  if (!Array.isArray(value.topics)) {
+    return null;
+  }
+  const topics = value.topics.map(parseTopic).filter((item): item is AssistantTopic => item !== null);
+  const context = parseContext(value.context, fallbackProjectKey);
+  let currentTopic: AssistantTopic | null = null;
+  if (value.currentTopic !== null && value.currentTopic !== undefined) {
+    currentTopic = parseTopic(value.currentTopic);
+    if (!currentTopic) {
+      return null;
+    }
+  }
+  const pack: AssistantContextPack = {
+    summary,
+    currentTopic,
+    topics,
+    context,
+    topicChanged: value.topicChanged
+  };
+  const focus = asString(value.focus);
+  if (focus !== undefined) {
+    pack.focus = focus;
+  }
+  return pack;
 }
 
 export function parseTurnOutput(value: unknown): AssistantTurnOutput | null {

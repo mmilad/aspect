@@ -15,7 +15,7 @@ Thin **semi-agent**: starts and resumes **defined** Projectplaner workflows. Not
 - Embedding orchestration in `packages/core` (core already owns the runner).
 - Coupling to Next.js UI components.
 
-The **Assistant pane** in `apps/web` is a separate conversation UI (SQLite `assistant_sessions`). It is not this host and is not `run_workflow`.
+The **Assistant pane** in `apps/web` is a conversation UI (`assistant_sessions`). Chat turns drain the seeded `assistant_turn` workflow and merge `contextPack` + `reply` into that session document. It is not the `apps/agent` host.
 
 ## Commands
 

@@ -6,6 +6,8 @@ export * from "./llm-json-schemas";
 import { DEFAULT_WORKFLOW_LLM_SYSTEM_PROMPT, resolveWorkflowLlmSystemPrompt } from "./llm-defaults";
 import { resolveLlmNodeFormat } from "./llm-format";
 import {
+  ASSISTANT_CONTEXT_V1_KEY,
+  ASSISTANT_CONTEXT_V1_SCHEMA,
   getLlmJsonSchemaPreset,
   LLM_JSON_SCHEMA_PRESETS,
   THOUGHT_ALTERNATIVES_V1_KEY,
@@ -42,6 +44,8 @@ const llm = {
   resolveLlmNodeFormat,
   getLlmJsonSchemaPreset,
   LLM_JSON_SCHEMA_PRESETS,
+  ASSISTANT_CONTEXT_V1_KEY,
+  ASSISTANT_CONTEXT_V1_SCHEMA,
   WORKFLOW_IR_V1_KEY,
   WORKFLOW_IR_V1_SCHEMA,
   WORKFLOW_NODE_PLAN_V1_KEY,

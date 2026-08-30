@@ -26,6 +26,14 @@ describe("llmWritesFromPending", () => {
     });
   });
 
+  it("maps a text reply onto the single output key", () => {
+    const writes = llmWritesFromPending(
+      pending({ format: "text", outputSchema: ["reply"] }),
+      "Switching focus to the graph."
+    );
+    expect(writes).toEqual({ reply: "Switching focus to the graph." });
+  });
+
   it("keeps listed keys when the model already wraps them", () => {
     const writes = llmWritesFromPending(
       pending(),

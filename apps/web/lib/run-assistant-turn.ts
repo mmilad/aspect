@@ -1,11 +1,20 @@
-import assistant from "@projectplaner/core/assistant";
-import generator from "@projectplaner/core/generator";
+import {
+  appendMessage,
+  commitAssistantTurn,
+  DEFAULT_ASSISTANT_WINDOW_SIZE,
+  mergeSession,
+  parseContextPack,
+  parsePatch
+} from "@projectplaner/core/assistant";
 import type { AssistantSessionRecord } from "@projectplaner/core/assistant";
+import type { WorkflowContextBag } from "@projectplaner/core";
+import generator from "@projectplaner/core/generator";
 import type { DatabaseSync } from "node:sqlite";
 import assistantSessions from "@projectplaner/db/assistant-sessions";
+import { runWorkflow } from "@projectplaner/db/workflows";
+import { drainPendingLlm } from "./drain-pending-llm";
 
-const { appendMessage, merge, parsePatch, parseTurnOutput, schema, schemaName } = assistant;
-const { chatCompletions, extractJsonObject, readLlmChatConfigFromEnv } = generator.author;
+const { readLlmChatConfigFromEnv } = generator.author;
 
 export type AssistantTurnInput = {
   sessionId: string;
@@ -13,15 +22,12 @@ export type AssistantTurnInput = {
   patch?: unknown;
 };
 
-function systemPrompt(): string {
-  return [
-    "You are the Projectplaner Assistant pane.",
-    "Chat is a conversation document, not a graph entity. Do not invent Aspect/Feature/Task ids.",
-    "Reply with a JSON object: { text, patch? }.",
-    "text is the user-facing reply.",
-    "patch may include summary (rewrite standing picture), currentTopic { id, title, why }, topics[], and must not invent graph entityId values unless the user named a real id.",
-    "Rewrite summary; do not append forever. On topic change, set currentTopic and add it to topics."
-  ].join(" ");
+function readTurnOutputs(bag: WorkflowContextBag | undefined): { pack: unknown; reply: unknown } {
+  const frame = bag?.frame;
+  return {
+    pack: frame?.outputs.contextPack ?? frame?.pins["llm_context::contextPack"],
+    reply: frame?.outputs.reply ?? frame?.pins["llm_reply::reply"]
+  };
 }
 
 export async function runAssistantTurn(
@@ -33,17 +39,19 @@ export async function runAssistantTurn(
     throw new Error(`Unknown assistant session: ${input.sessionId}`);
   }
 
-  let session = appendMessage(existing.session, "user", input.message);
-  const config = readLlmChatConfigFromEnv();
+  const message = input.message.trim();
   const fixturePatch = input.patch !== undefined ? parsePatch(input.patch) : null;
 
   if (fixturePatch && Object.keys(fixturePatch).length > 0) {
-    session = merge(session, fixturePatch);
+    let session = appendMessage(existing.session, "user", message);
+    session = mergeSession(session, fixturePatch);
     session = appendMessage(session, "assistant", "Updated session from fixture patch.");
     return assistantSessions.save(db, existing.id, session);
   }
 
+  const config = readLlmChatConfigFromEnv();
   if (!config) {
+    let session = appendMessage(existing.session, "user", message);
     session = appendMessage(
       session,
       "assistant",
@@ -52,27 +60,39 @@ export async function runAssistantTurn(
     return assistantSessions.save(db, existing.id, session);
   }
 
-  const history = session.messages.slice(-12).map((message) => ({
-    role: message.role,
-    content: message.content
-  }));
-  const raw = await chatCompletions(
-    config,
-    [{ role: "system", content: systemPrompt() }, ...history],
-    { format: schema, jsonSchemaName: schemaName, temperature: 0.3 }
+  const started = await runWorkflow(db, {
+    key: "assistant_turn",
+    projectKey: existing.session.context.projectKey || "PLAN",
+    goal: "Assistant turn",
+    bag: {
+      session: existing.session,
+      message,
+      windowSize: DEFAULT_ASSISTANT_WINDOW_SIZE
+    }
+  });
+  const drained = await drainPendingLlm(db, started);
+
+  if (drained.step.kind === "failed") {
+    throw new Error(drained.step.message ?? "Assistant turn failed.");
+  }
+  if (drained.step.kind !== "completed") {
+    throw new Error(
+      drained.note ?? "Assistant turn did not finish. Check PROJECTPLANER_LLM_* and drain the run."
+    );
+  }
+
+  const { pack: rawPack, reply: rawReply } = readTurnOutputs(drained.step.bag);
+  const pack = parseContextPack(rawPack, existing.session.context.projectKey);
+  if (!pack) {
+    throw new Error("Assistant turn completed without a valid contextPack.");
+  }
+  if (typeof rawReply !== "string" || !rawReply.trim()) {
+    throw new Error("Assistant turn completed without a reply.");
+  }
+
+  return assistantSessions.save(
+    db,
+    existing.id,
+    commitAssistantTurn(existing.session, message, pack, rawReply)
   );
-  let output;
-  try {
-    output = parseTurnOutput(extractJsonObject(raw));
-  } catch {
-    output = parseTurnOutput({ text: raw });
-  }
-  if (!output) {
-    throw new Error("Assistant turn returned an unreadable payload.");
-  }
-  session = appendMessage(session, "assistant", output.text);
-  if (output.patch) {
-    session = merge(session, output.patch);
-  }
-  return assistantSessions.save(db, existing.id, session);
 }

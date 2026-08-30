@@ -24,6 +24,7 @@ describe("workflow presets", () => {
     expect(presets.some((preset) => preset.presetKey === "create_workflow")).toBe(true);
     expect(presets.some((preset) => preset.presetKey === "thinking")).toBe(true);
     expect(presets.some((preset) => preset.presetKey === "goal_planning")).toBe(true);
+    expect(presets.some((preset) => preset.presetKey === "assistant_turn")).toBe(true);
   });
 
   it("assigns a closed kind to every catalog pack", () => {
@@ -45,6 +46,9 @@ describe("workflow presets", () => {
     ).toBe("housekeeping");
     expect(listParkedWorkflowPresets().find((preset) => preset.presetKey === "onboarding")?.kind).toBe(
       "orientation"
+    );
+    expect(listWorkflowPresets().find((preset) => preset.presetKey === "assistant_turn")?.kind).toBe(
+      "user"
     );
   });
 
@@ -78,6 +82,7 @@ describe("workflow presets", () => {
   it("refuses drainLlm for goal_planning and allows it for thinking", () => {
     expect(workflowPresetAllowsDrainLlm("goal_planning")).toBe(false);
     expect(workflowPresetAllowsDrainLlm("thinking")).toBe(true);
+    expect(workflowPresetAllowsDrainLlm("assistant_turn")).toBe(true);
     expect(workflowPresetAllowsDrainLlm("create_task")).toBe(true);
     expect(workflowPresetAllowsDrainLlm(null)).toBe(true);
   });

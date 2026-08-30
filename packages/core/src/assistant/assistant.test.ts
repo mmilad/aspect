@@ -45,4 +45,43 @@ describe("assistant session", () => {
     session = merge(session, { context: { entityId: "node_app" } });
     expect(views.visibleNav(session).some((item) => item.key === "context")).toBe(true);
   });
+
+  it("applies a context pack as the next standing picture and commits the turn", () => {
+    const { applyContextPack, commitAssistantTurn, parseContextPack } = assistant;
+    let session = emptySession("PLAN");
+    session = merge(session, {
+      summary: { text: "Auth" },
+      currentTopic: { id: "t_auth", title: "Auth" },
+      context: { entityId: "old_entity" }
+    });
+
+    const pack = parseContextPack({
+      summary: { text: "Graph inspect" },
+      currentTopic: { id: "t_graph", title: "Graph inspect" },
+      topics: [
+        { id: "t_auth", title: "Auth" },
+        { id: "t_graph", title: "Graph inspect" }
+      ],
+      context: { projectKey: "PLAN" },
+      topicChanged: true
+    });
+    expect(pack).not.toBeNull();
+    if (!pack) {
+      return;
+    }
+
+    const standing = applyContextPack(session, pack);
+    expect(standing.summary?.text).toBe("Graph inspect");
+    expect(standing.currentTopic?.title).toBe("Graph inspect");
+    expect(standing.context.entityId).toBeUndefined();
+    expect(standing.messages).toEqual(session.messages);
+
+    const committed = commitAssistantTurn(session, "Look at the graph", pack, "Switching focus.");
+    expect(committed.messages.map((item) => item.content)).toEqual([
+      "Look at the graph",
+      "Switching focus."
+    ]);
+    expect(committed.summary?.text).toBe("Graph inspect");
+    expect(titleFromSession(committed)).toBe("Graph inspect");
+  });
 });

@@ -1,3 +1,5 @@
+import { assistantTurnGraph } from "./assistant_turn/graph";
+import { assistantTurnPreset } from "./assistant_turn/preset";
 import { authorWorkflowGraph } from "./author_workflow/graph";
 import { authorWorkflowPreset } from "./author_workflow/preset";
 import { createStepGraph } from "./create_step/graph";
@@ -28,6 +30,8 @@ export type {
   WorkflowPresetKind
 } from "./types";
 export { workflowPresetKinds } from "./types";
+export { assistantTurnGraph } from "./assistant_turn/graph";
+export { assistantTurnPreset } from "./assistant_turn/preset";
 export { authorWorkflowGraph } from "./author_workflow/graph";
 export { authorWorkflowPreset } from "./author_workflow/preset";
 export { createStepGraph } from "./create_step/graph";
@@ -60,7 +64,8 @@ export function listWorkflowPresets(): WorkflowPreset[] {
     createStepPreset,
     createWorkflowPreset,
     thinkingPreset,
-    goalPlanningPreset
+    goalPlanningPreset,
+    assistantTurnPreset
   ];
 }
 
@@ -137,6 +142,7 @@ const presets = {
   rollupParentStatusGraph,
   thinkingGraph,
   goalPlanningGraph,
+  assistantTurnGraph,
   authorWorkflowPreset,
   createStepPreset,
   createWorkflowPreset,
@@ -145,7 +151,8 @@ const presets = {
   onboardingPreset,
   rollupParentStatusPreset,
   thinkingPreset,
-  goalPlanningPreset
+  goalPlanningPreset,
+  assistantTurnPreset
 };
 
 export default presets;

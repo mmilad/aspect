@@ -3,8 +3,14 @@
  * Seeded into llm_json_schemas; generators import the same objects.
  */
 
+import {
+  ASSISTANT_CONTEXT_V1_KEY,
+  ASSISTANT_CONTEXT_V1_SCHEMA
+} from "../../assistant/context-pack";
 import { PLAN_CLASSIFY_V1_KEY, PLAN_CLASSIFY_V1_SCHEMA, PLAN_EXPAND_V1_KEY, PLAN_EXPAND_V1_SCHEMA } from "../../planning";
 import { PLAN_V1_KEY, PLAN_V1_SCHEMA } from "../../planning";
+
+export { ASSISTANT_CONTEXT_V1_KEY, ASSISTANT_CONTEXT_V1_SCHEMA };
 
 export type LlmJsonSchemaPreset = {
   key: string;
@@ -102,6 +108,8 @@ export const WORKFLOW_STEP_DRAFT_V1_SCHEMA: Record<string, unknown> = {
                   "query",
                   "write",
                   "push",
+                  "assistant_session",
+                  "assistant_window",
                   "subworkflow",
                   "wait"
                 ]
@@ -173,7 +181,9 @@ export const WORKFLOW_NODE_PLAN_V1_SCHEMA: Record<string, unknown> = {
         "query",
         "write",
         "push",
-        "create_workflow_node"
+        "create_workflow_node",
+        "assistant_session",
+        "assistant_window"
       ]
     },
     id: { type: "string" },
@@ -482,6 +492,13 @@ export const LLM_JSON_SCHEMA_PRESETS: LlmJsonSchemaPreset[] = [
     title: "Thought Finalize v1",
     description: "Thinking workflow accepted result and iteration count.",
     schema: THOUGHT_FINALIZE_V1_SCHEMA
+  },
+  {
+    key: ASSISTANT_CONTEXT_V1_KEY,
+    title: "Assistant context pack v1",
+    description:
+      "Standing picture for one assistant turn: summary, topics, context, and topicChanged vs priorCurrentTopic.",
+    schema: ASSISTANT_CONTEXT_V1_SCHEMA
   },
   {
     key: PLAN_V1_KEY,

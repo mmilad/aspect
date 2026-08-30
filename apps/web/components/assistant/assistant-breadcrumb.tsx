@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -22,21 +23,24 @@ export function AssistantBreadcrumb() {
         <BreadcrumbList>
           {nav.map((frame, index) => {
             const last = index === nav.length - 1;
+            const key = `${frame.key}:${frame.itemId ?? ""}:${index}`;
             return (
-              <BreadcrumbItem key={`${frame.key}:${frame.itemId ?? ""}:${index}`}>
+              <Fragment key={key}>
                 {index > 0 ? <BreadcrumbSeparator /> : null}
-                {last ? (
-                  <BreadcrumbPage>{frame.label}</BreadcrumbPage>
-                ) : (
-                  <BreadcrumbLink
-                    onClick={() => {
-                      setNav(nav.slice(0, index + 1));
-                    }}
-                  >
-                    {frame.label}
-                  </BreadcrumbLink>
-                )}
-              </BreadcrumbItem>
+                <BreadcrumbItem>
+                  {last ? (
+                    <BreadcrumbPage>{frame.label}</BreadcrumbPage>
+                  ) : (
+                    <BreadcrumbLink
+                      onClick={() => {
+                        setNav(nav.slice(0, index + 1));
+                      }}
+                    >
+                      {frame.label}
+                    </BreadcrumbLink>
+                  )}
+                </BreadcrumbItem>
+              </Fragment>
             );
           })}
         </BreadcrumbList>

@@ -61,6 +61,9 @@ describe("ensureWorkflowPresets", () => {
       const goalPlanning = flows.find((flow) => flow.metadata.presetKey === "goal_planning");
       assert.equal(goalPlanning?.metadata.presetKind, "builder");
       assert.ok(goalPlanning);
+      const assistantTurn = flows.find((flow) => flow.metadata.presetKey === "assistant_turn");
+      assert.equal(assistantTurn?.metadata.presetKind, "user");
+      assert.ok(assistantTurn);
     })
   );
 

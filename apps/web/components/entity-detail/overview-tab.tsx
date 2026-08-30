@@ -1,5 +1,5 @@
 import type { Entity } from "@projectplaner/core";
-import { EntityLink, Field, ToolbarLink } from "../ui";
+import { EntityLink, InfoField, ToolbarLink } from "../ui";
 import { AcceptanceList, TagList, type RelationListItem } from "../entity-chrome";
 import { TaskCanceledToggle } from "../task-canceled-toggle";
 import { formatEntityType, formatStatus } from "../../lib/entity-label";
@@ -41,11 +41,11 @@ export function OverviewTab({
       ) : null}
 
       <section className={isTask ? "grid gap-3 sm:grid-cols-4" : "grid gap-3 sm:grid-cols-2"}>
-        <Field label="Type" value={formatEntityType(entity.type)} />
-        <Field label="Status" value={formatStatus(entity.status)} />
-        {isTask ? <Field label="Priority" value={priority ?? "—"} /> : null}
+        <InfoField label="Type" value={formatEntityType(entity.type)} />
+        <InfoField label="Status" value={formatStatus(entity.status)} />
+        {isTask ? <InfoField label="Priority" value={priority ?? "—"} /> : null}
         {isTask ? (
-          <Field
+          <InfoField
             label="Primary link"
             value={
               primary?.other ? (

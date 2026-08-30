@@ -20,7 +20,7 @@ const {
   uniqueSlotId,
   withQueryConfig
 } = workflow.nodes;
-import { FormLabel, GhostButton, Select, TextInput } from "../../ui";
+import { FormLabel, GhostButton, NativeSelect, Input } from "../../ui";
 
 function slotLabel(slot: WorkflowQuerySlot): string {
   switch (slot.slot) {
@@ -94,7 +94,7 @@ export function QueryConfigEditor({
   return (
     <div className="space-y-2">
       <FormLabel label="Operation">
-        <Select
+        <NativeSelect
           value={query.op}
           onChange={(event) => {
             const op = event.target.value as WorkflowQueryOp;
@@ -106,12 +106,12 @@ export function QueryConfigEditor({
               {QUERY_CATALOG[op].label}
             </option>
           ))}
-        </Select>
+        </NativeSelect>
       </FormLabel>
       <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{spec.kind}</div>
       {fields.has("type") ? (
         <FormLabel label="Entity type">
-          <Select
+          <NativeSelect
             value={query.type ?? ""}
             onChange={(event) => {
               const value = event.target.value;
@@ -124,12 +124,12 @@ export function QueryConfigEditor({
                 {type}
               </option>
             ))}
-          </Select>
+          </NativeSelect>
         </FormLabel>
       ) : null}
       {fields.has("limit") ? (
         <FormLabel label="Limit">
-          <TextInput
+          <Input
             value={query.limit !== undefined ? String(query.limit) : ""}
             onChange={(event) => {
               const raw = event.target.value.trim();
@@ -140,7 +140,7 @@ export function QueryConfigEditor({
       ) : null}
       {fields.has("depth") ? (
         <FormLabel label="Depth">
-          <TextInput
+          <Input
             value={query.depth !== undefined ? String(query.depth) : "1"}
             onChange={(event) => {
               const parsed = Number(event.target.value);
@@ -150,8 +150,8 @@ export function QueryConfigEditor({
         </FormLabel>
       ) : null}
       {fields.has("select") ? (
-        <FormLabel label="Select">
-          <Select
+        <FormLabel label="NativeSelect">
+          <NativeSelect
             value={query.select ?? "compact"}
             onChange={(event) =>
               commit({ ...query, select: event.target.value === "full" ? "full" : "compact" })
@@ -159,18 +159,18 @@ export function QueryConfigEditor({
           >
             <option value="compact">compact</option>
             <option value="full">full</option>
-          </Select>
+          </NativeSelect>
         </FormLabel>
       ) : null}
       {fields.has("includeArchived") ? (
         <FormLabel label="Include archived">
-          <Select
+          <NativeSelect
             value={query.includeArchived === true ? "true" : "false"}
             onChange={(event) => commit({ ...query, includeArchived: event.target.value === "true" })}
           >
             <option value="false">no</option>
             <option value="true">yes</option>
-          </Select>
+          </NativeSelect>
         </FormLabel>
       ) : null}
       {spec.kind !== "write" ? (
@@ -191,7 +191,7 @@ export function QueryConfigEditor({
               {slot.slot === "field" ? (
                 <div className="grid grid-cols-2 gap-2">
                   <FormLabel label="Field">
-                    <Select
+                    <NativeSelect
                       value={slot.field ?? "key"}
                       onChange={(event) => {
                         const field = event.target.value as NonNullable<WorkflowQuerySlot["field"]>;
@@ -207,10 +207,10 @@ export function QueryConfigEditor({
                           {field}
                         </option>
                       ))}
-                    </Select>
+                    </NativeSelect>
                   </FormLabel>
                   <FormLabel label="Op">
-                    <Select
+                    <NativeSelect
                       value={slot.op ?? "eq"}
                       onChange={(event) =>
                         updateSlot(index, { op: event.target.value as NonNullable<WorkflowQuerySlot["op"]> })
@@ -219,13 +219,13 @@ export function QueryConfigEditor({
                       <option value="eq">eq</option>
                       <option value="neq">neq</option>
                       <option value="in">in</option>
-                    </Select>
+                    </NativeSelect>
                   </FormLabel>
                 </div>
               ) : null}
               {slot.slot === "relatedTo" || slot.slot === "rel" ? (
                 <FormLabel label="Direction">
-                  <Select
+                  <NativeSelect
                     value={slot.rel?.direction ?? "out"}
                     onChange={(event) =>
                       updateSlot(index, {
@@ -239,12 +239,12 @@ export function QueryConfigEditor({
                     <option value="out">out</option>
                     <option value="in">in</option>
                     <option value="either">either</option>
-                  </Select>
+                  </NativeSelect>
                 </FormLabel>
               ) : null}
               <div className="grid grid-cols-2 gap-2">
                 <FormLabel label="Source">
-                  <Select
+                  <NativeSelect
                     value={slot.source}
                     onChange={(event) =>
                       updateSlot(index, { source: event.target.value === "pin" ? "pin" : "const" })
@@ -252,11 +252,11 @@ export function QueryConfigEditor({
                   >
                     <option value="const">const</option>
                     <option value="pin">pin</option>
-                  </Select>
+                  </NativeSelect>
                 </FormLabel>
                 {slot.slot !== "from" && slot.slot !== "relations" ? (
                   <FormLabel label={slot.source === "pin" ? "Default" : "Value"}>
-                    <TextInput
+                    <Input
                       value={valueAsString(slot.value)}
                       onChange={(event) => updateSlot(index, { value: event.target.value })}
                     />

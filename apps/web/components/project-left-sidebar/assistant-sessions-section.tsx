@@ -33,16 +33,18 @@ export function AssistantSessionsSection() {
         {sessions.map((session) => {
           const active = record?.id === session.id;
           return (
-            <button
+            <Button
               key={session.id}
               type="button"
-              className={cn(styles.scopeItem, active && styles.activeSession)}
+              variant={active ? "secondary" : "ghost"}
+              size="sm"
+              className={cn("h-auto w-full justify-start px-2 py-1.5 text-left font-normal", active && styles.activeSession)}
               onClick={() => {
                 void selectSession(session.id).catch(() => undefined);
               }}
             >
               {session.title || "Chat"}
-            </button>
+            </Button>
           );
         })}
       </div>

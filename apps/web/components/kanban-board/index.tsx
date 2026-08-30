@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ProjectPlanSnapshot } from "@projectplaner/core";
-import { Badge, Select, ToolbarLink } from "../ui";
+import { Badge, NativeSelect, ToolbarLink } from "../ui";
 import { formatEntityType, formatStatus } from "../../lib/entity-label";
 import {
   buildKanbanBreadcrumbs,
@@ -217,7 +217,7 @@ export function KanbanBoard({ snapshot, scopeId = null, selectedId }: KanbanBoar
         </nav>
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Select
+          <NativeSelect
             className="w-auto min-w-[10rem] text-xs"
             value={columnMode}
             onChange={(event) => setColumnMode(event.target.value as ColumnVisibilityMode)}
@@ -225,7 +225,7 @@ export function KanbanBoard({ snapshot, scopeId = null, selectedId }: KanbanBoar
           >
             <option value="used">Only used columns</option>
             <option value="custom">Custom columns</option>
-          </Select>
+          </NativeSelect>
           <span className="text-[11px] text-muted-foreground">
             {scopeTitle} · {cards.length} cards{pending ? " · saving…" : ""}
           </span>

@@ -1,36 +1,48 @@
-import type { ReactNode } from "react";
-import { cn } from "../../lib/utils";
+import * as React from "react";
 
-export function Field({
+import { cn } from "@/lib/utils";
+import { Label } from "@/components/ui/label";
+
+function Field({ className, ...props }: React.ComponentProps<"div">) {
+  return <div role="group" data-slot="field" className={cn("flex flex-col gap-1", className)} {...props} />;
+}
+
+function FieldLabel({ className, ...props }: React.ComponentProps<typeof Label>) {
+  return <Label data-slot="field-label" className={cn(className)} {...props} />;
+}
+
+function FieldTitle({ className, ...props }: React.ComponentProps<"div">) {
+  return <div data-slot="field-title" className={cn("text-xs font-medium text-foreground", className)} {...props} />;
+}
+
+function FieldDescription({ className, ...props }: React.ComponentProps<"p">) {
+  return <p data-slot="field-description" className={cn("text-xs text-muted-foreground", className)} {...props} />;
+}
+
+function FieldContent({ className, ...props }: React.ComponentProps<"div">) {
+  return <div data-slot="field-content" className={cn("flex min-w-0 flex-col gap-1", className)} {...props} />;
+}
+
+function FieldGroup({ className, ...props }: React.ComponentProps<"div">) {
+  return <div data-slot="field-group" className={cn("flex flex-col gap-3", className)} {...props} />;
+}
+
+/** Labeled control wrapper used across inspector forms. */
+function FormLabel({
   label,
-  value,
+  children,
   className
 }: {
   label: string;
-  value: ReactNode;
+  children: React.ReactNode;
   className?: string;
 }) {
   return (
-    <div className={cn("rounded-md border border-border bg-white px-3 py-2", className)}>
-      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="mt-1 text-sm text-zinc-800">{value}</div>
-    </div>
+    <Field className={className}>
+      <FieldLabel>{label}</FieldLabel>
+      <FieldContent>{children}</FieldContent>
+    </Field>
   );
 }
 
-export function Metric({
-  label,
-  value,
-  className
-}: {
-  label: string;
-  value: ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={cn("rounded-md border border-border bg-white px-2.5 py-2", className)}>
-      <div className="text-[11px] font-semibold uppercase text-muted-foreground">{label}</div>
-      <div className="mt-1 text-sm font-semibold text-zinc-900">{value}</div>
-    </div>
-  );
-}
+export { Field, FieldLabel, FieldTitle, FieldDescription, FieldContent, FieldGroup, FormLabel };

@@ -18,7 +18,7 @@ Flow editor (`WorkflowEditorShell`) uses the same shell: center is toolbar + Rea
 
 Add workflow steps via toolbar **Add** or canvas **right-click** context menu (connect-kind lives there too).
 
-New assistant UI uses shadcn primitives (`Button`, `Textarea`, `Breadcrumb`, `ScrollArea`) next to existing `GhostButton` / inspector controls.
+New assistant UI uses shadcn primitives (`Button`, `Textarea`, `Breadcrumb`, `ScrollArea`, `Message`, `Bubble`, `Item`, `Field`, `Dialog`). Homemade `GhostButton` is a thin tone mapper over `Button`. Assistant non-chat views render from the core block catalog via `SchemaView`.
 
 ## Surfaces
 
@@ -46,6 +46,7 @@ components/inspector/     # Inspect mode
 components/assistant/     # Assistant mode
   index.tsx               # AssistantHost — main chat / schema view
   assistant-rail.tsx      # Right-sidebar session buttons
+  schema-view/            # Catalog → shadcn (prose/fields/chips/list/ref)
 ```
 
 Avoid a second inspector inside center workspaces.

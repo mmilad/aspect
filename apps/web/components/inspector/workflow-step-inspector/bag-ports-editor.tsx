@@ -1,6 +1,6 @@
 import type { BagShape, WorkflowBagKeyContract, WorkflowNode, WorkflowNodeData } from "@projectplaner/core";
 import workflow from "@projectplaner/core/workflow";
-import { FormLabel, GhostButton, TextInput } from "../../ui";
+import { FormLabel, GhostButton, Input } from "../../ui";
 import { PropPicker } from "../../workflow-workspace/workflow-bag-panel";
 
 const { resolveInputBindings, serializeShapeSlim } = workflow.bag;
@@ -133,7 +133,7 @@ export function BagPortsEditor({
                 className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-1"
               >
                 <FormLabel label="bag key">
-                  <TextInput
+                  <Input
                     value={writeBindings[portId] ?? portId}
                     onChange={(event) => {
                       patchWriteBindings({

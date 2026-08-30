@@ -1,6 +1,8 @@
 "use client";
 
 import { Badge, GhostButton } from "../../ui";
+import { badgeClassForTone } from "../../../lib/entity-tones";
+import { cn } from "../../../lib/utils";
 import type { ReactNode } from "react";
 
 interface WorkflowToolbarProps {
@@ -42,9 +44,9 @@ export function WorkflowToolbar({
 }: WorkflowToolbarProps) {
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-border bg-white px-3 py-2">
-      <Badge tone="flow">workflow</Badge>
-      {presetKey ? <Badge tone="accent">preset</Badge> : null}
-      {presetKey && presetDirty ? <Badge tone="warning">modified</Badge> : null}
+      <Badge className={cn("border-transparent text-white", badgeClassForTone("flow"))}>workflow</Badge>
+      {presetKey ? <Badge className={badgeClassForTone("accent")}>preset</Badge> : null}
+      {presetKey && presetDirty ? <Badge className={badgeClassForTone("warning")}>modified</Badge> : null}
       <div className="text-sm font-medium text-zinc-900">{flowTitle}</div>
       <div className="font-mono text-xs text-muted-foreground">v{version}</div>
       {presetKey ? (

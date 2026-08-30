@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import type { ProjectNode, ProjectPlanSnapshot } from "@projectplaner/core";
 import type { ProjectStats, ProjectStatsBucket } from "@projectplaner/db";
-import { EntityBadges, Field } from "../ui";
+import { EntityBadges, InfoField } from "../ui";
 import { formatEntityType, formatStatus } from "../../lib/entity-label";
 import { projectPaths } from "../../lib/project-paths";
 
@@ -100,8 +100,8 @@ export function ProjectWorkspaceHub({ snapshot, stats }: ProjectWorkspaceHubProp
         <div className="space-y-3 rounded-md border border-border bg-white p-3">
           <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Project</div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Type" value={formatEntityType(root.type)} />
-            <Field label="Status" value={formatStatus(root.status)} />
+            <InfoField label="Type" value={formatEntityType(root.type)} />
+            <InfoField label="Status" value={formatStatus(root.status)} />
           </div>
           {root.body ? (
             <div className="rounded-md border border-border bg-[#f8faf9] p-3 text-sm leading-6 text-zinc-700 whitespace-pre-wrap">

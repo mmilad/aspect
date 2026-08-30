@@ -1,5 +1,7 @@
-import { Badge } from "./badge";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import { formatEntityType, formatStatus } from "../../lib/entity-label";
+import { badgeClassForTone } from "../../lib/entity-tones";
 
 export function EntityBadges({
   type,
@@ -15,11 +17,15 @@ export function EntityBadges({
   const typeLabel = formatEntityType(type || "unknown");
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Badge tone={type || "reference"}>{typeLabel}</Badge>
-      <Badge>{formatStatus(status)}</Badge>
-      {entityKey ? <Badge>{entityKey}</Badge> : null}
+      <Badge className={cn("border-transparent text-white hover:opacity-90", badgeClassForTone(type || "reference"))}>
+        {typeLabel}
+      </Badge>
+      <Badge variant="secondary">{formatStatus(status)}</Badge>
+      {entityKey ? <Badge variant="outline">{entityKey}</Badge> : null}
       {extras.filter(Boolean).map((item) => (
-        <Badge key={item}>{item}</Badge>
+        <Badge key={item} variant="outline">
+          {item}
+        </Badge>
       ))}
     </div>
   );

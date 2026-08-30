@@ -5,7 +5,7 @@ import type { BagShape, WorkflowBagKeyContract, WorkflowNode, WorkflowNodeData }
 import workflow from "@projectplaner/core/workflow";
 
 const { serializeShapeSlim } = workflow.bag;
-import { FormLabel, GhostButton, Select, TextInput } from "../../ui";
+import { FormLabel, GhostButton, NativeSelect, Input } from "../../ui";
 
 const STRING: BagShape = { kind: "primitive", type: "string" };
 const NUMBER: BagShape = { kind: "primitive", type: "number" };
@@ -95,14 +95,14 @@ function RunInputRow({
   return (
     <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_auto_auto] items-end gap-1">
       <FormLabel label="name">
-        <TextInput
+        <Input
           value={draftName}
           onChange={(event) => setDraftName(event.target.value)}
           onBlur={() => onRename(draftName)}
         />
       </FormLabel>
       <FormLabel label="shape">
-        <Select
+        <NativeSelect
           value={shapePreset(contract.shape)}
           onChange={(event) =>
             onPatch({
@@ -115,7 +115,7 @@ function RunInputRow({
           <option value="number">number</option>
           <option value="boolean">boolean</option>
           <option value="string|null">string|null</option>
-        </Select>
+        </NativeSelect>
       </FormLabel>
       <label className="flex items-center gap-1 pb-1 text-[11px] text-zinc-700">
         <input

@@ -6,7 +6,7 @@ import type { ProjectPlanSnapshot, Tag, Task, TaskLink } from "@projectplaner/co
 import legacy from "@projectplaner/core/legacy";
 
 const { getPrimaryTaskLink, getTagsForEntity } = legacy;
-import { Badge, Select, ToolbarLink } from "../ui";
+import { Badge, NativeSelect, ToolbarLink } from "../ui";
 import { TagList } from "../entity-chrome";
 import { formatEntityType, formatStatus } from "../../lib/entity-label";
 import { projectPaths } from "../../lib/project-paths";
@@ -171,7 +171,7 @@ export function IssuesList({ snapshot }: { snapshot: ProjectPlanSnapshot }) {
           Tasks grouped by primary Aspect/Feature link.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Select
+          <NativeSelect
             className="w-auto min-w-[8rem] text-xs"
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value)}
@@ -185,7 +185,7 @@ export function IssuesList({ snapshot }: { snapshot: ProjectPlanSnapshot }) {
               </option>
             ))}
             {hasArchived ? <option value="archived">{formatStatus("archived")}</option> : null}
-          </Select>
+          </NativeSelect>
           <span className="text-[11px] text-muted-foreground">
             {shown} shown of {total}
           </span>

@@ -1,5 +1,5 @@
 import type { Entity } from "@projectplaner/core";
-import { EntityLink, Field, ToolbarLink } from "../ui";
+import { EntityLink, InfoField, ToolbarLink } from "../ui";
 import { AcceptanceList, EntityListPanel, RelationList, type RelationListItem } from "../entity-chrome";
 import { formatStatus } from "../../lib/entity-label";
 import { projectPaths } from "../../lib/project-paths";
@@ -29,8 +29,8 @@ export function WorkTab({
     return (
       <div className="space-y-4">
         <section className="grid gap-3 sm:grid-cols-2">
-          <Field label="Status" value={formatStatus(entity.status)} />
-          <Field label="Priority" value={priority ?? "—"} />
+          <InfoField label="Status" value={formatStatus(entity.status)} />
+          <InfoField label="Priority" value={priority ?? "—"} />
         </section>
 
         <section className="rounded-md border border-border bg-white p-4">

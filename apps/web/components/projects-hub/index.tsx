@@ -4,7 +4,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FolderKanban, Trash2 } from "lucide-react";
-import { FormLabel, GhostButton, TextInput } from "../ui";
+import { FormLabel, GhostButton, Input } from "../ui";
 import { projectPaths } from "../../lib/project-paths";
 
 /** Keep in sync with EXAMPLE_PROJECT_KEY in @projectplaner/db (do not import db in client). */
@@ -144,7 +144,7 @@ export function ProjectsHub({ initialProjects }: ProjectsHubProps) {
           className="grid gap-3 rounded-md border border-border bg-white p-3 sm:grid-cols-[7rem_1fr_auto]"
         >
           <FormLabel label="Key">
-            <TextInput
+            <Input
               value={key}
               onChange={(event) => setKey(event.target.value.toUpperCase())}
               placeholder="ACME"
@@ -154,7 +154,7 @@ export function ProjectsHub({ initialProjects }: ProjectsHubProps) {
             />
           </FormLabel>
           <FormLabel label="Title">
-            <TextInput
+            <Input
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               placeholder="Acme project"

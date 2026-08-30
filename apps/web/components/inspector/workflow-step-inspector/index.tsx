@@ -11,7 +11,7 @@ import workflow from "@projectplaner/core/workflow";
 
 const { getDataPath, getNodeModel, setDataPath } = workflow.nodes;
 const { listShapePaths } = workflow.bag;
-import { FormLabel, GhostButton, Select, TextArea, TextInput } from "../../ui";
+import { FormLabel, GhostButton, NativeSelect, Textarea, Input } from "../../ui";
 import { LlmJsonSchemaPicker } from "./llm-json-schema-picker";
 import { QueryConfigEditor } from "./query-config-editor";
 import { PropPicker, WorkflowBagPanel } from "../../workflow-workspace/workflow-bag-panel";
@@ -182,7 +182,7 @@ function renderField(
     return (
       <div key="executionPolicy" className="space-y-3">
         <FormLabel label="Timeout ms">
-          <TextInput
+          <Input
             value={String(selected.data.executionPolicy?.timeoutMs ?? "")}
             onChange={(event) =>
               onUpdateData({
@@ -195,7 +195,7 @@ function renderField(
           />
         </FormLabel>
         <FormLabel label="Idempotency key from">
-          <TextInput
+          <Input
             value={selected.data.executionPolicy?.idempotencyKeyFrom ?? ""}
             onChange={(event) =>
               onUpdateData({
@@ -208,7 +208,7 @@ function renderField(
           />
         </FormLabel>
         <FormLabel label="On exhausted">
-          <Select
+          <NativeSelect
             value={selected.data.executionPolicy?.onExhausted ?? "fail_run"}
             onChange={(event) =>
               onUpdateData({
@@ -221,7 +221,7 @@ function renderField(
           >
             <option value="fail_run">fail_run</option>
             <option value="error_edge">error_edge</option>
-          </Select>
+          </NativeSelect>
         </FormLabel>
       </div>
     );
@@ -272,7 +272,7 @@ function renderField(
               }}
             />
             <FormLabel label="as">
-              <TextInput
+              <Input
                 value={mapField.as}
                 onChange={(event) => {
                   const fields = [...(selected.data.map?.fields ?? [])] as WorkflowMapField[];
@@ -330,7 +330,7 @@ function renderField(
   if (field.kind === "select") {
     return (
       <FormLabel key={field.path} label={field.label}>
-        <Select
+        <NativeSelect
           value={readFieldValue(selected, field) || field.options[0]?.value || ""}
           onChange={(event) => applyFieldPatch(selected, field.path, event.target.value, onUpdateData)}
         >
@@ -339,7 +339,7 @@ function renderField(
               {option.label}
             </option>
           ))}
-        </Select>
+        </NativeSelect>
       </FormLabel>
     );
   }
@@ -347,7 +347,7 @@ function renderField(
   if (field.kind === "textarea") {
     return (
       <FormLabel key={field.path} label={field.label}>
-        <TextArea
+        <Textarea
           className={field.path.includes("instructions") ? "min-h-28" : "min-h-20"}
           placeholder={field.placeholder}
           value={readFieldValue(selected, field)}
@@ -359,7 +359,7 @@ function renderField(
 
   return (
     <FormLabel key={field.path} label={field.label}>
-      <TextInput
+      <Input
         placeholder={field.placeholder}
         value={readFieldValue(selected, field)}
         onChange={(event) => {
@@ -388,7 +388,7 @@ function SwitchCasesEditor({
       <div className="text-[11px] font-medium text-zinc-700">Cases</div>
       {cases.map((caseLabel, index) => (
         <div key={`${caseLabel}-${index}`} className="flex gap-1">
-          <TextInput
+          <Input
             className="text-xs"
             value={caseLabel}
             onChange={(event) => {
@@ -496,8 +496,8 @@ export function WorkflowStepInspector({
       {!selected ? (
         <p className="text-sm text-muted-foreground">
           {pinMode
-            ? "Select a step to edit title, pins, and node config."
-            : "Select a step to edit title, bag bindings, control config, and execution policy."}
+            ? "NativeSelect a step to edit title, pins, and node config."
+            : "NativeSelect a step to edit title, bag bindings, control config, and execution policy."}
         </p>
       ) : (
         <div className="space-y-3">
@@ -510,7 +510,7 @@ export function WorkflowStepInspector({
           </div>
           <NodeMeta selected={selected} />
           <FormLabel label="Title">
-            <TextInput value={selected.data.title} onChange={(event) => onUpdateData({ title: event.target.value })} />
+            <Input value={selected.data.title} onChange={(event) => onUpdateData({ title: event.target.value })} />
           </FormLabel>
           {selected.type === "start" || selected.type === "query" || pinMode ? null : (
             <BagPortsEditor selected={selected} bagView={bagView} onUpdateData={onUpdateData} />

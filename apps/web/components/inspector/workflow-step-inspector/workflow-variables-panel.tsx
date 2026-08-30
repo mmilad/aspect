@@ -1,7 +1,7 @@
 "use client";
 
 import type { BagShape, WorkflowVariable, WorkflowVariableRole } from "@projectplaner/core";
-import { GhostButton, Select, TextInput } from "../../ui";
+import { GhostButton, NativeSelect, Input } from "../../ui";
 
 const ROLES: WorkflowVariableRole[] = ["input", "output", "local"];
 
@@ -69,12 +69,12 @@ export function WorkflowVariablesPanel({
           {variables.map((variable, index) => (
             <li key={`${variable.role}:${variable.name}:${index}`} className="grid gap-1 rounded border border-border bg-white p-1.5">
               <div className="grid grid-cols-[1fr_auto_auto] gap-1">
-                <TextInput
+                <Input
                   className="font-mono text-[11px]"
                   value={variable.name}
                   onChange={(event) => update(index, { name: event.target.value.trim() })}
                 />
-                <Select
+                <NativeSelect
                   className="text-[11px]"
                   value={variable.role}
                   onChange={(event) => update(index, { role: event.target.value as WorkflowVariableRole })}
@@ -84,13 +84,13 @@ export function WorkflowVariablesPanel({
                       {role}
                     </option>
                   ))}
-                </Select>
+                </NativeSelect>
                 <GhostButton size="xs" tone="danger" onClick={() => onChange(variables.filter((_, itemIndex) => itemIndex !== index))}>
                   ×
                 </GhostButton>
               </div>
               <div className="flex items-center gap-2">
-                <Select
+                <NativeSelect
                   className="text-[11px]"
                   value={matchingShape(variable.shape)}
                   onChange={(event) => {
@@ -105,7 +105,7 @@ export function WorkflowVariablesPanel({
                       {option.label}
                     </option>
                   ))}
-                </Select>
+                </NativeSelect>
                 {variable.role !== "local" ? (
                   <label className="flex items-center gap-1 text-[10px] text-zinc-600">
                     <input

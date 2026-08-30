@@ -1,6 +1,6 @@
 "use client";
 
-import { GhostButton, TextArea } from "../../ui";
+import { GhostButton, Textarea } from "../../ui";
 
 export interface WorkflowAuthorInspectorProps {
   brief: string;
@@ -25,7 +25,7 @@ export function WorkflowAuthorInspector({
           scaffold with your brief on an llm node).
         </p>
       </div>
-      <TextArea
+      <Textarea
         className="min-h-32"
         placeholder="e.g. Given a user goal, load matching aspects, pick the smallest truthful one, then create a feature + tasks."
         value={brief}

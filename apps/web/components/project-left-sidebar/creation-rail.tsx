@@ -3,7 +3,7 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { EntityRelationType, ProjectNode, ProjectPlanSnapshot } from "@projectplaner/core";
-import { GhostButton, TextInput, Select, FormLabel } from "../ui";
+import { GhostButton, Input, NativeSelect, FormLabel } from "../ui";
 import styles from "./style.module.css";
 import {
   RELATION_TYPE_OPTIONS,
@@ -104,7 +104,7 @@ export function CreationRail({ snapshot, selectedId, centerNode, onCreated }: Cr
 
       if (kind === "relation") {
         if (!context?.id) {
-          throw new Error("Select an entity as the relation source.");
+          throw new Error("NativeSelect an entity as the relation source.");
         }
         if (!relationTargetId) {
           throw new Error("Pick a relation target.");
@@ -127,7 +127,7 @@ export function CreationRail({ snapshot, selectedId, centerNode, onCreated }: Cr
       if (kind === "task") {
         const target = defaultTaskTarget(context, snapshot);
         if (!target) {
-          throw new Error("Select an Aspect or Feature as the task target.");
+          throw new Error("NativeSelect an Aspect or Feature as the task target.");
         }
         const result = await postJson<{ task: { id: string; key?: string | null } }>("/api/tasks", {
           projectKey,
@@ -143,7 +143,7 @@ export function CreationRail({ snapshot, selectedId, centerNode, onCreated }: Cr
       if (kind === "feature") {
         const aspectId = defaultFeatureAspectId(context, snapshot);
         if (!aspectId) {
-          throw new Error("Select an Aspect (or Feature under one) for the new Feature.");
+          throw new Error("NativeSelect an Aspect (or Feature under one) for the new Feature.");
         }
         const result = await postJson<{ entity: { id: string; key?: string | null } }>("/api/entities", {
           projectKey,
@@ -178,7 +178,7 @@ export function CreationRail({ snapshot, selectedId, centerNode, onCreated }: Cr
 
       if (kind === "reference") {
         if (!context?.id) {
-          throw new Error("Select an entity to reference.");
+          throw new Error("NativeSelect an entity to reference.");
         }
         const result = await postJson<{ entity: { id: string } }>("/api/entities", {
           projectKey,
@@ -233,17 +233,17 @@ export function CreationRail({ snapshot, selectedId, centerNode, onCreated }: Cr
           {kind === "relation" ? (
             <>
               <FormLabel label="Type">
-                <Select value={relationType} onChange={(event) => setRelationType(event.target.value as EntityRelationType)}>
+                <NativeSelect value={relationType} onChange={(event) => setRelationType(event.target.value as EntityRelationType)}>
                   {RELATION_TYPE_OPTIONS.map((type) => (
                     <option key={type} value={type}>
                       {type}
                     </option>
                   ))}
-                </Select>
+                </NativeSelect>
               </FormLabel>
               <FormLabel label="Target">
-                <Select value={relationTargetId} onChange={(event) => setRelationTargetId(event.target.value)} required>
-                  <option value="">Select target…</option>
+                <NativeSelect value={relationTargetId} onChange={(event) => setRelationTargetId(event.target.value)} required>
+                  <option value="">NativeSelect target…</option>
                   {targetOptions
                     .filter((option) => option.id !== context?.id)
                     .map((option) => (
@@ -251,13 +251,13 @@ export function CreationRail({ snapshot, selectedId, centerNode, onCreated }: Cr
                         {option.label}
                       </option>
                     ))}
-                </Select>
+                </NativeSelect>
               </FormLabel>
             </>
           ) : (
             <>
               <FormLabel label="Title">
-                <TextInput
+                <Input
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
                   placeholder={`${kind} title`}
@@ -267,7 +267,7 @@ export function CreationRail({ snapshot, selectedId, centerNode, onCreated }: Cr
               </FormLabel>
               {kind === "task" ? (
                 <FormLabel label="Link">
-                  <Select
+                  <NativeSelect
                     value={taskLinkType}
                     onChange={(event) => setTaskLinkType(event.target.value as (typeof TASK_LINK_OPTIONS)[number])}
                   >
@@ -276,7 +276,7 @@ export function CreationRail({ snapshot, selectedId, centerNode, onCreated }: Cr
                         {type}
                       </option>
                     ))}
-                  </Select>
+                  </NativeSelect>
                 </FormLabel>
               ) : null}
             </>

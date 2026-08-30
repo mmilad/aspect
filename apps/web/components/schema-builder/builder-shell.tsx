@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { ProjectPlanSnapshot } from "@projectplaner/core";
 import type { LlmJsonSchemaRecord } from "@projectplaner/db";
-import { Badge, FormLabel, GhostButton, TextArea, TextInput } from "../ui";
+import { Badge, FormLabel, GhostButton, Textarea, Input } from "../ui";
 
 interface BuilderShellProps {
   snapshot: ProjectPlanSnapshot;
@@ -121,21 +121,21 @@ export function BuilderShell({ snapshot, schemas }: BuilderShellProps) {
         <div className="grid gap-3 border-b border-border bg-zinc-50/50 px-3 py-3">
           <div className="grid grid-cols-[minmax(180px,240px)_minmax(180px,240px)_minmax(0,1fr)] gap-2">
             <FormLabel label="Title">
-              <TextInput value={title} onChange={(event) => updateTitle(event.target.value)} />
+              <Input value={title} onChange={(event) => updateTitle(event.target.value)} />
             </FormLabel>
             <FormLabel label="Key">
-              <TextInput
+              <Input
                 value={key}
                 onChange={(event) => setKey(event.target.value)}
                 placeholder="my_response_v1"
               />
             </FormLabel>
             <FormLabel label="Description">
-              <TextInput value={description} onChange={(event) => setDescription(event.target.value)} />
+              <Input value={description} onChange={(event) => setDescription(event.target.value)} />
             </FormLabel>
           </div>
           <FormLabel label="JSON">
-            <TextArea
+            <Textarea
               className="min-h-48 font-mono text-xs"
               value={schemaText}
               onChange={(event) => setSchemaText(event.target.value)}

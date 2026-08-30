@@ -3,7 +3,7 @@
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 import { Badge } from "../ui/badge";
 import { formatEntityType, formatStatus, isCompleteStatus } from "../../lib/entity-label";
-import { graphDotStatusByStatus, graphDotToneByType } from "../../lib/entity-tones";
+import { badgeClassForTone, graphDotStatusByStatus, graphDotToneByType } from "../../lib/entity-tones";
 import { cn } from "../../lib/utils";
 import type { GraphFlowNodeData } from "./types";
 
@@ -33,8 +33,8 @@ export function NodeCard({ data }: NodeProps<Node<GraphFlowNodeData>>) {
       ) : null}
       <div className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 hidden w-56 -translate-x-1/2 rounded-md border border-border bg-white p-2 text-left shadow-pane group-hover:block">
         <div className="flex items-center gap-1">
-          <Badge tone={entity.type}>{formatEntityType(entity.type)}</Badge>
-          <Badge>{formatStatus(entity.status)}</Badge>
+          <Badge className={cn("border-transparent text-white", badgeClassForTone(entity.type))}>{formatEntityType(entity.type)}</Badge>
+          <Badge variant="secondary">{formatStatus(entity.status)}</Badge>
         </div>
         <div className="mt-2 line-clamp-2 text-xs font-semibold leading-4 text-zinc-950">{entity.title}</div>
         {entity.summary ? <div className="mt-1 line-clamp-2 text-[11px] leading-4 text-muted-foreground">{entity.summary}</div> : null}

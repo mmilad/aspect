@@ -8,7 +8,9 @@ import type { ProjectNode, ProjectPlanSnapshot, WorkflowPresetKind } from "@proj
 import workflow from "@projectplaner/core/workflow";
 
 const { isWorkflowPresetKind, resolveWorkflowKind, workflowPresetKinds } = workflow.presets;
-import { Badge, GhostButton, Select, TextArea, TextInput } from "../ui";
+import { Badge, GhostButton, NativeSelect, Textarea, Input } from "../ui";
+import { badgeClassForTone } from "../../lib/entity-tones";
+import { cn } from "../../lib/utils";
 import { RunWorkflowDialog } from "../workflow-run-dialog";
 import { projectPaths } from "../../lib/project-paths";
 
@@ -179,7 +181,7 @@ export function WorkflowsOverview({ snapshot }: WorkflowsOverviewProps) {
   return (
     <div className="flex h-full min-h-0 flex-col bg-white">
       <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
-        <Badge tone="flow">workflows</Badge>
+        <Badge className={cn("border-transparent text-white", badgeClassForTone("flow"))}>workflows</Badge>
         <div className="text-sm font-medium text-zinc-900">Project workflows</div>
         <Badge>{flows.length}</Badge>
         <div className="ml-auto">
@@ -200,7 +202,7 @@ export function WorkflowsOverview({ snapshot }: WorkflowsOverviewProps) {
       {composerOpen ? (
         <div className="space-y-2 border-b border-indigo-200 bg-indigo-50/40 px-3 py-3">
           <div className="text-[10px] font-semibold uppercase tracking-wide text-indigo-900">New from brief</div>
-          <TextArea
+          <Textarea
             className="min-h-16 text-xs"
             placeholder="Explain what this workflow should do…"
             value={brief}
@@ -225,14 +227,14 @@ export function WorkflowsOverview({ snapshot }: WorkflowsOverviewProps) {
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
-        <TextInput
+        <Input
           className="max-w-xs text-xs"
           placeholder="Search title, summary, slug…"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           aria-label="Search workflows"
         />
-        <Select
+        <NativeSelect
           className="w-auto min-w-[8rem] text-xs"
           value={statusFilter}
           onChange={(event) => setStatusFilter(event.target.value)}
@@ -244,8 +246,8 @@ export function WorkflowsOverview({ snapshot }: WorkflowsOverviewProps) {
               {status}
             </option>
           ))}
-        </Select>
-        <Select
+        </NativeSelect>
+        <NativeSelect
           className="w-auto min-w-[10rem] text-xs"
           value={kindFilter}
           onChange={(event) => {
@@ -260,7 +262,7 @@ export function WorkflowsOverview({ snapshot }: WorkflowsOverviewProps) {
               {KIND_LABELS[kind]}
             </option>
           ))}
-        </Select>
+        </NativeSelect>
         <span className="text-[11px] text-muted-foreground">
           {filtered.length} shown
           {statusFilter !== "all" || kindFilter !== "all" || query.trim() ? ` of ${flows.length}` : ""}

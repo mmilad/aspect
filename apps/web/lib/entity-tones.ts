@@ -14,6 +14,18 @@ export const badgeToneByType: Record<string, string> = {
   task_group: "bg-violet-700 text-white"
 };
 
+const extraBadgeTones: Record<string, string> = {
+  accent: "border-amber-200 bg-amber-50 text-amber-950",
+  warning: "border-amber-300 bg-amber-100 text-amber-950"
+};
+
+export function badgeClassForTone(tone?: string | null): string {
+  if (!tone) {
+    return "";
+  }
+  return badgeToneByType[tone] ?? extraBadgeTones[tone] ?? "";
+}
+
 /** Aspect-graph dot fill tones keyed by entity type. */
 export const graphDotToneByType: Record<string, string> = {
   project: "bg-zinc-900",

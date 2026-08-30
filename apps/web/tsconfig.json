@@ -5,7 +5,15 @@
     "allowJs": true,
     "noEmit": true,
     "incremental": true,
-    "plugins": [{ "name": "next" }]
+    "plugins": [{ "name": "next" }],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"],
+      "@projectplaner/core": ["../../packages/core/src/index.ts"],
+      "@projectplaner/core/*": ["../../packages/core/src/*"],
+      "@projectplaner/db": ["../../packages/db/src/index.ts"],
+      "@projectplaner/db/*": ["../../packages/db/src/*"]
+    }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]

@@ -1,15 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  getLlmJsonSchemaPreset,
-  renderBagTemplate,
-  resolveWorkflowLlmSystemPrompt,
-  serializeShapeSlim,
-  type BagShape,
-  type WorkflowLlmFormat,
-  type WorkflowNode
-} from "@projectplaner/core";
+import type { BagShape, WorkflowLlmFormat, WorkflowNode } from "@projectplaner/core";
+import workflow from "@projectplaner/core/workflow";
+
+const { renderBagTemplate, serializeShapeSlim } = workflow.bag;
+const { getLlmJsonSchemaPreset, resolveWorkflowLlmSystemPrompt } = workflow.llm;
 import { Copy, FlaskConical, Send, X } from "lucide-react";
 import { FormLabel, GhostButton, TextArea } from "../ui";
 

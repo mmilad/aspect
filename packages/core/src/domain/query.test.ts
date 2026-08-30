@@ -1,17 +1,12 @@
 import { describe, expect, it } from "vitest";
-import {
-  compileListQuery,
-  createPlanApi,
-  expandNamedPredicates,
-  evaluatePlan,
-  getNarrative,
-  isTaskUnblocked,
-  MemoryEntityStore,
-  UNBLOCKED_FILTER,
-  withNarrative,
-  type Entity,
-  type EntityRelation
-} from "../index";
+import type { Entity, EntityRelation } from "../index";
+import domain from ".";
+import planApi from "./api";
+import query from "./query";
+
+const { compileListQuery, expandNamedPredicates, evaluatePlan, UNBLOCKED_FILTER } = query;
+const { create: createPlanApi, MemoryEntityStore } = planApi;
+const { getNarrative, isTaskUnblocked, withNarrative } = domain;
 
 const projectId = "project_test";
 const projectKey = "PLAN";

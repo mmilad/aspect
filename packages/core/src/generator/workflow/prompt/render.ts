@@ -1,4 +1,4 @@
-import { compileWorkflow, isCompiledWorkflow } from "../compile";
+import { compileGraphToIr, isCompiledGraphIr } from "../compile";
 import type { CompiledStep, CompiledWorkflow } from "../types";
 import type { WorkflowGraph } from "../../../workflow";
 import type { PromptRenderOptions, WorkflowPromptInput } from "./types";
@@ -59,7 +59,7 @@ function collectLlmReadKeys(compiled: CompiledWorkflow): string[] {
 }
 
 function resolveCompiled(input: WorkflowPromptInput, opts: PromptRenderOptions): CompiledWorkflow {
-  if (isCompiledWorkflow(input)) {
+  if (isCompiledGraphIr(input)) {
     if (opts.goal || opts.title) {
       return {
         ...input,
@@ -69,7 +69,7 @@ function resolveCompiled(input: WorkflowPromptInput, opts: PromptRenderOptions):
     }
     return input;
   }
-  return compileWorkflow(input as WorkflowGraph, {
+  return compileGraphToIr(input as WorkflowGraph, {
     goal: opts.goal,
     title: opts.title
   });

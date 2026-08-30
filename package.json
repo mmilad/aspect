@@ -9,8 +9,7 @@
     "typecheck": "pnpm -r typecheck",
     "test": "vitest run && pnpm --filter @projectplaner/db test:node && pnpm --filter @projectplaner/mcp test",
     "test:llm": "vitest run --config vitest.llm.config.ts",
-    "plan": "pnpm --filter @projectplaner/db plan",
-    "db:push": "pnpm --filter @projectplaner/db db:push"
+    "plan": "pnpm --filter @projectplaner/db plan"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

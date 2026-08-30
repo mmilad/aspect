@@ -1,13 +1,15 @@
-import {
-  listWorkflowPresets,
-  parseWorkflowGraph,
-  WORKFLOW_SCHEMA_VERSION,
-  type EnsureWorkflowPresetsOptions,
-  type EnsureWorkflowPresetsResult,
-  type JsonRecord,
-  type WorkflowGraph,
-  type WorkflowPreset
+import type {
+  EnsureWorkflowPresetsOptions,
+  EnsureWorkflowPresetsResult,
+  JsonRecord,
+  WorkflowGraph,
+  WorkflowPreset
 } from "@projectplaner/core";
+import workflow from "@projectplaner/core/workflow";
+
+const { parse: parseWorkflowGraph } = workflow.graph;
+const { WORKFLOW_SCHEMA_VERSION } = workflow.nodes;
+const { list: listWorkflowPresets } = workflow.presets;
 import type { DatabaseSync } from "node:sqlite";
 import entities from "./repositories/entities";
 import relations from "./repositories/relations";

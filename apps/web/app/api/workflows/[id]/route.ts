@@ -3,12 +3,10 @@ import { NextResponse } from "next/server";
 import { openDatabase, markWorkflowPresetDirty } from "@projectplaner/db";
 import entities from "@projectplaner/db/entities";
 import workflows from "@projectplaner/db/workflows";
-import {
-  parseWorkflowGraph,
-  writeWorkflowGraph,
-  type JsonRecord,
-  type WorkflowGraph
-} from "@projectplaner/core";
+import type { JsonRecord, WorkflowGraph } from "@projectplaner/core";
+import workflow from "@projectplaner/core/workflow";
+
+const { parse: parseWorkflowGraph, write: writeWorkflowGraph } = workflow.graph;
 import { drainPendingLlm, shouldDrainPendingLlm, workflowRunJson } from "../../../../lib/drain-pending-llm";
 
 async function openDb() {

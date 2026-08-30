@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
-import {
-  chatCompletions,
-  getLlmJsonSchemaPreset,
-  readLlmChatConfigFromEnv,
-  resolveWorkflowLlmSystemPrompt
-} from "@projectplaner/core";
+import generator from "@projectplaner/core/generator";
+import workflow from "@projectplaner/core/workflow";
+
+const { chatCompletions, readLlmChatConfigFromEnv } = generator.author;
+const { getLlmJsonSchemaPreset, resolveWorkflowLlmSystemPrompt } = workflow.llm;
 import llmJsonSchemas from "@projectplaner/db/llm-json-schemas";
 import { withDb } from "../../../../lib/plan-api";
 

@@ -2,14 +2,10 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import {
-  getPrimaryTaskLink,
-  getTagsForEntity,
-  type ProjectPlanSnapshot,
-  type Tag,
-  type Task,
-  type TaskLink
-} from "@projectplaner/core";
+import type { ProjectPlanSnapshot, Tag, Task, TaskLink } from "@projectplaner/core";
+import legacy from "@projectplaner/core/legacy";
+
+const { getPrimaryTaskLink, getTagsForEntity } = legacy;
 import { Badge, Select, ToolbarLink } from "../ui";
 import { TagList } from "../entity-chrome";
 import { formatEntityType, formatStatus } from "../../lib/entity-label";

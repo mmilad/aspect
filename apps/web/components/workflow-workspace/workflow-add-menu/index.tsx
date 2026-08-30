@@ -1,13 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import {
-  workflowControlNodeTypes,
-  workflowVariableNodeTypes,
-  workflowWorkNodeTypes,
-  type WorkflowEdgeKind,
-  type WorkflowNodeType
-} from "@projectplaner/core";
+import type { WorkflowEdgeKind, WorkflowNodeType } from "@projectplaner/core";
+import workflow from "@projectplaner/core/workflow";
+
+const { workflowControlNodeTypes, workflowVariableNodeTypes, workflowWorkNodeTypes } = workflow.nodes;
 import { GhostButton } from "../../ui";
 
 type MenuPosition = { x: number; y: number } | null;

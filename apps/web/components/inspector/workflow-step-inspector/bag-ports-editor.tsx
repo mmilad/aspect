@@ -1,13 +1,9 @@
-import {
-  resolveInputBindings,
-  serializeShapeSlim,
-  type BagShape,
-  type WorkflowBagKeyContract,
-  type WorkflowNode,
-  type WorkflowNodeData
-} from "@projectplaner/core";
+import type { BagShape, WorkflowBagKeyContract, WorkflowNode, WorkflowNodeData } from "@projectplaner/core";
+import workflow from "@projectplaner/core/workflow";
 import { FormLabel, GhostButton, TextInput } from "../../ui";
 import { PropPicker } from "../../workflow-workspace/workflow-bag-panel";
+
+const { resolveInputBindings, serializeShapeSlim } = workflow.bag;
 
 function shapeLabel(shape: BagShape | undefined): string {
   if (!shape) {

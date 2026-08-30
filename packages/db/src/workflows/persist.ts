@@ -1,14 +1,15 @@
-import {
-  parseWaypoints,
-  parseWorkflowGraph,
-  WORKFLOW_SCHEMA_VERSION,
-  type JsonRecord,
-  type WorkflowEdge,
-  type WorkflowEdgeKind,
-  type WorkflowGraph,
-  type WorkflowNode,
-  type WorkflowNodeType
+import type {
+  JsonRecord,
+  WorkflowEdge,
+  WorkflowEdgeKind,
+  WorkflowGraph,
+  WorkflowNode,
+  WorkflowNodeType
 } from "@projectplaner/core";
+import workflow from "@projectplaner/core/workflow";
+
+const { parse: parseWorkflowGraph, parseWaypoints } = workflow.graph;
+const { WORKFLOW_SCHEMA_VERSION } = workflow.nodes;
 import type { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
 import { compactUnknownJson as compactJson, parseJson, run } from "../storage";

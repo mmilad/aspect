@@ -3,11 +3,15 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { compileListQuery, createPlanApi } from "@projectplaner/core";
+import planApi from "@projectplaner/core/plan-api";
+import listQuery from "@projectplaner/core/query";
 import { createDatabase } from "./index";
 import query from "./query";
 import entities from "./repositories/entities";
 import snapshots from "./repositories/snapshots";
+
+const { compileListQuery } = listQuery;
+const { create: createPlanApi } = planApi;
 
 describe("executePlan SQL", () => {
   it("returns the same unblocked aspect-linked tasks as PlanApi sugar", async () => {

@@ -3,7 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useNodesState } from "@xyflow/react";
-import { focusGraph, type EntityType, type ProjectPlanSnapshot } from "@projectplaner/core";
+import type { EntityType, ProjectPlanSnapshot } from "@projectplaner/core";
+import legacy from "@projectplaner/core/legacy";
+
+const { focusGraph } = legacy;
 import { ProjectLeftSidebar } from "../project-left-sidebar";
 import { ProjectShell } from "../project-shell";
 import { SelectionInspector } from "../selection-inspector";

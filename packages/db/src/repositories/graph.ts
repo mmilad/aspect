@@ -1,4 +1,7 @@
-import { validateEntityGraph, type EntityRelation } from "@projectplaner/core";
+import type { EntityRelation } from "@projectplaner/core";
+import domain from "@projectplaner/core/domain";
+
+const { validateEntityGraph } = domain;
 import type { DatabaseSync } from "node:sqlite";
 import {
   mapEntityRelationRow,

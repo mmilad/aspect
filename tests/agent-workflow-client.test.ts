@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { DEFAULT_WORKFLOW_LLM_SYSTEM_PROMPT } from "@projectplaner/core";
+import workflow from "@projectplaner/core/workflow";
 import { loadConfig } from "../apps/agent/src/config";
 import { isPendingLlm, toPendingLlmSurface } from "../apps/agent/src/client/pending-llm";
 import { WorkflowClient, WorkflowClientError } from "../apps/agent/src/client/workflow-client";
 import type { WorkflowRunResponse } from "../apps/agent/src/client/types";
+
+const { DEFAULT_WORKFLOW_LLM_SYSTEM_PROMPT } = workflow.llm;
 
 function samplePending(): WorkflowRunResponse {
   return {

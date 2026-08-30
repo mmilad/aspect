@@ -1,11 +1,7 @@
-import {
-  buildNodePath,
-  type Entity,
-  type EntityRelation,
-  type ProjectPlanSnapshot,
-  type TaskLinkType,
-  type TaskPriority
-} from "@projectplaner/core";
+import type { Entity, EntityRelation, ProjectPlanSnapshot, TaskLinkType, TaskPriority } from "@projectplaner/core";
+import domain from "@projectplaner/core/domain";
+
+const { buildNodePath } = domain;
 import type { DatabaseSync } from "node:sqlite";
 import {
   insertEntity,

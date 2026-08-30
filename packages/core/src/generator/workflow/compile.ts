@@ -369,7 +369,7 @@ function compileNode(
  * Compile a Workflow Step Graph into a linear shared IR for prompt + runtime targets.
  * Walks from start along default edges; gate alternate routes are documented but not expanded.
  */
-export function compileWorkflow(graph: WorkflowGraph, opts: CompileOptions = {}): CompiledWorkflow {
+export function compileGraphToIr(graph: WorkflowGraph, opts: CompileOptions = {}): CompiledWorkflow {
   const start = findStartNode(graph);
   const goalText = opts.goal ?? "{{goal}}";
   const steps: CompiledStep[] = [{ kind: "goal", text: goalText }];
@@ -455,7 +455,7 @@ export function compileWorkflow(graph: WorkflowGraph, opts: CompileOptions = {})
   };
 }
 
-export function isCompiledWorkflow(value: unknown): value is CompiledWorkflow {
+export function isCompiledGraphIr(value: unknown): value is CompiledWorkflow {
   return (
     typeof value === "object" &&
     value !== null &&

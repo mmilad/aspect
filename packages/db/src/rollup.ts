@@ -1,10 +1,7 @@
-import {
-  deriveParentProcessStatus,
-  isProcessEntityType,
-  type Entity,
-  type EntityRelation,
-  type ProcessStatus
-} from "@projectplaner/core";
+import type { Entity, EntityRelation, ProcessStatus } from "@projectplaner/core";
+import domain from "@projectplaner/core/domain";
+
+const { deriveParentProcessStatus, isProcessEntityType } = domain;
 import type { DatabaseSync } from "node:sqlite";
 import entities from "./repositories/entities";
 import relations from "./repositories/relations";

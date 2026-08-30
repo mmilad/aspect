@@ -14,9 +14,16 @@ export default defineConfig({
     hookTimeout: 30_000
   },
   resolve: {
-    alias: {
-      "@projectplaner/core": path.join(root, "packages/core/src/index.ts"),
-      "@projectplaner/db": path.join(root, "packages/db/src/index.ts")
-    }
+    alias: [
+      { find: "@projectplaner/core/query", replacement: path.join(root, "packages/core/src/domain/query/index.ts") },
+      { find: "@projectplaner/core/plan-api", replacement: path.join(root, "packages/core/src/domain/api/index.ts") },
+      { find: "@projectplaner/core/domain", replacement: path.join(root, "packages/core/src/domain/index.ts") },
+      { find: "@projectplaner/core/legacy", replacement: path.join(root, "packages/core/src/legacy/index.ts") },
+      { find: "@projectplaner/core/workflow", replacement: path.join(root, "packages/core/src/workflow/index.ts") },
+      { find: "@projectplaner/core/planning", replacement: path.join(root, "packages/core/src/planning/index.ts") },
+      { find: "@projectplaner/core/generator", replacement: path.join(root, "packages/core/src/generator/index.ts") },
+      { find: "@projectplaner/core", replacement: path.join(root, "packages/core/src/index.ts") },
+      { find: "@projectplaner/db", replacement: path.join(root, "packages/db/src/index.ts") }
+    ]
   }
 });

@@ -1,4 +1,4 @@
-import { Api } from "./api";
+import { SemanticWrites } from "./semantic";
 import { createDatabase, loadEnv, openDatabase } from "./client";
 import { createExampleProject, EXAMPLE_PROJECT_KEY } from "./example-signal-desk";
 import { ensureWorkflowPresets, findSeededWorkflowPreset, markWorkflowPresetDirty } from "./presets";
@@ -28,7 +28,7 @@ const planer = {
 export default planer;
 
 export {
-  Api,
+  SemanticWrites,
   createDatabase,
   createExampleProject,
   EXAMPLE_PROJECT_KEY,
@@ -45,8 +45,8 @@ export type {
   CreateFeatureInput,
   CreateSemanticTaskInput,
   SemanticEntityInput
-} from "./api";
-export { AspectHandle, FeatureHandle, ProjectApi, TaskHandle } from "./api";
+} from "./semantic";
+export { AspectHandle, FeatureHandle, ProjectWrites, TaskHandle } from "./semantic";
 
 export type { CreateEntityInput, EntityQuery, UpdateEntityInput } from "./repositories/entities";
 export type { CreateRelationInput, RelationQuery, UpdateRelationInput } from "./repositories/relations";

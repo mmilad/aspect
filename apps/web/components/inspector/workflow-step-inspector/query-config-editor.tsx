@@ -1,6 +1,16 @@
 "use client";
 
-import {
+import type {
+  QueryConstField,
+  WorkflowNode,
+  WorkflowNodeData,
+  WorkflowQueryConfig,
+  WorkflowQueryOp,
+  WorkflowQuerySlot
+} from "@projectplaner/core";
+import workflow from "@projectplaner/core/workflow";
+
+const {
   defaultSlotsForOp,
   effectiveSlots,
   QUERY_CATALOG,
@@ -8,14 +18,8 @@ import {
   queryEntityTypes,
   queryOps,
   uniqueSlotId,
-  withQueryConfig,
-  type QueryConstField,
-  type WorkflowNode,
-  type WorkflowNodeData,
-  type WorkflowQueryConfig,
-  type WorkflowQueryOp,
-  type WorkflowQuerySlot
-} from "@projectplaner/core";
+  withQueryConfig
+} = workflow.nodes;
 import { FormLabel, GhostButton, Select, TextInput } from "../../ui";
 
 function slotLabel(slot: WorkflowQuerySlot): string {

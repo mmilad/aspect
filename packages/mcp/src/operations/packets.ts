@@ -1,4 +1,7 @@
-import { getNarrative, withNarrative, type Entity, type JsonRecord } from "@projectplaner/core";
+import type { Entity, JsonRecord } from "@projectplaner/core";
+import domain from "@projectplaner/core/domain";
+
+const { getNarrative, withNarrative } = domain;
 import entities from "@projectplaner/db/entities";
 import relations from "@projectplaner/db/relations";
 import {

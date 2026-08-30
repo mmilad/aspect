@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import type { Entity, EntityRelation } from "@projectplaner/core";
-import { expandTaskChainIds, selectCompactContextRelations } from "@projectplaner/core";
+import domain from "@projectplaner/core/domain";
+
+const { expandTaskChainIds, selectCompactContextRelations } = domain;
 import relations from "@projectplaner/db/relations";
 import { createWebPlanApi, withDb } from "../../../../lib/plan-api";
 

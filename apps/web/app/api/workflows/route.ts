@@ -3,11 +3,12 @@ import { NextResponse } from "next/server";
 import { openDatabase } from "@projectplaner/db";
 import entities from "@projectplaner/db/entities";
 import workflows from "@projectplaner/db/workflows";
-import {
-  scaffoldWorkflowFromBrief,
-  writeWorkflowGraph,
-  type JsonRecord
-} from "@projectplaner/core";
+import type { JsonRecord } from "@projectplaner/core";
+import generator from "@projectplaner/core/generator";
+import workflow from "@projectplaner/core/workflow";
+
+const { scaffoldWorkflowFromBrief } = generator.author;
+const { write: writeWorkflowGraph } = workflow.graph;
 
 async function openDb() {
   return openDatabase(process.env.PROJECTPLANER_DB_PATH ?? path.resolve(process.cwd(), "../../projectplaner.db"));

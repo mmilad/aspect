@@ -1,14 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import {
-  describeRunInput,
-  missingRequiredRunInputs,
-  seedRunInputBag,
-  workflowPresetAllowsDrainLlm,
-  workflowRunInputs,
-  type WorkflowGraph
-} from "@projectplaner/core";
+import type { WorkflowGraph } from "@projectplaner/core";
+import workflow from "@projectplaner/core/workflow";
+
+const { describeRunInput, missingRequiredRunInputs, seedRunInputBag, workflowRunInputs } = workflow.bag;
+const { workflowPresetAllowsDrainLlm } = workflow.presets;
 import { Copy, Play, X } from "lucide-react";
 import { FormLabel, GhostButton, TextArea } from "./ui";
 

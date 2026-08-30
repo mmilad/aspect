@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { exampleWorkflowGraph, newTaskWorkflowGraph } from "../../workflow";
-import { compileWorkflow } from "./compile";
+import { compileGraphToIr } from "./compile";
 import { renderWorkflowPrompt } from "./prompt";
 
-describe("compileWorkflow", () => {
+describe("compileGraphToIr", () => {
   it("compiles example workflow into ordered function and llm steps", () => {
-    const compiled = compileWorkflow(exampleWorkflowGraph, {
+    const compiled = compileGraphToIr(exampleWorkflowGraph, {
       goal: "Find the right Aspect",
       title: "Example"
     });
@@ -47,7 +47,7 @@ describe("compileWorkflow", () => {
   });
 
   it("compiles new-task workflow with rank, branch, and assign helpers", () => {
-    const compiled = compileWorkflow(newTaskWorkflowGraph, { goal: "Pick next task" });
+    const compiled = compileGraphToIr(newTaskWorkflowGraph, { goal: "Pick next task" });
     const names = compiled.steps
       .filter((step) => step.kind === "function")
       .map((step) => (step.kind === "function" ? step.name : ""));
@@ -90,7 +90,7 @@ describe("renderWorkflowPrompt", () => {
   });
 
   it("accepts a precompiled workflow and optional bag reads", () => {
-    const compiled = compileWorkflow(newTaskWorkflowGraph, { goal: "Next task" });
+    const compiled = compileGraphToIr(newTaskWorkflowGraph, { goal: "Next task" });
     const prompt = renderWorkflowPrompt(compiled, {
       bag: {
         workflowId: "wf",

@@ -1,4 +1,5 @@
-import type { Entity, EntityFilter, EntityFieldName } from "../../../domain";
+import type { Entity } from "../../../domain";
+import type { EntityFieldName, EntityFilter } from "../../../domain/query";
 import { compileListQuery, evaluatePlan } from "../../../domain/query";
 import { expandTaskListQuery } from "../../../domain/api/controllers";
 import { compactEntity, rankTaskCandidates } from "../../../domain/task-candidacy";

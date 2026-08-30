@@ -3,18 +3,19 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
-import {
+import workflow from "@projectplaner/core/workflow";
+
+const { createContextBag, parse: parseWorkflowGraph } = workflow.graph;
+const { WORKFLOW_SCHEMA_VERSION } = workflow.nodes;
+const {
   LLM_JSON_SCHEMA_PRESETS,
   WORKFLOW_IR_V1_KEY,
   WORKFLOW_IR_V1_SCHEMA,
   WORKFLOW_NODE_PLAN_V1_KEY,
   WORKFLOW_NODE_QA_V1_KEY,
-  WORKFLOW_SCHEMA_VERSION,
   WORKFLOW_STEP_DRAFT_V1_KEY,
-  WORKFLOW_STEP_LIST_V1_KEY,
-  createContextBag,
-  parseWorkflowGraph
-} from "@projectplaner/core";
+  WORKFLOW_STEP_LIST_V1_KEY
+} = workflow.llm;
 import {
   createDatabase
 } from "./index";

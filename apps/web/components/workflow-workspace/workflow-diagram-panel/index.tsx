@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { workflowIdFromMermaidDomId } from "@projectplaner/core";
+import generator from "@projectplaner/core/generator";
+
+const { workflowIdFromMermaidDomId } = generator.views;
 import { GhostButton } from "../../ui";
 
 interface WorkflowDiagramPanelProps {

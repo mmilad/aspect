@@ -1,27 +1,21 @@
-import {
-  compileListQuery,
-  compactEntity,
-  createContextBag,
-  createPlanApi,
-  findStartNode,
-  parseContextBag,
-  runWorkflowUntilPause,
-  stepWorkflow,
-  taskPriority,
-  walkNeighborhood,
-  type Entity,
-  type EntityFilter,
-  type EntityListQuery,
-  type EntityRelationType,
-  type EntityStatus,
-  type EntityType,
-  type JsonRecord,
-  type RankedTaskCandidate,
-  type WorkflowAdapters,
-  type WorkflowContextBag,
-  type WorkflowMatch,
-  type WorkflowStepResult
+import type {
+  Entity,
+  EntityFilter,
+  EntityListQuery,
+  EntityRelationType,
+  EntityStatus,
+  EntityType,
+  JsonRecord,
+  RankedTaskCandidate,
+  WorkflowAdapters,
+  WorkflowContextBag,
+  WorkflowMatch,
+  WorkflowStepResult
 } from "@projectplaner/core";
+import domain from "@projectplaner/core/domain";
+import planApi from "@projectplaner/core/plan-api";
+import query from "@projectplaner/core/query";
+import workflow from "@projectplaner/core/workflow";
 import type { DatabaseSync } from "node:sqlite";
 import { findSeededWorkflowPreset } from "../presets";
 import { rollupParentStatus } from "../rollup";
@@ -34,6 +28,13 @@ import persist, {
   type WorkflowRunRecord,
   type WorkflowRunStatus
 } from "./persist";
+
+const { compileListQuery } = query;
+const { create: createPlanApi } = planApi;
+const { compactEntity, taskPriority } = domain;
+const { createContextBag, findStartNode, parseContextBag } = workflow.graph;
+const { walkNeighborhood } = workflow.nodes;
+const { runUntilPause: runWorkflowUntilPause, step: stepWorkflow } = workflow.runtime;
 
 function asEntityType(value: unknown, fallback: EntityType): EntityType {
   return typeof value === "string" ? (value as EntityType) : fallback;

@@ -1,12 +1,7 @@
-import {
-  getTagsForEntity,
-  getTasksForAspect,
-  type Feature,
-  type ProjectNode,
-  type ProjectPlanSnapshot,
-  type Tag,
-  type Task
-} from "@projectplaner/core";
+import type { Feature, ProjectNode, ProjectPlanSnapshot, Tag, Task } from "@projectplaner/core";
+import legacy from "@projectplaner/core/legacy";
+
+const { getTagsForEntity, getTasksForAspect } = legacy;
 import type { GraphEntity } from "../types";
 
 export function resolveInitialSelection(options: {

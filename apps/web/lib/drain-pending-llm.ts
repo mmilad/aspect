@@ -1,11 +1,10 @@
 import type { DatabaseSync } from "node:sqlite";
-import {
-  chatCompletions,
-  llmWritesFromPending,
-  readLlmChatConfigFromEnv,
-  workflowPresetAllowsDrainLlm,
-  type WorkflowLlmPending
-} from "@projectplaner/core";
+import type { WorkflowLlmPending } from "@projectplaner/core";
+import generator from "@projectplaner/core/generator";
+import workflow from "@projectplaner/core/workflow";
+
+const { chatCompletions, readLlmChatConfigFromEnv, llmWritesFromPending } = generator.author;
+const { workflowPresetAllowsDrainLlm } = workflow.presets;
 import { runWorkflow, type RunWorkflowResult } from "@projectplaner/db/workflows";
 
 export type LlmDrainTurn = {

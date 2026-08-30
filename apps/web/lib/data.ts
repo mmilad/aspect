@@ -1,5 +1,7 @@
 import type { Entity, EntityRelation, Tag } from "@projectplaner/core";
-import { getTagsForEntity } from "@projectplaner/core";
+import legacy from "@projectplaner/core/legacy";
+
+const { getTagsForEntity } = legacy;
 import llmJsonSchemas, { type LlmJsonSchemaRecord } from "@projectplaner/db/llm-json-schemas";
 import projects, { type ProjectStats, type ProjectSummary } from "@projectplaner/db/projects";
 import relations from "@projectplaner/db/relations";

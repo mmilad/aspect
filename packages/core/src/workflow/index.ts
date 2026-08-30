@@ -25,3 +25,23 @@ export {
 } from "./runtime";
 export * from "./presets";
 export * from "./assemble";
+
+import assemble from "./assemble";
+import bag from "./bag";
+import graph from "./graph";
+import llm from "./llm";
+import nodes from "./nodes";
+import presets from "./presets";
+import runtime from "./runtime";
+
+const workflow = {
+  graph,
+  nodes,
+  bag,
+  llm,
+  runtime,
+  presets,
+  assemble
+};
+
+export default workflow;

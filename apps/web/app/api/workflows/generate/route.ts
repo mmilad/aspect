@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import {
+import generator from "@projectplaner/core/generator";
+
+const {
   buildWorkflowCompileSystemPrompt,
   buildWorkflowCompileUserPrompt,
   buildWorkflowOutlineSystemPrompt,
@@ -7,7 +9,7 @@ import {
   generateWorkflowTwoTurn,
   readLlmChatConfigFromEnv,
   scaffoldWorkflowFromBrief
-} from "@projectplaner/core";
+} = generator.author;
 
 interface GenerateBody {
   brief?: string;

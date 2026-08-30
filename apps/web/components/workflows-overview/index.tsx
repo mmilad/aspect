@@ -4,14 +4,10 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Play, Workflow } from "lucide-react";
-import {
-  isWorkflowPresetKind,
-  resolveWorkflowKind,
-  workflowPresetKinds,
-  type ProjectNode,
-  type ProjectPlanSnapshot,
-  type WorkflowPresetKind
-} from "@projectplaner/core";
+import type { ProjectNode, ProjectPlanSnapshot, WorkflowPresetKind } from "@projectplaner/core";
+import workflow from "@projectplaner/core/workflow";
+
+const { isWorkflowPresetKind, resolveWorkflowKind, workflowPresetKinds } = workflow.presets;
 import { Badge, GhostButton, Select, TextArea, TextInput } from "../ui";
 import { RunWorkflowDialog } from "../workflow-run-dialog";
 import { projectPaths } from "../../lib/project-paths";

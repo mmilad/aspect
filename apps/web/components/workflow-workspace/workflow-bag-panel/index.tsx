@@ -1,10 +1,9 @@
 "use client";
 
-import {
-  listShapePaths,
-  serializeShapeSlim,
-  type BagShape
-} from "@projectplaner/core";
+import type { BagShape } from "@projectplaner/core";
+import workflow from "@projectplaner/core/workflow";
+
+const { listShapePaths, serializeShapeSlim } = workflow.bag;
 
 interface WorkflowBagPanelProps {
   view: Record<string, BagShape>;

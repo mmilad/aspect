@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 import {
-  Api,
+  SemanticWrites,
   createDatabase
 } from "./index";
 import entities from "./repositories/entities";
@@ -32,11 +32,11 @@ function withTempDb(run: (db: ReturnType<typeof createDatabase>) => Promise<void
   };
 }
 
-describe("project-scoped db Api", () => {
+describe("project-scoped semantic writes", () => {
   it(
     "creates aspects, parented features, and target anchored tasks",
     withTempDb(async (db) => {
-      const api = new Api(db).getProject("PLAN");
+      const api = new SemanticWrites(db).project("PLAN");
 
       const aspect = await api.createAspect({ title: "Workflow authoring" });
       assert.equal(aspect.entity?.type, "aspect");
@@ -80,7 +80,7 @@ describe("project-scoped db Api", () => {
   it(
     "supports parent handles and rejects invalid root targets",
     withTempDb(async (db) => {
-      const api = new Api(db).getProject("PLAN");
+      const api = new SemanticWrites(db).project("PLAN");
       const aspect = await api.createAspect({ title: "Storage" });
 
       const feature = await api.aspect(aspect.entity!.id).createFeature({ title: "Query builder" });

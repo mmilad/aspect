@@ -3,7 +3,10 @@
 import { createContext, useContext } from "react";
 import { Handle, type NodeProps, Position } from "@xyflow/react";
 import { FlaskConical } from "lucide-react";
-import { getNodeModel, type BagShape, type WorkflowVariable } from "@projectplaner/core";
+import type { BagShape, WorkflowVariable } from "@projectplaner/core";
+import workflow from "@projectplaner/core/workflow";
+
+const { getNodeModel } = workflow.nodes;
 import { workflowStepToneByType } from "../../../lib/workflow-tones";
 import { cn } from "../../../lib/utils";
 import {

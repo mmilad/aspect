@@ -1,4 +1,7 @@
-import { getNarrative, type EntityType } from "@projectplaner/core";
+import type { EntityType } from "@projectplaner/core";
+import domain from "@projectplaner/core/domain";
+
+const { getNarrative } = domain;
 import entities from "@projectplaner/db/entities";
 import { BODY_MAX, DEFAULT_LIST_LIMIT, DEFAULT_PROJECT_KEY, planApi, truncate, withDb } from "./session";
 

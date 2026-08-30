@@ -5,7 +5,6 @@ import relations from "../repositories/relations";
 import { rollupParentStatus } from "../rollup";
 
 type EntityOfType<T extends EntityType> = Entity & { type: T };
-type PlanningTargetType = "aspect" | "feature";
 
 export type SemanticEntityInput = {
   title: string;
@@ -32,15 +31,15 @@ export type CreateSemanticTaskInput = SemanticEntityInput & {
   linkType?: Extract<EntityRelationType, "affects" | "implements" | "validates" | "investigates">;
 };
 
-export class Api {
+export class SemanticWrites {
   constructor(private readonly db: DatabaseSync) {}
 
-  getProject(projectKey: string): ProjectApi {
-    return new ProjectApi(this.db, projectKey);
+  project(projectKey: string): ProjectWrites {
+    return new ProjectWrites(this.db, projectKey);
   }
 }
 
-export class ProjectApi {
+export class ProjectWrites {
   constructor(
     private readonly db: DatabaseSync,
     readonly projectKey: string
@@ -148,14 +147,14 @@ export class AspectHandle {
   readonly id: string;
 
   constructor(
-    protected readonly project: ProjectApi,
+    protected readonly project: ProjectWrites,
     id: string,
     readonly entity?: EntityOfType<"aspect">
   ) {
     this.id = id;
   }
 
-  get parent(): ProjectApi {
+  get parent(): ProjectWrites {
     return this.project;
   }
 
@@ -172,14 +171,14 @@ export class FeatureHandle {
   readonly id: string;
 
   constructor(
-    protected readonly project: ProjectApi,
+    protected readonly project: ProjectWrites,
     id: string,
     readonly entity?: EntityOfType<"feature">
   ) {
     this.id = id;
   }
 
-  get parent(): ProjectApi {
+  get parent(): ProjectWrites {
     return this.project;
   }
 
@@ -196,7 +195,7 @@ export class TaskHandle {
   readonly id: string;
 
   constructor(
-    readonly project: ProjectApi,
+    readonly project: ProjectWrites,
     id: string,
     readonly entity?: EntityOfType<"task">
   ) {

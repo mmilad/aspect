@@ -3,9 +3,9 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { createContextBag, createStepGraph, parseWorkflowGraph } from "@projectplaner/core";
+import workflow from "@projectplaner/core/workflow";
 import {
-  Api,
+  SemanticWrites,
   createDatabase,
   ensureWorkflowPresets
 } from "./index";
@@ -14,6 +14,9 @@ import relations from "./repositories/relations";
 import persist from "./workflows/persist";
 import workflows from "./workflows";
 import { advanceWorkflowRun } from "./workflows/execute";
+
+const { createContextBag, parse: parseWorkflowGraph } = workflow.graph;
+const { createStepGraph } = workflow.presets;
 
 describe("advanceWorkflowRun create_step", () => {
   it("pauses on LLM then completes pin path", async () => {
@@ -283,7 +286,7 @@ describe("runWorkflow goal_planning", () => {
         ""
       );
       await ensureWorkflowPresets(db, { projectKey: "PLAN", only: ["goal_planning", "thinking"] });
-      const api = new Api(db).getProject("PLAN");
+      const api = new SemanticWrites(db).project("PLAN");
       const aspect = await api.createAspect({ title: "Goal planning persist" });
       const task = await api.createTask({
         targetId: aspect.entity!.id,

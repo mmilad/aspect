@@ -3,15 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { LocateFixed, PanelRight } from "lucide-react";
-import {
-  getTagsForEntity,
-  type Feature,
-  type JsonRecord,
-  type ProjectNode,
-  type ProjectPlanSnapshot,
-  type Tag,
-  type Task
-} from "@projectplaner/core";
+import type { Feature, JsonRecord, ProjectNode, ProjectPlanSnapshot, Tag, Task } from "@projectplaner/core";
+import legacy from "@projectplaner/core/legacy";
+
+const { getTagsForEntity } = legacy;
 import { Badge, GhostButton, ToolbarLink, Metric } from "../../ui";
 import { EntityHeader, TagList } from "../../entity-chrome";
 import { toEntityPreview, type EntityPreview } from "../../../lib/entity-preview";

@@ -1,16 +1,16 @@
 "use client";
 
-import {
-  getDataPath,
-  getNodeModel,
-  listShapePaths,
-  setDataPath,
-  type BagShape,
-  type WorkflowInspectorField,
-  type WorkflowMapField,
-  type WorkflowNode,
-  type WorkflowNodeData
+import type {
+  BagShape,
+  WorkflowInspectorField,
+  WorkflowMapField,
+  WorkflowNode,
+  WorkflowNodeData
 } from "@projectplaner/core";
+import workflow from "@projectplaner/core/workflow";
+
+const { getDataPath, getNodeModel, setDataPath } = workflow.nodes;
+const { listShapePaths } = workflow.bag;
 import { FormLabel, GhostButton, Select, TextArea, TextInput } from "../../ui";
 import { LlmJsonSchemaPicker } from "./llm-json-schema-picker";
 import { QueryConfigEditor } from "./query-config-editor";

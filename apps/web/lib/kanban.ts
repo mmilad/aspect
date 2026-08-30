@@ -1,12 +1,9 @@
-import {
-  deriveParentProcessStatus,
-  getPrimaryTaskLink,
-  type Feature,
-  type ProcessStatus,
-  type ProjectNode,
-  type ProjectPlanSnapshot,
-  type Task
-} from "@projectplaner/core";
+import type { Feature, ProcessStatus, ProjectNode, ProjectPlanSnapshot, Task } from "@projectplaner/core";
+import domain from "@projectplaner/core/domain";
+import legacy from "@projectplaner/core/legacy";
+
+const { deriveParentProcessStatus } = domain;
+const { getPrimaryTaskLink } = legacy;
 
 /** Process columns — mirrors Aspect/Feature/Task status ladder. */
 export const kanbanColumns = [

@@ -1,4 +1,6 @@
-import { LLM_JSON_SCHEMA_PRESETS } from "@projectplaner/core";
+import workflow from "@projectplaner/core/workflow";
+
+const { LLM_JSON_SCHEMA_PRESETS } = workflow.llm;
 import type { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
 

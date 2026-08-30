@@ -13,6 +13,13 @@
     "baseUrl": ".",
     "paths": {
       "@projectplaner/core": ["packages/core/src/index.ts"],
+      "@projectplaner/core/query": ["packages/core/src/domain/query/index.ts"],
+      "@projectplaner/core/plan-api": ["packages/core/src/domain/api/index.ts"],
+      "@projectplaner/core/domain": ["packages/core/src/domain/index.ts"],
+      "@projectplaner/core/legacy": ["packages/core/src/legacy/index.ts"],
+      "@projectplaner/core/workflow": ["packages/core/src/workflow/index.ts"],
+      "@projectplaner/core/planning": ["packages/core/src/planning/index.ts"],
+      "@projectplaner/core/generator": ["packages/core/src/generator/index.ts"],
       "@projectplaner/db": ["packages/db/src/index.ts"],
       "@projectplaner/db/entities": ["packages/db/src/repositories/entities.ts"],
       "@projectplaner/db/relations": ["packages/db/src/repositories/relations.ts"],

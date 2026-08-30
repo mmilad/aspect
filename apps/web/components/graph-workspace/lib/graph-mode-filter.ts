@@ -1,4 +1,7 @@
-import { getPrimaryTaskLink, type LegacyEntityRelation, type ProjectPlanSnapshot } from "@projectplaner/core";
+import type { LegacyEntityRelation, ProjectPlanSnapshot } from "@projectplaner/core";
+import legacy from "@projectplaner/core/legacy";
+
+const { getPrimaryTaskLink } = legacy;
 import type { GraphMatch, GraphMode } from "../types";
 
 export const graphModes = ["full", "tree", "neighborhood", "open_work", "workflow", "deps"] as const;

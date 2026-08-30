@@ -1,15 +1,13 @@
-import {
-  createPlanApi,
-  resolveMutationPresetKey,
-  type EntityNarrative,
-  type EntityType,
-  type JsonRecord
-} from "@projectplaner/core";
+import type { EntityNarrative, EntityType, JsonRecord } from "@projectplaner/core";
+import corePlanApi from "@projectplaner/core/plan-api";
+import workflow from "@projectplaner/core/workflow";
 import {
   openDatabase,
   findSeededWorkflowPreset
 } from "@projectplaner/db";
 import query from "@projectplaner/db/query";
+
+const { resolveMutationPresetKey } = workflow.presets;
 
 export const DEFAULT_PROJECT_KEY = "PLAN";
 export const SUMMARY_MAX = 240;
@@ -41,7 +39,7 @@ export async function withDb<T>(fn: (db: Db) => Promise<T>): Promise<T> {
 }
 
 export function planApi(db: Db) {
-  return createPlanApi(query.createStore(db));
+  return corePlanApi.create(query.createStore(db));
 }
 
 export function truncate(value: string, max: number): string {

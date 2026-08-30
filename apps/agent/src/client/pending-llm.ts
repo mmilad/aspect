@@ -1,5 +1,7 @@
-import { DEFAULT_WORKFLOW_LLM_SYSTEM_PROMPT } from "@projectplaner/core";
+import workflow from "@projectplaner/core/workflow";
 import type { PendingLlmSurface, WorkflowRunResponse } from "./types";
+
+const { DEFAULT_WORKFLOW_LLM_SYSTEM_PROMPT } = workflow.llm;
 
 export function isPendingLlm(response: WorkflowRunResponse): boolean {
   return response.step.kind === "pending_llm" || response.run.status === "pending_llm";

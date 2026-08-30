@@ -1,9 +1,7 @@
 import type { WorkflowNodeType } from "@projectplaner/core";
-import {
-  workflowControlNodeTypes,
-  workflowVariableNodeTypes,
-  workflowWorkNodeTypes
-} from "@projectplaner/core";
+import workflow from "@projectplaner/core/workflow";
+
+const { workflowControlNodeTypes, workflowVariableNodeTypes, workflowWorkNodeTypes } = workflow.nodes;
 
 export const workflowStepToneByType: Record<WorkflowNodeType, string> = {
   start: "border-zinc-700 bg-zinc-900 text-white",

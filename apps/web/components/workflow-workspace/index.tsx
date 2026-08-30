@@ -10,24 +10,22 @@ import {
   type OnNodesChange,
   type ReactFlowInstance
 } from "@xyflow/react";
-import {
-  parseWorkflowGraph,
-  bagViewAtNode,
-  getNodeModel,
-  layoutWorkflowGraph,
-  renderWorkflowStory,
-  renderWorkflowMermaid,
-  warnMissingUpstreamKeys,
-  warnShapeMismatches,
-  WORKFLOW_SCHEMA_VERSION,
-  type Entity,
-  type WorkflowEdgeKind,
-  type WorkflowGraph,
-  type WorkflowNode,
-  type WorkflowNodeData,
-  type WorkflowNodeType,
-  type WorkflowVariable
+import type {
+  Entity,
+  WorkflowEdgeKind,
+  WorkflowGraph,
+  WorkflowNode,
+  WorkflowNodeData,
+  WorkflowNodeType,
+  WorkflowVariable
 } from "@projectplaner/core";
+import generator from "@projectplaner/core/generator";
+import workflow from "@projectplaner/core/workflow";
+
+const { parse: parseWorkflowGraph, warnMissingUpstreamKeys } = workflow.graph;
+const { getNodeModel, WORKFLOW_SCHEMA_VERSION } = workflow.nodes;
+const { bagViewAtNode, warnShapeMismatches } = workflow.bag;
+const { layoutWorkflowGraph, renderWorkflowMermaid, renderWorkflowStory } = generator.views;
 import {
   applyVariablesToRfNodes,
   defaultEdgeKindForConnection,

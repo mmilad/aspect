@@ -1,4 +1,8 @@
-import { getOpenWorkBelowAspect, getPrimaryTaskLink, getTasksForFeature, rankedByQuery } from "@projectplaner/core";
+import domain from "@projectplaner/core/domain";
+import legacy from "@projectplaner/core/legacy";
+
+const { rankedByQuery } = domain;
+const { getOpenWorkBelowAspect, getPrimaryTaskLink, getTasksForFeature } = legacy;
 import type {
   Entity,
   EntityRelation,
@@ -366,11 +370,8 @@ async function main(): Promise<void> {
   if (command === "author-demo") {
     const { loadEnv } = await import("./client");
     loadEnv();
-    const {
-      generateWorkflowOutline,
-      generateWorkflowTwoTurn,
-      readLlmChatConfigFromEnv
-    } = await import("@projectplaner/core");
+    const { default: generator } = await import("@projectplaner/core/generator");
+    const { generateWorkflowOutline, generateWorkflowTwoTurn, readLlmChatConfigFromEnv } = generator.author;
 
     const brief =
       first(args.options, "brief")?.trim() ||
@@ -458,7 +459,8 @@ async function main(): Promise<void> {
   if (command === "create-workflow-demo") {
     const { loadEnv } = await import("./client");
     loadEnv();
-    const { readLlmChatConfigFromEnv, runCreateWorkflowLive } = await import("@projectplaner/core");
+    const { default: generator } = await import("@projectplaner/core/generator");
+    const { readLlmChatConfigFromEnv, runCreateWorkflowLive } = generator.author;
 
     const brief =
       first(args.options, "brief")?.trim() ||

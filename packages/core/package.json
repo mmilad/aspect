@@ -5,6 +5,16 @@
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./query": "./src/domain/query/index.ts",
+    "./plan-api": "./src/domain/api/index.ts",
+    "./domain": "./src/domain/index.ts",
+    "./legacy": "./src/legacy/index.ts",
+    "./workflow": "./src/workflow/index.ts",
+    "./planning": "./src/planning/index.ts",
+    "./generator": "./src/generator/index.ts"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",
     "typecheck": "tsc -p tsconfig.json --noEmit"

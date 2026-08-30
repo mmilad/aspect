@@ -1,8 +1,15 @@
+import { authorWorkflowGraph } from "./author_workflow/graph";
 import { authorWorkflowPreset } from "./author_workflow/preset";
+import { createStepGraph } from "./create_step/graph";
 import { createStepPreset } from "./create_step/preset";
+import { createWorkflowGraph } from "./create_workflow/graph";
 import { createWorkflowPreset } from "./create_workflow/preset";
+import { listCrudPresetKeys, listCrudPresets, parseMutationPresetKey, presetKeyFor } from "./crud";
+import { ensureAspectGraph } from "./ensure_aspect/graph";
 import { ensureAspectPreset } from "./ensure_aspect/preset";
-import { listCrudPresets, parseMutationPresetKey, presetKeyFor } from "./crud";
+import { goalPlanningGraph } from "./goal_planning/graph";
+import { rollupParentStatusGraph } from "./rollup_parent_status/graph";
+import { thinkingGraph } from "./thinking/graph";
 import { nextWorkPreset } from "./next_work/preset";
 import { onboardingPreset } from "./onboarding/preset";
 import { rollupParentStatusPreset } from "./rollup_parent_status/preset";
@@ -106,3 +113,39 @@ export function resolveMutationPresetKey(input: {
   }
   return getWorkflowPreset(key) ? key : null;
 }
+
+const presets = {
+  list: listWorkflowPresets,
+  listParked: listParkedWorkflowPresets,
+  get: getWorkflowPreset,
+  listWorkflowPresets,
+  listParkedWorkflowPresets,
+  getWorkflowPreset,
+  workflowPresetAllowsDrainLlm,
+  isWorkflowPresetKind,
+  resolveWorkflowKind,
+  resolveMutationPresetKey,
+  workflowPresetKinds,
+  listCrudPresetKeys,
+  listCrudPresets,
+  parseMutationPresetKey,
+  presetKeyFor,
+  authorWorkflowGraph,
+  createStepGraph,
+  createWorkflowGraph,
+  ensureAspectGraph,
+  rollupParentStatusGraph,
+  thinkingGraph,
+  goalPlanningGraph,
+  authorWorkflowPreset,
+  createStepPreset,
+  createWorkflowPreset,
+  ensureAspectPreset,
+  nextWorkPreset,
+  onboardingPreset,
+  rollupParentStatusPreset,
+  thinkingPreset,
+  goalPlanningPreset
+};
+
+export default presets;

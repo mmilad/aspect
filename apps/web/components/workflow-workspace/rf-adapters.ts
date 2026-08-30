@@ -1,16 +1,15 @@
-import {
-  emptyWorkflowGraph,
-  isShapeConnectable,
-  parseWaypoints,
-  parseWorkflowGraph,
-  serializeShapeSlim,
-  type BagShape,
-  type JsonRecord,
-  type WorkflowEdgeKind,
-  type WorkflowGraph,
-  type WorkflowNode,
-  type WorkflowVariable
+import type {
+  BagShape,
+  JsonRecord,
+  WorkflowEdgeKind,
+  WorkflowGraph,
+  WorkflowNode,
+  WorkflowVariable
 } from "@projectplaner/core";
+import workflow from "@projectplaner/core/workflow";
+
+const { emptyWorkflowGraph, parse: parseWorkflowGraph, parseWaypoints } = workflow.graph;
+const { isShapeConnectable, serializeShapeSlim } = workflow.bag;
 import type { CSSProperties } from "react";
 import { MarkerType, type Connection, type Edge, type Node } from "@xyflow/react";
 

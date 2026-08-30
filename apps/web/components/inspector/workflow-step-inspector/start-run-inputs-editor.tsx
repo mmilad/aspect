@@ -1,13 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  serializeShapeSlim,
-  type BagShape,
-  type WorkflowBagKeyContract,
-  type WorkflowNode,
-  type WorkflowNodeData
-} from "@projectplaner/core";
+import type { BagShape, WorkflowBagKeyContract, WorkflowNode, WorkflowNodeData } from "@projectplaner/core";
+import workflow from "@projectplaner/core/workflow";
+
+const { serializeShapeSlim } = workflow.bag;
 import { FormLabel, GhostButton, Select, TextInput } from "../../ui";
 
 const STRING: BagShape = { kind: "primitive", type: "string" };

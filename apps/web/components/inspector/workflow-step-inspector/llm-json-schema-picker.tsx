@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getLlmJsonSchemaPreset } from "@projectplaner/core";
+import workflow from "@projectplaner/core/workflow";
+
+const { getLlmJsonSchemaPreset } = workflow.llm;
 import { SearchSelect, type SearchSelectOption } from "../../ui/search-select";
 
 type SchemaListItem = {

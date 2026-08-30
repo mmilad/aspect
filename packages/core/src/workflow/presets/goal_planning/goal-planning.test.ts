@@ -10,6 +10,7 @@ import { goalPlanningGraph } from "./graph";
 import { goalPlanningPreset } from "./preset";
 import { thinkingGraph } from "../thinking/graph";
 import { listParkedWorkflowPresets, listWorkflowPresets } from "../index";
+import { getNodeModel } from "../../nodes";
 
 function parsedGraph(raw: unknown) {
   const parsed = parseWorkflowGraph(raw);
@@ -180,8 +181,40 @@ describe("goal_planning workflow preset", () => {
       true
     );
     expect(goalPlanningPreset.graph.nodes.some((node) => node.id === "persist" && node.type === "write")).toBe(true);
-    expect(goalPlanningPreset.presetVersion).toBe(2);
+    expect(goalPlanningPreset.graph.nodes.filter((node) => node.type === "branch")).toEqual([]);
+    expect(
+      goalPlanningPreset.graph.nodes
+        .filter((node) => node.type === "switch")
+        .map((node) => node.id)
+        .sort()
+    ).toEqual(["expand_branch", "persist_branch", "should_halt", "status_branch"]);
+    expect(goalPlanningPreset.presetVersion).toBe(3);
     expect(goalPlanningPreset.status).toBe("accepted");
+  });
+
+  it("wires every exec edge to a pin that exists on the source and target", () => {
+    const parsed = parseWorkflowGraph(goalPlanningPreset.graph);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) {
+      throw new Error(parsed.errors.join("\n"));
+    }
+    for (const edge of parsed.graph.edges) {
+      if (edge.kind === "data") {
+        continue;
+      }
+      const source = parsed.graph.nodes.find((node) => node.id === edge.source);
+      const target = parsed.graph.nodes.find((node) => node.id === edge.target);
+      expect(source, edge.source).toBeTruthy();
+      expect(target, edge.target).toBeTruthy();
+      const sourcePins =
+        getNodeModel(source!.type).execOutputs?.(source!) ??
+        (source!.type === "end" || source!.type === "error_end" || source!.type === "get" ? [] : ["then"]);
+      const targetPins = getNodeModel(target!.type).execInputs?.(target!) ?? (target!.type === "get" ? [] : ["in"]);
+      const outPin = edge.sourcePin ?? "then";
+      const inPin = edge.targetPin ?? "in";
+      expect(sourcePins, `${edge.id} source ${outPin}`).toContain(outPin);
+      expect(targetPins, `${edge.id} target ${inPin}`).toContain(inPin);
+    }
   });
 
   it("pauses on classify with plan_classify_v1 after seeding the bag document", async () => {

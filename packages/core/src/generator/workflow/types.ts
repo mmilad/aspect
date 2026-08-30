@@ -62,13 +62,18 @@ export interface CompileOptions {
 
 export const BUILTIN_FUNCTION_DESCRIPTIONS: Record<string, string> = {
   loadContext: "Load matching entities from the Aspect Graph into the context bag.",
-  filter: "Filter and optionally project keys from a bag array.",
+  filter: "Filter a bag array (legacy transform) or an Entity[] with query.where.",
   rankTaskCandidates: "Rank open, unblocked tasks by workScore.",
   assign: "Write literal values into the context bag.",
   pickFirst: "Pick the first item from a bag array.",
   neighborhoodOf: "Build a 1-hop neighborhood around a selected entity.",
   composeTaskPrompt: "Compose an agent handoff prompt from a task and neighborhood context.",
   map: "Project fields from a bag array/object into a new structure.",
+  get: "Load one entity by id.",
+  list: "List entities with optional type, relatedTo, and text filter.",
+  search: "Rank entities by relevance query.",
+  next_work: "Rank eligible unblocked tasks by work score.",
+  neighborhood: "Collect a depth-limited neighborhood around an entity.",
   create_entity: "Create a Projectplaner entity.",
   update_entity: "Update fields on an existing entity.",
   rollup_parent_status:

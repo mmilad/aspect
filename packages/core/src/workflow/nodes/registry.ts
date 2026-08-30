@@ -13,6 +13,7 @@ import { joinNode } from "./join/model";
 import { llmNode } from "./llm/model";
 import { mapNode } from "./map/model";
 import { mathNode } from "./math/model";
+import { queryNode } from "./query/model";
 import { pushNode } from "./push/model";
 import { getNode } from "./get/model";
 import { rerouteNode } from "./reroute/model";
@@ -45,6 +46,7 @@ export const workflowNodeModels: Record<WorkflowNodeType, WorkflowNodeModel> = {
   transform: transformNode,
   map: mapNode,
   math: mathNode,
+  query: queryNode,
   write: writeNode,
   push: pushNode,
   get: getNode,

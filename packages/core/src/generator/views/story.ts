@@ -91,6 +91,11 @@ function describeNode(node: WorkflowNode): string {
         : "";
       return `Write \`${action}\` (“${title}”)${args ? ` using ${args}` : ""}${writes ? `; writes ${writes}` : ""}.`;
     }
+    case "query": {
+      const op = node.data.query?.op ?? "query";
+      const type = node.data.query?.type;
+      return `Query \`${op}\` (“${title}”)${type ? ` type ${type}` : ""}${writes ? `; writes ${writes}` : ""}.`;
+    }
     case "branch": {
       const on = node.data.branch?.on ?? "route";
       return `Branch on \`${on}\` (“${title}”).`;

@@ -66,6 +66,7 @@ pnpm plan presets-ensure --force
 ## Runtime
 
 - Steps: start → work/control along **exec** edges → end. Data edges feed pins; they do not change the cursor.
+- **Query** is one work node (`query.op`): get/list/search/next_work/neighborhood, in-bag filter, and writes. Data pins infer from the catalog when op or entity type changes; authors remap bag keys only.
 - **Write** actions include `create_entity`, `update_entity`, `rollup_parent_status`.
 - **assemble_fragment** is a deterministic work node: it stitches `create_step` drafts into a start→end graph (`workflowDraft`). Later steps that read an earlier write are wired to that writer, not back to start. It does not call an LLM.
 - **create_workflow** planning is multi-step: `workflow_step_list_v1` requires at least two unique work-node instructions (no start/end, sequential spine only, no maximum). The list is this layer’s spine, not an unrolled nested runtime. `push` accumulates `stepDrafts` across the foreach loop. Duplicate titles fail at assemble.

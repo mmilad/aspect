@@ -18,6 +18,7 @@ export const CONFIG_KEYS = [
   "auto",
   "tool",
   "llm",
+  "query",
   "write",
   "gate",
   "branch",

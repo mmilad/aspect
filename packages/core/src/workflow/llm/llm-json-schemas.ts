@@ -99,6 +99,7 @@ export const WORKFLOW_STEP_DRAFT_V1_SCHEMA: Record<string, unknown> = {
                   "transform",
                   "map",
                   "math",
+                  "query",
                   "write",
                   "push",
                   "subworkflow",
@@ -169,6 +170,7 @@ export const WORKFLOW_NODE_PLAN_V1_SCHEMA: Record<string, unknown> = {
         "transform",
         "map",
         "math",
+        "query",
         "write",
         "push",
         "create_workflow_node"

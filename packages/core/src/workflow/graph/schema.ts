@@ -15,6 +15,7 @@ import {
   type WorkflowNodeType
 } from "../nodes/_shared/types";
 import { getNodeModel } from "../nodes/registry";
+import { applyQueryPorts } from "../nodes/query/catalog";
 import { derivedWrites, normalizeNodePorts } from "../bag/ports";
 import { parseVariables, syncVariablePorts, usesPinFrame } from "./variables";
 import type {
@@ -62,7 +63,10 @@ function parseNode(raw: unknown, errors: string[]): WorkflowNode | null {
   const model = getNodeModel(type);
   const rawData = isRecord(raw.data) ? raw.data : {};
   const configPartial = model.parseConfig(rawData, raw.id, errors);
-  const data = pickNodeData(base, configPartial, model.configKey);
+  let data = pickNodeData(base, configPartial, model.configKey);
+  if (type === "query") {
+    data = applyQueryPorts(data);
+  }
 
   return {
     id: raw.id,

@@ -1,16 +1,25 @@
 import {
+  compileListQuery,
+  compactEntity,
   createContextBag,
+  createPlanApi,
   findStartNode,
   parseContextBag,
   runWorkflowUntilPause,
   stepWorkflow,
+  taskPriority,
+  walkNeighborhood,
   type Entity,
+  type EntityFilter,
+  type EntityListQuery,
   type EntityRelationType,
   type EntityStatus,
   type EntityType,
   type JsonRecord,
+  type RankedTaskCandidate,
   type WorkflowAdapters,
   type WorkflowContextBag,
+  type WorkflowMatch,
   type WorkflowStepResult
 } from "@projectplaner/core";
 import type { DatabaseSync } from "node:sqlite";
@@ -18,6 +27,7 @@ import { createEntity, createRelation, getEntity, listEntities, listRelations, u
 import { findSeededWorkflowPreset } from "./presets";
 import { rollupParentStatus } from "./rollup";
 import { getLlmJsonSchemaByKey } from "./llm-json-schemas";
+import { createSqliteEntityStore, executePlan } from "./query";
 import {
   createWorkflowRun,
   getOrMigrateWorkflowGraph,
@@ -74,12 +84,122 @@ function createEntityMetadata(args: Record<string, unknown>, reason: string): Js
   return metadata;
 }
 
+function relatedToWhere(relatedTo: string): EntityFilter {
+  return {
+    rel: {
+      direction: "out",
+      some: { field: "id", op: "eq", value: relatedTo }
+    }
+  };
+}
+
+function andWhere(parts: EntityFilter[]): EntityFilter | undefined {
+  if (parts.length === 0) {
+    return undefined;
+  }
+  if (parts.length === 1) {
+    return parts[0];
+  }
+  return { and: parts };
+}
+
+function toMatch(entity: { id: string; type: EntityType; title: string; status: string; summary?: string; score?: number }): WorkflowMatch {
+  return {
+    id: entity.id,
+    type: entity.type,
+    title: entity.title,
+    status: entity.status,
+    summary: entity.summary,
+    score: entity.score
+  };
+}
+
 /** Build runtime adapters that read/write the living SQLite graph. */
 export function createSqliteWorkflowAdapters(
   db: DatabaseSync,
   projectKey = "PLAN"
 ): WorkflowAdapters {
+  const store = createSqliteEntityStore(db);
+  const api = createPlanApi(store);
+
   return {
+    getEntity: (id) => getEntity(db, id),
+    listEntities: (query: EntityListQuery, options) =>
+      executePlan(db, compileListQuery({ ...query, projectKey: query.projectKey ?? projectKey }, options)),
+    searchEntities: async (input) => {
+      const parts: EntityFilter[] = [];
+      if (input.types?.length === 1) {
+        parts.push({ field: "type", op: "eq", value: input.types[0]! });
+      } else if (input.types && input.types.length > 1) {
+        parts.push({ field: "type", op: "in", value: input.types });
+      }
+      if (input.relatedTo) {
+        parts.push(relatedToWhere(input.relatedTo));
+      }
+      const result = await api.entities.search({
+        projectKey,
+        q: input.q,
+        where: andWhere(parts),
+        limit: input.limit,
+        includeArchived: input.includeArchived,
+        select: input.select
+      });
+      return result.items.map((item) => toMatch({ ...item, score: item.score }));
+    },
+    nextWork: async (input) => {
+      const result = await api.tasks.nextWork({
+        projectKey,
+        relatedTo: input.relatedTo ? { id: input.relatedTo } : undefined,
+        limit: input.limit,
+        includeArchived: input.includeArchived,
+        select: "full"
+      });
+      return result.items.map((item) => {
+        const entity = item as Entity;
+        return {
+          id: entity.id,
+          type: "task" as const,
+          key: entity.key,
+          title: entity.title,
+          status: entity.status,
+          summary: entity.summary,
+          priority: taskPriority(entity),
+          workScore: item.score
+        } satisfies RankedTaskCandidate;
+      });
+    },
+    neighborhood: async (input) => {
+      const entities = await listEntities(db, {
+        projectKey,
+        includeArchived: input.includeArchived === true
+      });
+      const relations = await listRelations(db, { projectKey });
+      return walkNeighborhood(input.id, input.depth, entities, relations, input.select ?? "compact");
+    },
+    loadContext: async ({ query, types, limit, mode }) => {
+      if (mode === "all") {
+        const rows = await executePlan(
+          db,
+          compileListQuery(
+            { projectKey, limit },
+            types?.length === 1 ? { type: types[0] } : undefined
+          )
+        );
+        const filtered = types && types.length > 1 ? rows.filter((row) => types.includes(row.type)) : rows;
+        return filtered.map((entity) => toMatch(compactEntity(entity)));
+      }
+      const result = await api.entities.search({
+        projectKey,
+        q: query,
+        where: types?.length
+          ? types.length === 1
+            ? { field: "type", op: "eq", value: types[0]! }
+            : { field: "type", op: "in", value: types }
+          : undefined,
+        limit
+      });
+      return result.items.map((item) => toMatch({ ...item, score: item.score }));
+    },
     runWrite: async ({ action, args }) => {
       if (action === "create_entity") {
         const title = typeof args.title === "string" ? args.title.trim() : "";

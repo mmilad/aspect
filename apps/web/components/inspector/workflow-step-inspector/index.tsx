@@ -13,6 +13,7 @@ import {
 } from "@projectplaner/core";
 import { FormLabel, GhostButton, Select, TextArea, TextInput } from "../../ui";
 import { LlmJsonSchemaPicker } from "./llm-json-schema-picker";
+import { QueryConfigEditor } from "./query-config-editor";
 import { PropPicker, WorkflowBagPanel } from "../../workflow-workspace/workflow-bag-panel";
 import { BagPortsEditor } from "./bag-ports-editor";
 import { StartRunInputsEditor } from "./start-run-inputs-editor";
@@ -121,7 +122,8 @@ function readFieldValue(selected: WorkflowNode, field: WorkflowInspectorField): 
     field.kind === "toolArgs" ||
     field.kind === "bagPorts" ||
     field.kind === "startRunInputs" ||
-    field.kind === "llmSchemaKey"
+    field.kind === "llmSchemaKey" ||
+    field.kind === "queryConfig"
   ) {
     return "";
   }
@@ -159,6 +161,10 @@ function renderField(
 
   if (field.kind === "startRunInputs") {
     return <StartRunInputsEditor key="startRunInputs" selected={selected} onUpdateData={onUpdateData} />;
+  }
+
+  if (field.kind === "queryConfig") {
+    return <QueryConfigEditor key="queryConfig" selected={selected} onUpdateData={onUpdateData} />;
   }
 
   if (field.kind === "llmSchemaKey") {
@@ -506,7 +512,7 @@ export function WorkflowStepInspector({
           <FormLabel label="Title">
             <TextInput value={selected.data.title} onChange={(event) => onUpdateData({ title: event.target.value })} />
           </FormLabel>
-          {selected.type === "start" || pinMode ? null : (
+          {selected.type === "start" || selected.type === "query" || pinMode ? null : (
             <BagPortsEditor selected={selected} bagView={bagView} onUpdateData={onUpdateData} />
           )}
           <SwitchCasesEditor selected={selected} onUpdateData={onUpdateData} />

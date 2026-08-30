@@ -231,8 +231,12 @@ function validatePinBindings(input: {
   }
 
   for (const pin of dataIn) {
+    const contract = node.data.inputs?.[pin];
     const bound = inputBindings[pin] ?? (available.has(pin) ? pin : undefined);
     if (!bound) {
+      if (contract?.required === false) {
+        continue;
+      }
       errors.push(`nodePlan.inputBindings.${pin} is required for data input pin '${pin}'.`);
       continue;
     }

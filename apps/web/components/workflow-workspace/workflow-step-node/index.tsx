@@ -262,6 +262,11 @@ export function WorkflowStepNode({ data, selected }: NodeProps<FlowRfNode>) {
           map {node.data.map.from} to {node.data.map.as}
         </div>
       ) : null}
+      {(model.canvasFields?.(node) ?? []).map((field) => (
+        <div key={field.label} className="truncate px-2 text-[10px] opacity-70">
+          {field.label} {field.value}
+        </div>
+      ))}
 
       {pinRows > 0 ? (
         <div className="mt-1 grid grid-cols-2 gap-x-2">

@@ -13,6 +13,7 @@ const WORK_NODE_TYPES = new Set<WorkflowNodeType>([
   "tool",
   "llm",
   "write",
+  "query",
   "context",
   "transform",
   "map",

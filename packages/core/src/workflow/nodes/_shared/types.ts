@@ -1,4 +1,5 @@
-import type { EntityType, JsonRecord } from "../../../domain/types";
+import type { EntityFieldName, EntityFilter } from "../../../domain/query/types";
+import type { EntityRelationType, EntityType, JsonRecord } from "../../../domain/types";
 
 /** Workflow Step Graph node types. */
 export const workflowControlNodeTypes = [
@@ -22,6 +23,7 @@ export const workflowWorkNodeTypes = [
   "transform",
   "map",
   "math",
+  "query",
   "write",
   "push",
   "create_workflow_node",
@@ -141,6 +143,65 @@ export interface WorkflowWriteConfig {
   action: "create_entity" | "update_entity" | "rollup_parent_status";
   argsFromBag?: Record<string, string>;
   defaults?: JsonRecord;
+}
+
+export const queryOps = [
+  "get",
+  "list",
+  "search",
+  "next_work",
+  "neighborhood",
+  "filter",
+  "create_entity",
+  "update_entity",
+  "rollup_parent_status"
+] as const;
+
+export type WorkflowQueryOp = (typeof queryOps)[number];
+export type WorkflowQueryKind = "read" | "filter" | "write";
+
+export const querySlotKinds = [
+  "q",
+  "relatedTo",
+  "id",
+  "from",
+  "relations",
+  "field",
+  "rel"
+] as const;
+
+export type WorkflowQuerySlotKind = (typeof querySlotKinds)[number];
+export type WorkflowQuerySlotSource = "const" | "pin";
+export type WorkflowQuerySlotOp = "eq" | "neq" | "in" | "match";
+
+export interface WorkflowQuerySlotRel {
+  direction: "out" | "in" | "either";
+  types?: EntityRelationType[];
+}
+
+/** Declared predicate or argument: const on the node, or a pin (optional default). */
+export interface WorkflowQuerySlot {
+  id: string;
+  slot: WorkflowQuerySlotKind;
+  field?: EntityFieldName;
+  op?: WorkflowQuerySlotOp;
+  rel?: WorkflowQuerySlotRel;
+  source: WorkflowQuerySlotSource;
+  /** Const value, or default when `source` is pin. */
+  value?: unknown;
+}
+
+export interface WorkflowQueryConfig {
+  op: WorkflowQueryOp;
+  type?: EntityType;
+  limit?: number;
+  includeArchived?: boolean;
+  select?: "compact" | "full";
+  depth?: number;
+  /** Legacy blob; AND-ed with slots at execute. Inspector authors slots instead. */
+  where?: EntityFilter;
+  includeRelations?: boolean;
+  slots?: WorkflowQuerySlot[];
 }
 
 export interface WorkflowGateConfig {
@@ -316,6 +377,7 @@ export interface WorkflowNodeData {
   auto?: WorkflowAutoConfig;
   tool?: WorkflowToolConfig;
   llm?: WorkflowLlmConfig;
+  query?: WorkflowQueryConfig;
   write?: WorkflowWriteConfig;
   gate?: WorkflowGateConfig;
   branch?: WorkflowBranchConfig;

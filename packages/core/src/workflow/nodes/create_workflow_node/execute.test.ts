@@ -133,6 +133,8 @@ function configForType(type: WorkflowNodeType): Record<string, unknown> {
       return { from: "items", as: "mapped", fields: [{ from: "title", as: "title" }] };
     case "math":
       return { operation: "add", operand: 1 };
+    case "query":
+      return { op: "list" };
     case "write":
       return { action: "rollup_parent_status" };
     case "push":
@@ -539,5 +541,83 @@ describe("create_workflow_node execution", () => {
       { availableBagShape: { goal: "string" } }
     );
     expect(tool.nodePlanValid).toBe(true);
+  });
+
+  it("rejects a query list plan that omits the inferred entities write binding", async () => {
+    const keys = await runFactory(
+      {
+        nodeType: "query",
+        title: "List aspects",
+        config: { op: "list", type: "aspect" }
+      },
+      { availableBagShape: { scopeId: "string" } }
+    );
+
+    expect(keys.workflowNode).toBeNull();
+    expect(keys.nodePlanValid).toBe(false);
+    expect(keys.validationErrors).toEqual(
+      expect.arrayContaining([
+        "nodePlan.writeBindings.entities is required for data output pin 'entities'."
+      ])
+    );
+    expect(keys.repairInstructions).toContain("writeBindings.entities");
+  });
+
+  it("does not require optional list input pins when a bag shape is provided", async () => {
+    const keys = await runFactory(
+      {
+        nodeType: "query",
+        title: "List aspects",
+        writeBindings: { entities: "rows" },
+        config: { op: "list", type: "aspect" }
+      },
+      { availableBagShape: { rows: "object[]" } }
+    );
+
+    expect(keys.nodePlanValid).toBe(true);
+    expect(keys.workflowNode).toMatchObject({
+      type: "query",
+      data: {
+        query: { op: "list", type: "aspect" },
+        writeBindings: { entities: "rows" }
+      }
+    });
+  });
+
+  it("does not require a defaulted list pin binding", async () => {
+    const keys = await runFactory(
+      {
+        nodeType: "query",
+        title: "List by key",
+        writeBindings: { entities: "rows" },
+        config: {
+          op: "list",
+          slots: [{ id: "key", slot: "field", field: "key", op: "eq", source: "pin", value: "FEAT-18" }]
+        }
+      },
+      { availableBagShape: { rows: "object[]" } }
+    );
+
+    expect(keys.nodePlanValid).toBe(true);
+    expect(keys.validationErrors).toEqual([]);
+  });
+
+  it("requires the inferred id binding for query get", async () => {
+    const keys = await runFactory(
+      {
+        nodeType: "query",
+        title: "Get entity",
+        writeBindings: { entity: "found" },
+        config: { op: "get" }
+      },
+      { availableBagShape: { found: "object" } }
+    );
+
+    expect(keys.nodePlanValid).toBe(false);
+    expect(keys.validationErrors).toEqual(
+      expect.arrayContaining([
+        "nodePlan.inputBindings.id is required for data input pin 'id'."
+      ])
+    );
   });
 });

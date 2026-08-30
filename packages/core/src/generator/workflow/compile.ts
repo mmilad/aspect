@@ -324,6 +324,36 @@ function compileNode(
         }
       ];
     }
+    case "query": {
+      const query = node.data.query;
+      if (!query?.op) {
+        return [{ kind: "instruction", text: title, nodeId: node.id }];
+      }
+      rememberFunction(seen, query.op, catalog);
+      if (query.op === "create_entity" || query.op === "update_entity" || query.op === "rollup_parent_status") {
+        return [
+          {
+            kind: "write",
+            action: query.op,
+            args: { type: query.type, writes: node.data.writes ?? node.data.outputs ?? [] },
+            nodeId: node.id
+          }
+        ];
+      }
+      return [
+        {
+          kind: "function",
+          name: query.op,
+          params: {
+            op: query.op,
+            type: query.type,
+            writes: node.data.writes ?? node.data.outputs ?? []
+          },
+          resultHint: title,
+          nodeId: node.id
+        }
+      ];
+    }
     case "fork":
     case "join":
     case "wait":

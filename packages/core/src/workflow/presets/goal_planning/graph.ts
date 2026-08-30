@@ -73,13 +73,13 @@ export const goalPlanningGraph: WorkflowGraph = {
     },
     {
       id: "should_halt",
-      type: "branch",
+      type: "switch",
       position: { x: 740, y: 180 },
       data: {
         title: "Halt?",
         reads: ["route"],
         inputs: { route: { required: true, shape: STRING } },
-        branch: { on: "route" }
+        switch: { on: "route", cases: ["classify"], defaultLabel: "halt" }
       }
     },
     {
@@ -148,13 +148,17 @@ export const goalPlanningGraph: WorkflowGraph = {
     },
     {
       id: "status_branch",
-      type: "branch",
+      type: "switch",
       position: { x: 1460, y: 80 },
       data: {
         title: "Status",
         reads: ["route"],
         inputs: { route: { required: true, shape: STRING } },
-        branch: { on: "route" }
+        switch: {
+          on: "route",
+          cases: ["atomic", "dropped", "needs_question", "needs_decision", "needs_subplan"],
+          defaultLabel: "retry"
+        }
       }
     },
     {
@@ -215,15 +219,13 @@ export const goalPlanningGraph: WorkflowGraph = {
     },
     {
       id: "expand_branch",
-      type: "branch",
+      type: "switch",
       position: { x: 2060, y: 220 },
       data: {
         title: "Expand result",
         reads: ["route"],
-        writes: [],
         inputs: { route: { required: true, shape: STRING } },
-        inputBindings: { route: "route" },
-        branch: { on: "route" }
+        switch: { on: "route", cases: ["ok"], defaultLabel: "retry" }
       }
     },
     {
@@ -336,13 +338,13 @@ export const goalPlanningGraph: WorkflowGraph = {
     },
     {
       id: "persist_branch",
-      type: "branch",
+      type: "switch",
       position: { x: 1220, y: 320 },
       data: {
         title: "Persist?",
         reads: ["persistRoute"],
         inputs: { persistRoute: { required: true, shape: STRING } },
-        branch: { on: "persistRoute" }
+        switch: { on: "persistRoute", cases: ["persist"], defaultLabel: "skip" }
       }
     },
     {
@@ -384,34 +386,122 @@ export const goalPlanningGraph: WorkflowGraph = {
     { id: "end", type: "end", position: { x: 1700, y: 320 }, data: { title: "End" } }
   ],
   edges: [
-    { id: "e_start_seed", source: "start", target: "seed", kind: "next" },
-    { id: "e_seed_pick", source: "seed", target: "pick", kind: "next" },
-    { id: "e_pick_haltq", source: "pick", target: "should_halt", kind: "next" },
-    { id: "e_haltq_classify", source: "should_halt", target: "classify", kind: "route", label: "classify", sourcePin: "classify" },
-    { id: "e_haltq_halt", source: "should_halt", target: "halt", kind: "route", label: "halt", sourcePin: "halt" },
-    { id: "e_classify_apply", source: "classify", target: "apply_classify", kind: "next" },
-    { id: "e_apply_status", source: "apply_classify", target: "status_branch", kind: "next" },
-    { id: "e_status_pick_atomic", source: "status_branch", target: "pick", kind: "route", label: "atomic", sourcePin: "atomic" },
-    { id: "e_status_pick_dropped", source: "status_branch", target: "pick", kind: "route", label: "dropped", sourcePin: "dropped" },
-    { id: "e_status_pick_question", source: "status_branch", target: "pick", kind: "route", label: "needs_question", sourcePin: "needs_question" },
-    { id: "e_status_think", source: "status_branch", target: "prepare_think", kind: "route", label: "needs_decision", sourcePin: "needs_decision" },
-    { id: "e_status_expand", source: "status_branch", target: "expand", kind: "route", label: "needs_subplan", sourcePin: "needs_subplan" },
-    { id: "e_status_retry", source: "status_branch", target: "classify", kind: "route", label: "retry", sourcePin: "retry" },
-    { id: "e_expand_apply", source: "expand", target: "apply_expand", kind: "next" },
-    { id: "e_apply_expand_branch", source: "apply_expand", target: "expand_branch", kind: "next" },
-    { id: "e_expand_ok_pick", source: "expand_branch", target: "pick", kind: "route", label: "ok", sourcePin: "ok" },
-    { id: "e_expand_retry", source: "expand_branch", target: "expand", kind: "route", label: "retry", sourcePin: "retry" },
-    { id: "e_prepare_think", source: "prepare_think", target: "think", kind: "next" },
-    { id: "e_think_apply", source: "think", target: "apply_decide", kind: "next" },
-    { id: "e_apply_decide_pick", source: "apply_decide", target: "pick", kind: "next" },
-    { id: "e_halt_persistq", source: "halt", target: "persist_branch", kind: "next" },
+    { id: "e_start_seed", source: "start", target: "seed", kind: "next", sourcePin: "then", targetPin: "in" },
+    { id: "e_seed_pick", source: "seed", target: "pick", kind: "next", sourcePin: "then", targetPin: "in" },
+    { id: "e_pick_haltq", source: "pick", target: "should_halt", kind: "next", sourcePin: "then", targetPin: "in" },
+    {
+      id: "e_haltq_classify",
+      source: "should_halt",
+      target: "classify",
+      kind: "route",
+      label: "classify",
+      sourcePin: "classify",
+      targetPin: "in"
+    },
+    {
+      id: "e_haltq_halt",
+      source: "should_halt",
+      target: "halt",
+      kind: "route",
+      label: "halt",
+      sourcePin: "halt",
+      targetPin: "in"
+    },
+    { id: "e_classify_apply", source: "classify", target: "apply_classify", kind: "next", sourcePin: "then", targetPin: "in" },
+    { id: "e_apply_status", source: "apply_classify", target: "status_branch", kind: "next", sourcePin: "then", targetPin: "in" },
+    {
+      id: "e_status_pick_atomic",
+      source: "status_branch",
+      target: "pick",
+      kind: "route",
+      label: "atomic",
+      sourcePin: "atomic",
+      targetPin: "in"
+    },
+    {
+      id: "e_status_pick_dropped",
+      source: "status_branch",
+      target: "pick",
+      kind: "route",
+      label: "dropped",
+      sourcePin: "dropped",
+      targetPin: "in"
+    },
+    {
+      id: "e_status_pick_question",
+      source: "status_branch",
+      target: "pick",
+      kind: "route",
+      label: "needs_question",
+      sourcePin: "needs_question",
+      targetPin: "in"
+    },
+    {
+      id: "e_status_think",
+      source: "status_branch",
+      target: "prepare_think",
+      kind: "route",
+      label: "needs_decision",
+      sourcePin: "needs_decision",
+      targetPin: "in"
+    },
+    {
+      id: "e_status_expand",
+      source: "status_branch",
+      target: "expand",
+      kind: "route",
+      label: "needs_subplan",
+      sourcePin: "needs_subplan",
+      targetPin: "in"
+    },
+    {
+      id: "e_status_retry",
+      source: "status_branch",
+      target: "classify",
+      kind: "route",
+      label: "retry",
+      sourcePin: "retry",
+      targetPin: "in"
+    },
+    { id: "e_expand_apply", source: "expand", target: "apply_expand", kind: "next", sourcePin: "then", targetPin: "in" },
+    {
+      id: "e_apply_expand_branch",
+      source: "apply_expand",
+      target: "expand_branch",
+      kind: "next",
+      sourcePin: "then",
+      targetPin: "in"
+    },
+    {
+      id: "e_expand_ok_pick",
+      source: "expand_branch",
+      target: "pick",
+      kind: "route",
+      label: "ok",
+      sourcePin: "ok",
+      targetPin: "in"
+    },
+    {
+      id: "e_expand_retry",
+      source: "expand_branch",
+      target: "expand",
+      kind: "route",
+      label: "retry",
+      sourcePin: "retry",
+      targetPin: "in"
+    },
+    { id: "e_prepare_think", source: "prepare_think", target: "think", kind: "next", sourcePin: "then", targetPin: "in" },
+    { id: "e_think_apply", source: "think", target: "apply_decide", kind: "next", sourcePin: "then", targetPin: "in" },
+    { id: "e_apply_decide_pick", source: "apply_decide", target: "pick", kind: "next", sourcePin: "then", targetPin: "in" },
+    { id: "e_halt_persistq", source: "halt", target: "persist_branch", kind: "next", sourcePin: "then", targetPin: "in" },
     {
       id: "e_persistq_write",
       source: "persist_branch",
       target: "persist",
       kind: "route",
       label: "persist",
-      sourcePin: "persist"
+      sourcePin: "persist",
+      targetPin: "in"
     },
     {
       id: "e_persistq_skip",
@@ -419,9 +509,10 @@ export const goalPlanningGraph: WorkflowGraph = {
       target: "end",
       kind: "route",
       label: "skip",
-      sourcePin: "skip"
+      sourcePin: "skip",
+      targetPin: "in"
     },
-    { id: "e_persist_end", source: "persist", target: "end", kind: "next" }
+    { id: "e_persist_end", source: "persist", target: "end", kind: "next", sourcePin: "then", targetPin: "in" }
   ]
 };
 

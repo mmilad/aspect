@@ -44,6 +44,10 @@ export type WorkflowInspectorField =
       /** LLM node: pick a centralized JSON Schema by key (searchable select). */
       kind: "llmSchemaKey";
       label: string;
+    }
+  | {
+      /** Query node: op, slots, and catalog const fields. Rematerializes data pins. */
+      kind: "queryConfig";
     };
 
 export function getDataPath(data: WorkflowNodeData, path: string): unknown {

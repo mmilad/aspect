@@ -1,4 +1,6 @@
-import type { EntityType } from "../../domain/types";
+import type { Entity, EntityRelation, EntityType } from "../../domain/types";
+import type { EntityListQuery, EntitySelectMode } from "../../domain/query/types";
+import type { RankedTaskCandidate } from "../../domain/task-candidacy";
 import type { WorkflowGraph } from "../graph/types";
 
 export interface WorkflowMatch {
@@ -47,6 +49,33 @@ export interface WorkflowAdapters {
     limit: number;
     mode?: "query" | "all";
   }) => Promise<WorkflowMatch[]> | WorkflowMatch[];
+  getEntity?: (id: string) => Promise<Entity | null> | Entity | null;
+  listEntities?: (
+    query: EntityListQuery,
+    options?: { type?: EntityType }
+  ) => Promise<Entity[]> | Entity[];
+  searchEntities?: (input: {
+    q: string;
+    types?: EntityType[];
+    relatedTo?: string;
+    limit?: number;
+    includeArchived?: boolean;
+    select?: EntitySelectMode;
+  }) => Promise<WorkflowMatch[]> | WorkflowMatch[];
+  nextWork?: (input: {
+    relatedTo?: string;
+    limit?: number;
+    includeArchived?: boolean;
+    select?: EntitySelectMode;
+  }) => Promise<RankedTaskCandidate[]> | RankedTaskCandidate[];
+  neighborhood?: (input: {
+    id: string;
+    depth: number;
+    select?: EntitySelectMode;
+    includeArchived?: boolean;
+  }) =>
+    | Promise<{ entities: unknown[]; relations: unknown[] }>
+    | { entities: unknown[]; relations: unknown[] };
   runTool?: (call: WorkflowToolCall) => Promise<WorkflowToolResult> | WorkflowToolResult;
   runWrite?: (call: WorkflowWriteCall) => Promise<WorkflowToolResult> | WorkflowToolResult;
   resolveInstruction?: (instructionRef: string) => Promise<string | null> | string | null;

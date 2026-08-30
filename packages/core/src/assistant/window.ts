@@ -18,13 +18,11 @@ export function requireAssistantSession(value: unknown): AssistantSession | null
 export function priorFromSession(session: AssistantSession): AssistantSessionPrior {
   const prior: AssistantSessionPrior = {
     priorTopics: session.topics,
+    priorQuestions: session.questions,
     priorContext: session.context
   };
   if (session.summary) {
     prior.priorSummary = session.summary;
-  }
-  if (session.currentTopic) {
-    prior.priorCurrentTopic = session.currentTopic;
   }
   return prior;
 }

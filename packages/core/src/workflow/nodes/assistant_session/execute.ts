@@ -10,13 +10,11 @@ export async function executeAssistantSession(ctx: NodeExecuteContext): Promise<
   const prior = priorFromSession(session);
   const writes: Record<string, unknown> = {
     priorTopics: prior.priorTopics,
+    priorQuestions: prior.priorQuestions,
     priorContext: prior.priorContext
   };
   if (prior.priorSummary) {
     writes.priorSummary = prior.priorSummary;
-  }
-  if (prior.priorCurrentTopic) {
-    writes.priorCurrentTopic = prior.priorCurrentTopic;
   }
 
   const applied = ctx.applyWrites(writes);

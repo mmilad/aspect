@@ -9,9 +9,14 @@ export type AssistantMessage = {
   createdAt: string;
 };
 
+export type AssistantTopicStatus = "active" | "parked";
+
 export type AssistantTopic = {
   id: string;
   title: string;
+  status: AssistantTopicStatus;
+  /** 0–1 relevance. */
+  weight: number;
   why?: string;
   entityId?: string;
 };
@@ -20,14 +25,32 @@ export type AssistantTopic = {
 export type AssistantTopicDraft = {
   id?: string;
   title: string;
+  status?: AssistantTopicStatus;
+  weight?: number;
   why?: string;
   entityId?: string;
 };
 
+export type AssistantQuestionStatus = "open" | "answered";
+
+export type AssistantQuestion = {
+  id: string;
+  text: string;
+  status: AssistantQuestionStatus;
+  answer?: string;
+  topicId?: string;
+};
+
+export type AssistantQuestionDraft = {
+  id?: string;
+  text: string;
+  status?: AssistantQuestionStatus;
+  answer?: string;
+  topicId?: string;
+};
+
 export type AssistantSummary = {
   text: string;
-  settled?: string[];
-  open?: string[];
 };
 
 export type AssistantContext = {
@@ -40,15 +63,15 @@ export type AssistantContext = {
 export type AssistantSession = {
   messages: AssistantMessage[];
   summary?: AssistantSummary;
-  currentTopic?: AssistantTopic;
   topics: AssistantTopic[];
+  questions: AssistantQuestion[];
   context: AssistantContext;
 };
 
 export type AssistantPatch = {
   summary?: AssistantSummary;
-  currentTopic?: AssistantTopicDraft | null;
   topics?: AssistantTopicDraft[];
+  questions?: AssistantQuestionDraft[];
   context?: Partial<Omit<AssistantContext, "projectKey">> & { projectKey?: string };
 };
 
@@ -68,8 +91,8 @@ export type AssistantTurnStart = {
 /** Step 1 — current document, before this turn’s rewrite. */
 export type AssistantSessionPrior = {
   priorSummary?: AssistantSummary;
-  priorCurrentTopic?: AssistantTopic;
   priorTopics: AssistantTopic[];
+  priorQuestions: AssistantQuestion[];
   priorContext: AssistantContext;
 };
 
@@ -78,14 +101,12 @@ export type AssistantTurnWindow = {
   recentTurns: AssistantMessage[];
 };
 
-/** Turn A — assistant_context_v1 */
+/** Turn A — assistant_context_v2 */
 export type AssistantContextPack = {
   summary: AssistantSummary;
-  currentTopic: AssistantTopic | null;
   topics: AssistantTopic[];
+  questions: AssistantQuestion[];
   context: AssistantContext;
-  topicChanged: boolean;
-  focus?: string;
 };
 
 export type AssistantReply = string;

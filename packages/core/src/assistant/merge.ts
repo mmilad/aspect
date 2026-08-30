@@ -1,27 +1,62 @@
 import { appendMessage } from "./messages";
+import {
+  clampWeight,
+  normalizeSession,
+  questionKey,
+  retainOmittedQuestions,
+  retainOmittedTopics,
+  topicKey,
+  withQuestionId,
+  withTopicId
+} from "./normalize";
 import { parsePatch } from "./parse";
 import type {
   AssistantContextPack,
   AssistantPatch,
+  AssistantQuestion,
+  AssistantQuestionDraft,
   AssistantSession,
   AssistantTopic,
   AssistantTopicDraft
 } from "./types";
 
-function newTopicId(): string {
-  const uuid = globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
-  return `topic_${uuid}`;
-}
-
-function topicKey(topic: AssistantTopicDraft): string {
-  return topic.id || topic.title.trim().toLowerCase();
-}
-
-function withId(topic: AssistantTopicDraft): AssistantTopic {
-  if (topic.id) {
-    return { ...topic, id: topic.id };
+function overlayTopic(existing: AssistantTopic, raw: AssistantTopicDraft): AssistantTopic {
+  const next: AssistantTopic = { ...existing, title: raw.title.trim() || existing.title };
+  if (raw.status) {
+    next.status = raw.status;
   }
-  return { ...topic, id: newTopicId() };
+  if (raw.weight !== undefined) {
+    next.weight = clampWeight(raw.weight, existing.weight);
+  }
+  if (raw.why !== undefined) {
+    next.why = raw.why;
+  }
+  if (raw.entityId !== undefined) {
+    if (raw.entityId) {
+      next.entityId = raw.entityId;
+    } else {
+      delete next.entityId;
+    }
+  }
+  return next;
+}
+
+function overlayQuestion(existing: AssistantQuestion, raw: AssistantQuestionDraft): AssistantQuestion {
+  const next: AssistantQuestion = { ...existing, text: raw.text.trim() || existing.text };
+  if (raw.status) {
+    next.status = raw.status;
+  }
+  if (raw.answer !== undefined) {
+    next.answer = raw.answer;
+  }
+  if (raw.topicId !== undefined) {
+    if (raw.topicId) {
+      next.topicId = raw.topicId;
+    } else {
+      delete next.topicId;
+    }
+  }
+  return next;
 }
 
 function mergeTopics(current: AssistantTopic[], incoming: AssistantTopicDraft[]): AssistantTopic[] {
@@ -30,10 +65,35 @@ function mergeTopics(current: AssistantTopic[], incoming: AssistantTopicDraft[])
     byKey.set(topicKey(topic), topic);
   }
   for (const raw of incoming) {
-    const topic = withId(raw);
-    const key = topicKey(topic);
+    const key = topicKey(raw);
     const existing = byKey.get(key);
-    byKey.set(key, existing ? { ...existing, ...topic, id: existing.id } : topic);
+    if (existing) {
+      byKey.set(key, overlayTopic(existing, raw));
+    } else {
+      const topic = withTopicId(raw);
+      byKey.set(topicKey(topic), topic);
+    }
+  }
+  return [...byKey.values()];
+}
+
+function mergeQuestions(
+  current: AssistantQuestion[],
+  incoming: AssistantQuestionDraft[]
+): AssistantQuestion[] {
+  const byKey = new Map<string, AssistantQuestion>();
+  for (const question of current) {
+    byKey.set(questionKey(question), question);
+  }
+  for (const raw of incoming) {
+    const key = questionKey(raw);
+    const existing = byKey.get(key);
+    if (existing) {
+      byKey.set(key, overlayQuestion(existing, raw));
+    } else {
+      const question = withQuestionId(raw);
+      byKey.set(questionKey(question), question);
+    }
   }
   return [...byKey.values()];
 }
@@ -42,6 +102,7 @@ export function mergeSession(session: AssistantSession, patch: AssistantPatch): 
   const next: AssistantSession = {
     ...session,
     topics: [...session.topics],
+    questions: [...session.questions],
     context: { ...session.context }
   };
 
@@ -49,15 +110,12 @@ export function mergeSession(session: AssistantSession, patch: AssistantPatch): 
     next.summary = patch.summary;
   }
 
-  if (patch.currentTopic === null) {
-    delete next.currentTopic;
-  } else if (patch.currentTopic) {
-    next.currentTopic = withId(patch.currentTopic);
-    next.topics = mergeTopics(next.topics, [next.currentTopic]);
+  if (patch.topics && patch.topics.length > 0) {
+    next.topics = mergeTopics(next.topics, patch.topics);
   }
 
-  if (patch.topics && patch.topics.length > 0) {
-    next.topics = mergeTopics(next.topics, patch.topics.map(withId));
+  if (patch.questions && patch.questions.length > 0) {
+    next.questions = mergeQuestions(next.questions, patch.questions);
   }
 
   if (patch.context) {
@@ -91,39 +149,26 @@ export function mergeSession(session: AssistantSession, patch: AssistantPatch): 
   return normalizeSession(next);
 }
 
-export function normalizeSession(session: AssistantSession): AssistantSession {
-  const topics = session.topics.map(withId);
-  const currentTopic = session.currentTopic ? withId(session.currentTopic) : undefined;
-  const next: AssistantSession = { ...session, topics, context: { ...session.context } };
-  if (currentTopic) {
-    next.currentTopic = currentTopic;
-  } else {
-    delete next.currentTopic;
-  }
-  return next;
-}
+export { normalizeSession } from "./normalize";
 
 export function mergeSessionUnknown(session: AssistantSession, raw: unknown): AssistantSession {
   return mergeSession(session, parsePatch(raw));
 }
 
-/** Replace standing fields with the Turn A pack. Does not touch messages. */
+/** Replace standing fields with the Turn A pack. Does not touch messages. Never deletes topics/questions. */
 export function applyContextPack(session: AssistantSession, pack: AssistantContextPack): AssistantSession {
-  const next: AssistantSession = {
+  const topics = retainOmittedTopics(session.topics, pack.topics.map(withTopicId));
+  const questions = retainOmittedQuestions(session.questions, pack.questions.map(withQuestionId));
+  return normalizeSession({
     ...session,
     summary: pack.summary,
-    topics: pack.topics.map(withId),
+    topics,
+    questions,
     context: {
       ...pack.context,
       projectKey: pack.context.projectKey || session.context.projectKey
     }
-  };
-  if (pack.currentTopic) {
-    next.currentTopic = withId(pack.currentTopic);
-  } else {
-    delete next.currentTopic;
-  }
-  return normalizeSession(next);
+  });
 }
 
 /** Append this turn’s messages and apply the pack as the next standing picture. */

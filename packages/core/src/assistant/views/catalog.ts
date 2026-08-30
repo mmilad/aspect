@@ -3,11 +3,31 @@ import type { AssistantBlock, AssistantProperty } from "./blocks";
 export const ASSISTANT_TOPIC_BLOCKS: AssistantBlock[] = [
   { kind: "prose", path: "title" },
   { kind: "prose", path: "why" },
+  {
+    kind: "fields",
+    fields: [
+      { label: "Status", path: "status" },
+      { label: "Weight", path: "weight" }
+    ]
+  },
   { kind: "ref", path: "entityId", label: "Graph" }
 ];
 
+export const ASSISTANT_QUESTION_BLOCKS: AssistantBlock[] = [
+  { kind: "prose", path: "text" },
+  {
+    kind: "fields",
+    fields: [
+      { label: "Status", path: "status" },
+      { label: "Answer", path: "answer" },
+      { label: "Topic", path: "topicId" }
+    ]
+  }
+];
+
 export const ASSISTANT_ITEM_VIEWS: Record<string, AssistantBlock[]> = {
-  topic: ASSISTANT_TOPIC_BLOCKS
+  topic: ASSISTANT_TOPIC_BLOCKS,
+  question: ASSISTANT_QUESTION_BLOCKS
 };
 
 export const ASSISTANT_CATALOG: AssistantProperty[] = [
@@ -22,24 +42,7 @@ export const ASSISTANT_CATALOG: AssistantProperty[] = [
     showWhen: "summary.text",
     view: {
       kind: "detail",
-      blocks: [
-        { kind: "prose", path: "summary.text" },
-        { kind: "chips", path: "summary.settled", label: "Settled" },
-        { kind: "chips", path: "summary.open", label: "Open" }
-      ]
-    }
-  },
-  {
-    key: "currentTopic",
-    nav: "Current topic",
-    showWhen: "currentTopic",
-    view: {
-      kind: "detail",
-      blocks: [
-        { kind: "prose", path: "currentTopic.title" },
-        { kind: "prose", path: "currentTopic.why" },
-        { kind: "ref", path: "currentTopic.entityId", label: "Graph" }
-      ]
+      blocks: [{ kind: "prose", path: "summary.text" }]
     }
   },
   {
@@ -52,6 +55,18 @@ export const ASSISTANT_CATALOG: AssistantProperty[] = [
       title: "title",
       sub: "why",
       itemView: "topic"
+    }
+  },
+  {
+    key: "questions",
+    nav: "Questions",
+    showWhen: "questions",
+    view: {
+      kind: "list",
+      path: "questions",
+      title: "text",
+      sub: "answer",
+      itemView: "question"
     }
   },
   {

@@ -17,6 +17,17 @@ function asRecord(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
+function asDisplayString(value: unknown): string | undefined {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed ? trimmed : undefined;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+  return undefined;
+}
+
 function BlockView({
   block,
   root,
@@ -27,8 +38,8 @@ function BlockView({
   renderRef: (id: string, label?: string) => ReactNode;
 }) {
   if (block.kind === "prose") {
-    const value = path.get(root, block.path);
-    if (typeof value !== "string" || !value.trim()) {
+    const value = asDisplayString(path.get(root, block.path));
+    if (!value) {
       return null;
     }
     return (
@@ -63,8 +74,8 @@ function BlockView({
   if (block.kind === "fields") {
     const rows = block.fields
       .map((field) => {
-        const value = path.get(root, field.path);
-        if (typeof value !== "string" || !value.trim()) {
+        const value = asDisplayString(path.get(root, field.path));
+        if (!value) {
           return null;
         }
         return { label: field.label, value };
@@ -130,7 +141,9 @@ export function SchemaView({
           const row = asRecord(entry);
           const id = typeof row?.id === "string" ? row.id : String(index);
           const title = String(path.get(entry, view.title) ?? id);
-          const sub = view.sub ? path.get(entry, view.sub) : undefined;
+          const sub =
+            asDisplayString(view.sub ? path.get(entry, view.sub) : undefined) ??
+            (view.sub === "answer" && path.get(entry, "status") === "open" ? "open" : undefined);
           return (
             <Button
               key={id}
@@ -142,7 +155,7 @@ export function SchemaView({
               <Item className="w-full">
                 <ItemContent>
                   <ItemTitle>{title}</ItemTitle>
-                  {typeof sub === "string" && sub.trim() ? <ItemDescription>{sub}</ItemDescription> : null}
+                  {sub ? <ItemDescription>{sub}</ItemDescription> : null}
                 </ItemContent>
               </Item>
             </Button>

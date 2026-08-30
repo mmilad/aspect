@@ -10,7 +10,7 @@ Shared 3-pane chrome via `ProjectShell` / `ProjectViewShell`:
 |------|------|
 | Left | Project Tabs (Workspace, Graph, Issues, Kanban), **Assistant** (New chat + session list), **Tools** (Workflows, Schemas), Graph filters when Graph is active |
 | Center | Inspect: workspace (graph, kanban, …). Assistant: chat (or a selected session view). |
-| Right | Inspect: **Create** + entity/step/Describe. Assistant: inferred session buttons (Summary, Topics, Context, later Plans). The page does not scroll — header stays pinned; left and right panes scroll independently. |
+| Right | Inspect: **Create** + entity/step/Describe. Assistant: inferred session buttons (Summary, Topics, Questions, Context). The page does not scroll — header stays pinned; left and right panes scroll independently. |
 
 **Inspect** is entity / workflow step / Describe (`components/inspector/`). **Assistant** is a conversation document (`components/assistant/`) — **not a graph entity**. Left sidebar **Assistant** has **New chat** and the session list. Open a session (or Chat in the right rail) and the conversation occupies the **main pane**. Other session views light up as right-sidebar buttons. Right chrome keeps **Inspect** (returns to graph/workspace + inspector) and collapse — there is no Assistant toggle in the chrome.
 

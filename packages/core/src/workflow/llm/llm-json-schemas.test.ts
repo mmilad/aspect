@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   ASSISTANT_CONTEXT_V1_KEY,
   ASSISTANT_CONTEXT_V1_SCHEMA,
+  ASSISTANT_CONTEXT_V2_KEY,
+  ASSISTANT_CONTEXT_V2_SCHEMA,
   LLM_JSON_SCHEMA_PRESETS,
   THOUGHT_ALTERNATIVES_V1_KEY,
   THOUGHT_ALTERNATIVES_V1_SCHEMA,
@@ -69,6 +71,7 @@ describe("workflow_ir_v1 JSON Schema preset", () => {
       THOUGHT_REFLECTION_V1_KEY,
       THOUGHT_FINALIZE_V1_KEY,
       ASSISTANT_CONTEXT_V1_KEY,
+      ASSISTANT_CONTEXT_V2_KEY,
       PLAN_V1_KEY,
       PLAN_CLASSIFY_V1_KEY,
       PLAN_EXPAND_V1_KEY
@@ -101,6 +104,9 @@ describe("workflow_ir_v1 JSON Schema preset", () => {
     expect(getLlmJsonSchemaPreset(PLAN_EXPAND_V1_KEY)?.schema).toEqual(PLAN_EXPAND_V1_SCHEMA);
     expect(getLlmJsonSchemaPreset(ASSISTANT_CONTEXT_V1_KEY)?.schema).toEqual(
       ASSISTANT_CONTEXT_V1_SCHEMA
+    );
+    expect(getLlmJsonSchemaPreset(ASSISTANT_CONTEXT_V2_KEY)?.schema).toEqual(
+      ASSISTANT_CONTEXT_V2_SCHEMA
     );
 
     const analysis = THOUGHT_ANALYSIS_V1_SCHEMA.properties as {

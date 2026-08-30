@@ -1,8 +1,19 @@
+import {
+  clampWeight,
+  normalizeQuestions,
+  normalizeSession,
+  normalizeTopics,
+  questionKey,
+  topicKey,
+  topicStatus
+} from "./normalize";
 import type {
   AssistantContext,
   AssistantContextPack,
   AssistantMessage,
   AssistantPatch,
+  AssistantQuestion,
+  AssistantQuestionDraft,
   AssistantSession,
   AssistantSummary,
   AssistantTopic,
@@ -21,14 +32,18 @@ function asStringArray(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) {
     return undefined;
   }
-  const items = value.filter((item): item is string => typeof item === "string");
-  return items;
+  return value.filter((item): item is string => typeof item === "string");
+}
+
+function isLegacyTopicRecord(value: Record<string, unknown>): boolean {
+  return !("status" in value) && !("weight" in value);
 }
 
 export function emptySession(projectKey: string): AssistantSession {
   return {
     messages: [],
     topics: [],
+    questions: [],
     context: { projectKey }
   };
 }
@@ -47,7 +62,10 @@ export function parseMessage(value: unknown): AssistantMessage | null {
   return { id, role, content, createdAt };
 }
 
-export function parseTopic(value: unknown): AssistantTopic | null {
+export function parseTopic(
+  value: unknown,
+  options?: { defaultWeight?: number }
+): AssistantTopic | null {
   if (!isRecord(value)) {
     return null;
   }
@@ -56,7 +74,13 @@ export function parseTopic(value: unknown): AssistantTopic | null {
     return null;
   }
   const id = asString(value.id);
-  const topic: AssistantTopic = { id: id?.trim() || "", title: title.trim() };
+  const defaultWeight = options?.defaultWeight ?? 1;
+  const topic: AssistantTopic = {
+    id: id?.trim() || "",
+    title: title.trim(),
+    status: topicStatus(value.status),
+    weight: clampWeight(value.weight, defaultWeight)
+  };
   const why = asString(value.why);
   if (why !== undefined) {
     topic.why = why;
@@ -68,6 +92,31 @@ export function parseTopic(value: unknown): AssistantTopic | null {
   return topic;
 }
 
+export function parseQuestion(value: unknown): AssistantQuestion | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const text = asString(value.text);
+  if (!text?.trim()) {
+    return null;
+  }
+  const id = asString(value.id);
+  const question: AssistantQuestion = {
+    id: id?.trim() || "",
+    text: text.trim(),
+    status: value.status === "answered" ? "answered" : "open"
+  };
+  const answer = asString(value.answer);
+  if (answer !== undefined) {
+    question.answer = answer;
+  }
+  const topicId = asString(value.topicId);
+  if (topicId) {
+    question.topicId = topicId;
+  }
+  return question;
+}
+
 export function parseSummary(value: unknown): AssistantSummary | null {
   if (!isRecord(value)) {
     return null;
@@ -76,16 +125,7 @@ export function parseSummary(value: unknown): AssistantSummary | null {
   if (!text?.trim()) {
     return null;
   }
-  const summary: AssistantSummary = { text: text.trim() };
-  const settled = asStringArray(value.settled);
-  if (settled && settled.length > 0) {
-    summary.settled = settled;
-  }
-  const open = asStringArray(value.open);
-  if (open && open.length > 0) {
-    summary.open = open;
-  }
-  return summary;
+  return { text: text.trim() };
 }
 
 export function parseContext(value: unknown, fallbackProjectKey: string): AssistantContext {
@@ -109,6 +149,49 @@ export function parseContext(value: unknown, fallbackProjectKey: string): Assist
   return context;
 }
 
+function foldCurrentTopic(topics: AssistantTopic[], current: AssistantTopic): AssistantTopic[] {
+  const folded: AssistantTopic = { ...current, status: "active", weight: 1 };
+  const key = topicKey(folded);
+  const index = topics.findIndex((topic) => topicKey(topic) === key);
+  if (index >= 0) {
+    const existing = topics[index]!;
+    const next = [...topics];
+    next[index] = { ...existing, ...folded, id: existing.id || folded.id };
+    return next;
+  }
+  return [...topics, folded];
+}
+
+function migrateSummaryChips(
+  rawSummary: unknown,
+  questions: AssistantQuestionDraft[]
+): AssistantQuestionDraft[] {
+  if (!isRecord(rawSummary)) {
+    return questions;
+  }
+  const seen = new Set(questions.map((question) => questionKey(question)));
+  const next = [...questions];
+  for (const text of asStringArray(rawSummary.open) ?? []) {
+    const trimmed = text.trim();
+    const key = trimmed.toLowerCase();
+    if (!trimmed || seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    next.push({ text: trimmed, status: "open" });
+  }
+  for (const text of asStringArray(rawSummary.settled) ?? []) {
+    const trimmed = text.trim();
+    const key = trimmed.toLowerCase();
+    if (!trimmed || seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    next.push({ text: trimmed, status: "answered" });
+  }
+  return next;
+}
+
 export function parseSession(value: unknown, fallbackProjectKey = ""): AssistantSession {
   if (!isRecord(value)) {
     return emptySession(fallbackProjectKey);
@@ -117,19 +200,33 @@ export function parseSession(value: unknown, fallbackProjectKey = ""): Assistant
   const messages = Array.isArray(value.messages)
     ? value.messages.map(parseMessage).filter((item): item is AssistantMessage => item !== null)
     : [];
-  const topics = Array.isArray(value.topics)
-    ? value.topics.map(parseTopic).filter((item): item is AssistantTopic => item !== null)
+  let topics = Array.isArray(value.topics)
+    ? value.topics
+        .map((raw) => {
+          const defaultWeight = isRecord(raw) && isLegacyTopicRecord(raw) ? 0.5 : 1;
+          return parseTopic(raw, { defaultWeight });
+        })
+        .filter((item): item is AssistantTopic => item !== null)
     : [];
-  const session: AssistantSession = { messages, topics, context };
+  const currentTopic = parseTopic(value.currentTopic, { defaultWeight: 1 });
+  if (currentTopic) {
+    topics = foldCurrentTopic(topics, currentTopic);
+  }
+  let questions: AssistantQuestionDraft[] = Array.isArray(value.questions)
+    ? value.questions.map(parseQuestion).filter((item): item is AssistantQuestion => item !== null)
+    : [];
+  questions = migrateSummaryChips(value.summary, questions);
+  const session: AssistantSession = {
+    messages,
+    topics,
+    questions: questions as AssistantQuestion[],
+    context
+  };
   const summary = parseSummary(value.summary);
   if (summary) {
     session.summary = summary;
   }
-  const currentTopic = parseTopic(value.currentTopic);
-  if (currentTopic) {
-    session.currentTopic = currentTopic;
-  }
-  return session;
+  return normalizeSession(session);
 }
 
 export function parsePatch(value: unknown): AssistantPatch {
@@ -143,16 +240,15 @@ export function parsePatch(value: unknown): AssistantPatch {
       patch.summary = summary;
     }
   }
-  if (value.currentTopic === null) {
-    patch.currentTopic = null;
-  } else if (value.currentTopic !== undefined) {
-    const topic = parseTopic(value.currentTopic);
-    if (topic) {
-      patch.currentTopic = topic;
-    }
-  }
   if (Array.isArray(value.topics)) {
-    patch.topics = value.topics.map(parseTopic).filter((item): item is AssistantTopic => item !== null);
+    patch.topics = value.topics
+      .map((raw) => parseTopic(raw))
+      .filter((item): item is AssistantTopic => item !== null);
+  }
+  if (Array.isArray(value.questions)) {
+    patch.questions = value.questions
+      .map(parseQuestion)
+      .filter((item): item is AssistantQuestion => item !== null);
   }
   if (isRecord(value.context)) {
     const context: AssistantPatch["context"] = {};
@@ -185,33 +281,24 @@ export function parseContextPack(value: unknown, fallbackProjectKey = ""): Assis
   if (!summary) {
     return null;
   }
-  if (typeof value.topicChanged !== "boolean") {
-    return null;
-  }
   if (!Array.isArray(value.topics)) {
     return null;
   }
-  const topics = value.topics.map(parseTopic).filter((item): item is AssistantTopic => item !== null);
-  const context = parseContext(value.context, fallbackProjectKey);
-  let currentTopic: AssistantTopic | null = null;
-  if (value.currentTopic !== null && value.currentTopic !== undefined) {
-    currentTopic = parseTopic(value.currentTopic);
-    if (!currentTopic) {
-      return null;
-    }
+  let topics = value.topics.map((raw) => parseTopic(raw)).filter((item): item is AssistantTopic => item !== null);
+  const currentTopic = parseTopic(value.currentTopic, { defaultWeight: 1 });
+  if (currentTopic) {
+    topics = foldCurrentTopic(topics, currentTopic);
   }
-  const pack: AssistantContextPack = {
+  let questions: AssistantQuestionDraft[] = Array.isArray(value.questions)
+    ? value.questions.map(parseQuestion).filter((item): item is AssistantQuestion => item !== null)
+    : [];
+  questions = migrateSummaryChips(value.summary, questions);
+  return {
     summary,
-    currentTopic,
-    topics,
-    context,
-    topicChanged: value.topicChanged
+    topics: normalizeTopics(topics),
+    questions: normalizeQuestions(questions),
+    context: parseContext(value.context, fallbackProjectKey)
   };
-  const focus = asString(value.focus);
-  if (focus !== undefined) {
-    pack.focus = focus;
-  }
-  return pack;
 }
 
 export function parseTurnOutput(value: unknown): AssistantTurnOutput | null {
@@ -234,7 +321,7 @@ export function titleFromSession(session: AssistantSession): string {
   if (fromSummary) {
     return fromSummary.slice(0, 80);
   }
-  const fromTopic = session.currentTopic?.title?.trim();
+  const fromTopic = session.topics.find((topic) => topic.status === "active")?.title.trim();
   if (fromTopic) {
     return fromTopic;
   }

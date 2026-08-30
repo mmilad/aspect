@@ -1,4 +1,4 @@
-import { ASSISTANT_CONTEXT_V1_KEY } from "../../llm/llm-json-schemas";
+import { ASSISTANT_CONTEXT_V2_KEY } from "../../llm/llm-json-schemas";
 import { WORKFLOW_SCHEMA_VERSION, type WorkflowNode } from "../../nodes";
 import type { WorkflowEdge, WorkflowGraph } from "../../graph";
 
@@ -23,17 +23,16 @@ function knot(id: string, x: number, y: number): WorkflowNode {
 
 const TURN_A_SYSTEM = [
   "You assemble the standing picture for this Projectplaner Assistant turn.",
-  "Rewrite summary; do not append forever.",
-  "Set topicChanged by comparing to priorCurrentTopic (title/id).",
-  "On topic change, set currentTopic and include it in topics.",
+  "Rewrite the full topic and question lists; do not append forever.",
+  "Park topics instead of omitting them. Mark questions answered instead of omitting them.",
   "Never invent graph entity ids; only keep ids already in priorContext or named by the user.",
-  "Return JSON matching assistant_context_v1."
+  "Return JSON matching assistant_context_v2."
 ].join(" ");
 
 const TURN_A_INSTRUCTIONS = [
   "Prior summary: {{priorSummary}}",
-  "Prior current topic: {{priorCurrentTopic}}",
   "Prior topics: {{priorTopics}}",
+  "Prior questions: {{priorQuestions}}",
   "Prior context: {{priorContext}}",
   "Recent turns: {{recentTurns}}",
   "User message: {{message}}"
@@ -88,8 +87,8 @@ export const assistantTurnGraph: WorkflowGraph = {
         },
         outputContracts: {
           priorSummary: { required: false, shape: JSON_SHAPE },
-          priorCurrentTopic: { required: false, shape: JSON_SHAPE },
           priorTopics: { required: true, shape: JSON_ARRAY },
+          priorQuestions: { required: true, shape: JSON_ARRAY },
           priorContext: { required: true, shape: JSON_SHAPE }
         }
       }
@@ -117,8 +116,8 @@ export const assistantTurnGraph: WorkflowGraph = {
         title: "Turn A context pack",
         inputs: {
           priorSummary: { required: false, shape: JSON_SHAPE },
-          priorCurrentTopic: { required: false, shape: JSON_SHAPE },
           priorTopics: { required: true, shape: JSON_ARRAY },
+          priorQuestions: { required: true, shape: JSON_ARRAY },
           priorContext: { required: true, shape: JSON_SHAPE },
           recentTurns: { required: true, shape: JSON_ARRAY },
           message: { required: true, shape: STRING }
@@ -127,7 +126,7 @@ export const assistantTurnGraph: WorkflowGraph = {
           contextPack: { required: true, shape: JSON_SHAPE }
         },
         llm: {
-          schemaKey: ASSISTANT_CONTEXT_V1_KEY,
+          schemaKey: ASSISTANT_CONTEXT_V2_KEY,
           outputSchema: ["contextPack"],
           systemPrompt: TURN_A_SYSTEM,
           instructions: TURN_A_INSTRUCTIONS
@@ -182,8 +181,8 @@ export const assistantTurnGraph: WorkflowGraph = {
     data("d_r_message_a", "r_message", "value", "llm_context", "message"),
     data("d_r_message_b", "r_message", "value", "llm_reply", "message"),
     data("d_prior_summary", "session_read", "priorSummary", "llm_context", "priorSummary"),
-    data("d_prior_topic", "session_read", "priorCurrentTopic", "llm_context", "priorCurrentTopic"),
     data("d_prior_topics", "session_read", "priorTopics", "llm_context", "priorTopics"),
+    data("d_prior_questions", "session_read", "priorQuestions", "llm_context", "priorQuestions"),
     data("d_prior_context", "session_read", "priorContext", "llm_context", "priorContext"),
     data("d_recent_turns", "window", "recentTurns", "llm_context", "recentTurns"),
     data("d_pack_r", "llm_context", "contextPack", "r_pack", "value"),

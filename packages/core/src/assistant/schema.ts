@@ -5,12 +5,27 @@ export const ASSISTANT_TURN_SCHEMA_NAME = "projectplaner.assistant.turn.v1";
 const topicSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["id", "title"],
+  required: ["title"],
   properties: {
     id: { type: "string" },
     title: { type: "string" },
+    status: { type: "string", enum: ["active", "parked"] },
+    weight: { type: "number", minimum: 0, maximum: 1 },
     why: { type: "string" },
     entityId: { type: "string" }
+  }
+} as const;
+
+const questionSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["text"],
+  properties: {
+    id: { type: "string" },
+    text: { type: "string" },
+    status: { type: "string", enum: ["open", "answered"] },
+    answer: { type: "string" },
+    topicId: { type: "string" }
   }
 } as const;
 
@@ -19,9 +34,7 @@ const summarySchema = {
   additionalProperties: false,
   required: ["text"],
   properties: {
-    text: { type: "string" },
-    settled: { type: "array", items: { type: "string" } },
-    open: { type: "array", items: { type: "string" } }
+    text: { type: "string" }
   }
 } as const;
 
@@ -37,10 +50,8 @@ export const ASSISTANT_TURN_SCHEMA: Record<string, unknown> = {
       additionalProperties: false,
       properties: {
         summary: summarySchema,
-        currentTopic: {
-          anyOf: [topicSchema, { type: "null" }]
-        },
         topics: { type: "array", items: topicSchema },
+        questions: { type: "array", items: questionSchema },
         context: {
           type: "object",
           additionalProperties: false,

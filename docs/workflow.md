@@ -14,7 +14,7 @@ Schema version **4**: pin-and-variable graphs (`graph.variables` present). Mutat
 | `create_workflow` | Plan a sequential spine (min 2, unique titles, no max), run create_step per item, assemble a chained fragment |
 | `thinking` | Bounded decide/validate loop (may drainLlm in Run) |
 | `goal_planning` | plan.v1 classify/expand/Thinking nest. **Do not drainLlm** — start pauses; poll `runId`. Optional `targetTaskId`: on halt, seal `bag.plan` onto a Reference (`metadata.kind: plan.v1`) the Task `references`. |
-| `assistant_turn` | Session standing snapshot first, then last-N message window, then Turn A (`assistant_context_v1` pack with `topicChanged`) and Turn B (plain-text reply). Decision between A and B is later. May drainLlm. `/api/assistant/turn` drains this pack and merges `contextPack` + `reply` into the assistant session document. |
+| `assistant_turn` | Session standing snapshot first, then last-N message window, then Turn A (`assistant_context_v2` pack: ordered topics with status/weight, questions open/answered) and Turn B (plain-text reply). Decision between A and B is later. May drainLlm. `/api/assistant/turn` drains this pack and merges `contextPack` + `reply` into the assistant session document. |
 
 Prefer `run_workflow` over raw `create_entity` / `update_entity` when a matching mutation preset is seeded.
 
@@ -72,7 +72,7 @@ pnpm plan presets-ensure --force
 - **assemble_fragment** is a deterministic work node: it stitches `create_step` drafts into a start→end graph (`workflowDraft`). Later steps that read an earlier write are wired to that writer, not back to start. It does not call an LLM.
 - **create_workflow** planning is multi-step: `workflow_step_list_v1` requires at least two unique work-node instructions (no start/end, sequential spine only, no maximum). The list is this layer’s spine, not an unrolled nested runtime. `push` accumulates `stepDrafts` across the foreach loop. Duplicate titles fail at assemble.
 - **LLM** nodes pause as `pending_llm`. Resume with `{ runId, llmWrites }` (Cursor, Codex, or `apps/agent`).
-- **assistant_turn** is a user preset: `assistant_session` writes `prior*` standing fields first, `assistant_window` writes `recentTurns`, Turn A emits `contextPack` (`assistant_context_v1`, including `topicChanged` vs `priorCurrentTopic`), Turn B replies as text from the pack + message. A decision node can later sit between A and B. `/api/assistant/turn` drains the run and persists `contextPack` as the next standing picture plus the reply.
+- **assistant_turn** is a user preset: `assistant_session` writes `prior*` standing fields first, `assistant_window` writes `recentTurns`, Turn A emits `contextPack` (`assistant_context_v2`: summary, ordered topics with `active`/`parked` and weight 0–1, questions `open`/`answered`, context), Turn B replies as text from the pack + message. A decision node can later sit between A and B. `/api/assistant/turn` drains the run and persists `contextPack` as the next standing picture plus the reply. After changing this preset: `pnpm plan presets-ensure --force`.
 - Instructions may use pin templates (`{{stepInstructions}}`, `{{@reads}}`, `{{@shapes}}`); the runner fills them before returning `pending_llm`.
 - LLM nodes have optional `systemPrompt` (chat system) and `instructions` (chat user / task). Blank or missing `systemPrompt` uses `DEFAULT_WORKFLOW_LLM_SYSTEM_PROMPT` at run. Both fields are template-filled and returned on `pending_llm`.
 

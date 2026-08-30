@@ -5,12 +5,19 @@
 
 import {
   ASSISTANT_CONTEXT_V1_KEY,
-  ASSISTANT_CONTEXT_V1_SCHEMA
+  ASSISTANT_CONTEXT_V1_SCHEMA,
+  ASSISTANT_CONTEXT_V2_KEY,
+  ASSISTANT_CONTEXT_V2_SCHEMA
 } from "../../assistant/context-pack";
 import { PLAN_CLASSIFY_V1_KEY, PLAN_CLASSIFY_V1_SCHEMA, PLAN_EXPAND_V1_KEY, PLAN_EXPAND_V1_SCHEMA } from "../../planning";
 import { PLAN_V1_KEY, PLAN_V1_SCHEMA } from "../../planning";
 
-export { ASSISTANT_CONTEXT_V1_KEY, ASSISTANT_CONTEXT_V1_SCHEMA };
+export {
+  ASSISTANT_CONTEXT_V1_KEY,
+  ASSISTANT_CONTEXT_V1_SCHEMA,
+  ASSISTANT_CONTEXT_V2_KEY,
+  ASSISTANT_CONTEXT_V2_SCHEMA
+};
 
 export type LlmJsonSchemaPreset = {
   key: string;
@@ -497,8 +504,15 @@ export const LLM_JSON_SCHEMA_PRESETS: LlmJsonSchemaPreset[] = [
     key: ASSISTANT_CONTEXT_V1_KEY,
     title: "Assistant context pack v1",
     description:
-      "Standing picture for one assistant turn: summary, topics, context, and topicChanged vs priorCurrentTopic.",
+      "Legacy standing picture (currentTopic + topicChanged). Kept so old paused runs still validate.",
     schema: ASSISTANT_CONTEXT_V1_SCHEMA
+  },
+  {
+    key: ASSISTANT_CONTEXT_V2_KEY,
+    title: "Assistant context pack v2",
+    description:
+      "Standing picture for one assistant turn: summary, weighted topics (active|parked), questions (open|answered), context.",
+    schema: ASSISTANT_CONTEXT_V2_SCHEMA
   },
   {
     key: PLAN_V1_KEY,

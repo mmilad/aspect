@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AssistantContextPack, AssistantSession } from "../../../assistant/types";
-import { ASSISTANT_CONTEXT_V1_KEY } from "../../llm/llm-json-schemas";
+import { ASSISTANT_CONTEXT_V2_KEY } from "../../llm/llm-json-schemas";
 import { runWorkflowUntilPause, stepWorkflow } from "../../runtime";
 import { createContextBag, parseWorkflowGraph } from "../../graph";
 import { assistantTurnGraph } from "./graph";
@@ -18,21 +18,26 @@ function msg(index: number) {
 const session: AssistantSession = {
   messages: Array.from({ length: 8 }, (_, index) => msg(index)),
   summary: { text: "Working on auth" },
-  currentTopic: { id: "t_auth", title: "Auth" },
-  topics: [{ id: "t_auth", title: "Auth" }],
+  topics: [{ id: "t_auth", title: "Auth", status: "active", weight: 1 }],
+  questions: [{ id: "q_scope", text: "What is in scope?", status: "open" }],
   context: { projectKey: "PLAN", entityId: "feature_abc" }
 };
 
 const fixturePack: AssistantContextPack = {
   summary: { text: "User switched to graph inspect" },
-  currentTopic: { id: "t_graph", title: "Graph inspect" },
   topics: [
-    { id: "t_auth", title: "Auth" },
-    { id: "t_graph", title: "Graph inspect" }
+    { id: "t_graph", title: "Graph inspect", status: "active", weight: 1 },
+    { id: "t_auth", title: "Auth", status: "parked", weight: 0.2 }
   ],
-  context: { projectKey: "PLAN", entityId: "feature_abc" },
-  topicChanged: true,
-  focus: "entity inspector"
+  questions: [
+    {
+      id: "q_scope",
+      text: "What is in scope?",
+      status: "answered",
+      answer: "inspect the graph"
+    }
+  ],
+  context: { projectKey: "PLAN", entityId: "feature_abc" }
 };
 
 describe("assistant_turn preset", () => {
@@ -42,6 +47,7 @@ describe("assistant_turn preset", () => {
     expect(assistantTurnPreset.presetKey).toBe("assistant_turn");
     expect(assistantTurnPreset.kind).toBe("user");
     expect(assistantTurnPreset.drainLlm).toBe(true);
+    expect(assistantTurnPreset.presetVersion).toBe(3);
 
     const ids = assistantTurnGraph.nodes.map((node) => `${node.id}:${node.type}`);
     expect(ids).toEqual([
@@ -57,10 +63,13 @@ describe("assistant_turn preset", () => {
     ]);
 
     const turnA = assistantTurnGraph.nodes.find((node) => node.id === "llm_context");
-    expect(turnA?.data.llm?.schemaKey).toBe(ASSISTANT_CONTEXT_V1_KEY);
-    expect(turnA?.data.llm?.instructions).toContain("{{priorCurrentTopic}}");
+    expect(turnA?.data.llm?.schemaKey).toBe(ASSISTANT_CONTEXT_V2_KEY);
+    expect(turnA?.data.llm?.instructions).toContain("{{priorTopics}}");
+    expect(turnA?.data.llm?.instructions).toContain("{{priorQuestions}}");
     expect(turnA?.data.llm?.instructions).toContain("{{recentTurns}}");
-    expect(turnA?.data.llm?.systemPrompt).toContain("topicChanged");
+    expect(turnA?.data.llm?.instructions).not.toContain("{{priorCurrentTopic}}");
+    expect(turnA?.data.llm?.systemPrompt).toContain("assistant_context_v2");
+    expect(turnA?.data.llm?.systemPrompt).toContain("Park topics");
 
     const turnB = assistantTurnGraph.nodes.find((node) => node.id === "llm_reply");
     expect(turnB?.data.llm?.format).toBe("text");
@@ -71,7 +80,7 @@ describe("assistant_turn preset", () => {
     expect(turnB?.data.llm?.instructions).not.toContain("{{priorCurrentTopic}}");
   });
 
-  it("pauses Turn A with prior currentTopic and recentTurns, then Turn B with pack + message", async () => {
+  it("pauses Turn A with prior topics and questions, then Turn B with pack + message", async () => {
     const parsed = parseWorkflowGraph(assistantTurnGraph);
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) {
@@ -92,9 +101,14 @@ describe("assistant_turn preset", () => {
     const first = await runWorkflowUntilPause({ graph: parsed.graph, bag });
     expect(first.kind).toBe("pending_llm");
     expect(first.nodeId).toBe("llm_context");
-    expect(first.llm?.schemaKey).toBe(ASSISTANT_CONTEXT_V1_KEY);
+    expect(first.llm?.schemaKey).toBe(ASSISTANT_CONTEXT_V2_KEY);
     expect(first.llm?.format).toBe("json_schema");
-    expect(first.llm?.reads.priorCurrentTopic).toEqual({ id: "t_auth", title: "Auth" });
+    expect(first.llm?.reads.priorTopics).toEqual([
+      { id: "t_auth", title: "Auth", status: "active", weight: 1 }
+    ]);
+    expect(first.llm?.reads.priorQuestions).toEqual([
+      { id: "q_scope", text: "What is in scope?", status: "open" }
+    ]);
     expect(first.llm?.reads.priorSummary).toEqual({ text: "Working on auth" });
     expect((first.llm?.reads.recentTurns as { content: string }[]).map((item) => item.content)).toEqual([
       "turn-3",
@@ -104,6 +118,7 @@ describe("assistant_turn preset", () => {
       "turn-7"
     ]);
     expect(first.llm?.instructions).toContain("Auth");
+    expect(first.llm?.instructions).toContain("What is in scope?");
     expect(first.llm?.instructions).toContain("turn-7");
     expect(first.llm?.instructions).not.toContain("turn-0");
     expect(first.llm?.instructions).toContain("Let's look at the graph instead");
@@ -127,7 +142,7 @@ describe("assistant_turn preset", () => {
     expect(second.llm?.reads.message).toBe("Let's look at the graph instead");
     expect(second.llm?.reads.recentTurns).toBeUndefined();
     expect(second.llm?.instructions).toContain("Graph inspect");
-    expect(second.llm?.instructions).toContain("\"topicChanged\":true");
+    expect(second.llm?.instructions).toContain("\"status\":\"parked\"");
     expect(second.llm?.instructions).toContain("Let's look at the graph instead");
     expect(second.llm?.instructions).not.toContain("turn-0");
     expect(second.llm?.instructions).not.toContain("turn-7");
@@ -163,6 +178,7 @@ describe("assistant_turn preset", () => {
         session: {
           messages: [msg(0)],
           topics: [],
+          questions: [],
           context: { projectKey: "PLAN" }
         },
         message: "hello"
@@ -173,6 +189,7 @@ describe("assistant_turn preset", () => {
     expect(first.kind).toBe("pending_llm");
     expect(first.llm?.reads.priorSummary).toBeUndefined();
     expect(first.llm?.reads.priorTopics).toEqual([]);
+    expect(first.llm?.reads.priorQuestions).toEqual([]);
     expect(first.llm?.instructions).toContain("Prior summary: (empty)");
   });
 });

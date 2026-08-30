@@ -17,8 +17,8 @@ export const assistantSessionNode: WorkflowNodeModel = {
     },
     outputContracts: {
       priorSummary: { required: false, shape: JSON_SHAPE },
-      priorCurrentTopic: { required: false, shape: JSON_SHAPE },
       priorTopics: { required: true, shape: JSON_ARRAY },
+      priorQuestions: { required: true, shape: JSON_ARRAY },
       priorContext: { required: true, shape: JSON_SHAPE }
     }
   }),
@@ -31,6 +31,6 @@ export const assistantSessionNode: WorkflowNodeModel = {
     then: "Continue with prior snapshot pins."
   }),
   dataInputs: () => ["session"],
-  dataOutputs: () => ["priorSummary", "priorCurrentTopic", "priorTopics", "priorContext"],
+  dataOutputs: () => ["priorSummary", "priorTopics", "priorQuestions", "priorContext"],
   canvasFields: () => [{ label: "session", value: "prior*" }]
 };

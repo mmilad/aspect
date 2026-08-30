@@ -4,6 +4,9 @@ export type {
   AssistantMessage,
   AssistantMessageRole,
   AssistantPatch,
+  AssistantQuestion,
+  AssistantQuestionDraft,
+  AssistantQuestionStatus,
   AssistantReply,
   AssistantRoute,
   AssistantSession,
@@ -13,6 +16,7 @@ export type {
   AssistantSummary,
   AssistantTopic,
   AssistantTopicDraft,
+  AssistantTopicStatus,
   AssistantTurnOutput,
   AssistantTurnStart,
   AssistantTurnWindow
@@ -25,6 +29,7 @@ export {
   parseContextPack,
   parseMessage,
   parsePatch,
+  parseQuestion,
   parseSession,
   parseSummary,
   parseTopic,
@@ -34,7 +39,12 @@ export {
 export { appendMessage, newMessage } from "./messages";
 export { mergeSession, mergeSessionUnknown, normalizeSession, applyContextPack, commitAssistantTurn } from "./merge";
 export { ASSISTANT_TURN_SCHEMA, ASSISTANT_TURN_SCHEMA_NAME } from "./schema";
-export { ASSISTANT_CONTEXT_V1_KEY, ASSISTANT_CONTEXT_V1_SCHEMA } from "./context-pack";
+export {
+  ASSISTANT_CONTEXT_V1_KEY,
+  ASSISTANT_CONTEXT_V1_SCHEMA,
+  ASSISTANT_CONTEXT_V2_KEY,
+  ASSISTANT_CONTEXT_V2_SCHEMA
+} from "./context-pack";
 export {
   DEFAULT_ASSISTANT_WINDOW_SIZE,
   priorFromSession,
@@ -45,6 +55,7 @@ export {
 export {
   ASSISTANT_CATALOG,
   ASSISTANT_ITEM_VIEWS,
+  ASSISTANT_QUESTION_BLOCKS,
   ASSISTANT_TOPIC_BLOCKS,
   propertyByKey,
   visibleNav
@@ -62,7 +73,12 @@ import {
   titleFromSession
 } from "./parse";
 import { ASSISTANT_TURN_SCHEMA, ASSISTANT_TURN_SCHEMA_NAME } from "./schema";
-import { ASSISTANT_CONTEXT_V1_KEY, ASSISTANT_CONTEXT_V1_SCHEMA } from "./context-pack";
+import {
+  ASSISTANT_CONTEXT_V1_KEY,
+  ASSISTANT_CONTEXT_V1_SCHEMA,
+  ASSISTANT_CONTEXT_V2_KEY,
+  ASSISTANT_CONTEXT_V2_SCHEMA
+} from "./context-pack";
 import {
   DEFAULT_ASSISTANT_WINDOW_SIZE,
   priorFromSession,
@@ -90,8 +106,10 @@ const assistant = {
   newMessage,
   schema: ASSISTANT_TURN_SCHEMA,
   schemaName: ASSISTANT_TURN_SCHEMA_NAME,
-  contextPackKey: ASSISTANT_CONTEXT_V1_KEY,
-  contextPackSchema: ASSISTANT_CONTEXT_V1_SCHEMA,
+  contextPackKey: ASSISTANT_CONTEXT_V2_KEY,
+  contextPackSchema: ASSISTANT_CONTEXT_V2_SCHEMA,
+  contextPackKeyV1: ASSISTANT_CONTEXT_V1_KEY,
+  contextPackSchemaV1: ASSISTANT_CONTEXT_V1_SCHEMA,
   defaultWindowSize: DEFAULT_ASSISTANT_WINDOW_SIZE,
   priorFromSession,
   requireAssistantSession,

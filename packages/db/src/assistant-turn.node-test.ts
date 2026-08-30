@@ -12,13 +12,12 @@ const { commitAssistantTurn, emptySession, parseContextPack } = assistant;
 
 const pack = {
   summary: { text: "Graph inspect" },
-  currentTopic: { id: "t_graph", title: "Graph inspect" },
   topics: [
-    { id: "t_auth", title: "Auth" },
-    { id: "t_graph", title: "Graph inspect" }
+    { id: "t_graph", title: "Graph inspect", status: "active", weight: 1 },
+    { id: "t_auth", title: "Auth", status: "parked", weight: 0.2 }
   ],
-  context: { projectKey: "PLAN" },
-  topicChanged: true
+  questions: [],
+  context: { projectKey: "PLAN" }
 };
 
 describe("assistant_turn persist", () => {
@@ -70,7 +69,8 @@ describe("assistant_turn persist", () => {
         commitAssistantTurn(record.session, "Look at the graph", parsed, "Switching focus.")
       );
       assert.equal(saved.session.summary?.text, "Graph inspect");
-      assert.equal(saved.session.currentTopic?.title, "Graph inspect");
+      assert.equal(saved.session.topics[0]?.title, "Graph inspect");
+      assert.equal(saved.session.topics[0]?.status, "active");
       assert.equal(saved.session.messages.at(-1)?.content, "Switching focus.");
     } finally {
       db.close();

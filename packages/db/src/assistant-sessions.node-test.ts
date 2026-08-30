@@ -40,14 +40,14 @@ describe("assistant_sessions", () => {
 
       const merged = merge(emptySession("PLAN"), {
         summary: { text: "Standing picture" },
-        currentTopic: { title: "Shell" },
+        topics: [{ title: "Shell", status: "active", weight: 1 }],
         context: { entityId: "node_app" }
       });
       const saved = assistantSessions.save(db, first.id, merged);
       assert.equal(saved.title, "Standing picture");
       assert.equal(saved.session.summary?.text, "Standing picture");
       assert.equal(saved.contextEntityId, "node_app");
-      assert.ok(saved.session.currentTopic?.id);
+      assert.ok(saved.session.topics[0]?.id);
 
       const listed = assistantSessions.list(db, "PLAN");
       assert.equal(listed.length, 1);

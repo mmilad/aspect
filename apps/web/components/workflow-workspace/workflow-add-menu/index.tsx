@@ -4,7 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import type { WorkflowEdgeKind, WorkflowNodeType } from "@projectplaner/core";
 import workflow from "@projectplaner/core/workflow";
 
-const { workflowControlNodeTypes, workflowVariableNodeTypes, workflowWorkNodeTypes } = workflow.nodes;
+const {
+  workflowControlNodeTypes,
+  workflowVariableNodeTypes,
+  workflowWorkNodeTypes,
+} = workflow.nodes;
 import { Button } from "../../ui";
 
 type MenuPosition = { x: number; y: number } | null;
@@ -14,7 +18,7 @@ export function WorkflowAddMenuBody({
   onConnectKindChange,
   onAddNode,
   onClose,
-  hasStart = false
+  hasStart = false,
 }: {
   connectKind: WorkflowEdgeKind;
   onConnectKindChange: (kind: WorkflowEdgeKind) => void;
@@ -33,7 +37,7 @@ export function WorkflowAddMenuBody({
     : workflowControlNodeTypes;
 
   return (
-    <div className="min-w-[180px] rounded-md border border-border bg-white p-2 shadow-pane">
+    <div className="min-w-[180px] max-h-[280px] rounded-md border border-border bg-white p-2 shadow-pane overflow-x-hidden overflow-scroll">
       <div className="mb-2">
         <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
           Connect as
@@ -41,7 +45,9 @@ export function WorkflowAddMenuBody({
         <select
           className="w-full rounded border border-border bg-white px-2 py-1 text-xs"
           value={connectKind}
-          onChange={(event) => onConnectKindChange(event.target.value as WorkflowEdgeKind)}
+          onChange={(event) =>
+            onConnectKindChange(event.target.value as WorkflowEdgeKind)
+          }
         >
           <option value="next">next</option>
           <option value="route">route</option>
@@ -51,7 +57,11 @@ export function WorkflowAddMenuBody({
       </div>
       <Section label="Control" types={controlTypes} onAdd={add} />
       <Section label="Work" types={workflowWorkNodeTypes} onAdd={add} />
-      <Section label="Variables" types={workflowVariableNodeTypes} onAdd={add} />
+      <Section
+        label="Variables"
+        types={workflowVariableNodeTypes}
+        onAdd={add}
+      />
     </div>
   );
 }
@@ -59,7 +69,7 @@ export function WorkflowAddMenuBody({
 function Section({
   label,
   types,
-  onAdd
+  onAdd,
 }: {
   label: string;
   types: readonly WorkflowNodeType[];
@@ -67,7 +77,9 @@ function Section({
 }) {
   return (
     <div className="mb-2 last:mb-0">
-      <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </div>
       <div className="flex flex-col gap-0.5">
         {types.map((type) => (
           <button
@@ -89,7 +101,7 @@ export function WorkflowToolbarAdd({
   connectKind,
   onConnectKindChange,
   onAddNode,
-  hasStart = false
+  hasStart = false,
 }: {
   connectKind: WorkflowEdgeKind;
   onConnectKindChange: (kind: WorkflowEdgeKind) => void;
@@ -114,7 +126,11 @@ export function WorkflowToolbarAdd({
 
   return (
     <div ref={rootRef} className="relative">
-      <Button size="xs" variant={open ? "default" : "outline"} onClick={() => setOpen((v) => !v)}>
+      <Button
+        size="xs"
+        variant={open ? "default" : "outline"}
+        onClick={() => setOpen((v) => !v)}
+      >
         Add
       </Button>
       {open ? (
@@ -139,7 +155,7 @@ export function WorkflowCanvasContextMenu({
   onConnectKindChange,
   onAddNode,
   onClose,
-  hasStart = false
+  hasStart = false,
 }: {
   position: MenuPosition;
   connectKind: WorkflowEdgeKind;

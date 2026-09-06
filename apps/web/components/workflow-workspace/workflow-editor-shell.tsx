@@ -10,6 +10,7 @@ import {
   WorkflowAuthorInspector,
   WorkflowStepInspector
 } from "../inspector";
+import { WorkflowVariablesPanel } from "../inspector/workflow-step-inspector/variables";
 import { WorkflowWorkspace } from "./index";
 import { WorkflowInspectorProvider, useWorkflowInspectorSession } from "./workflow-inspector-context";
 
@@ -52,36 +53,51 @@ function WorkflowRightSidebar({
 
   const showStep = Boolean(session && session.selected);
   if (showStep && session) {
+    const showWorkflowVariables = session.selected?.type === "start" || session.selected?.type === "end";
     return (
       <InspectorHost eyebrow="Step">
-        <WorkflowStepInspector
-          selected={session.selected}
-          bagView={session.bagView}
-          pinMode={session.pinMode}
-          variables={session.variables}
-          onUpdateVariables={session.onUpdateVariables}
-          projectKey={snapshot.project.key}
-          onUpdateData={session.onUpdateData}
-          onDelete={session.onDelete}
-        />
+        <div className="space-y-3">
+          {showWorkflowVariables ? (
+            <div className="border-b border-border p-3">
+              <WorkflowVariablesPanel variables={session.variables} onChange={session.onUpdateVariables} />
+            </div>
+          ) : null}
+          <WorkflowStepInspector
+            selected={session.selected}
+            bagView={session.bagView}
+            pinMode={session.pinMode}
+            projectKey={snapshot.project.key}
+            onUpdateData={session.onUpdateData}
+            onRenameDataPort={session.onRenameDataPort}
+            onRemoveDataPort={session.onRemoveDataPort}
+            onDelete={session.onDelete}
+          />
+        </div>
       </InspectorHost>
     );
   }
 
   return (
     <InspectorHost>
-      <EntityInspector
-        projectKey={snapshot.project.key}
-        center={node}
-        node={node}
-        entity={flow}
-        feature={selectedFeature}
-        tags={tags}
-        snapshot={snapshot}
-        relatedFeatures={relatedFeatures}
-        incomingCount={incomingCount}
-        outgoingCount={outgoingCount}
-      />
+      <div className="space-y-3">
+        {session ? (
+          <div className="border-b border-border p-3">
+            <WorkflowVariablesPanel variables={session.variables} onChange={session.onUpdateVariables} />
+          </div>
+        ) : null}
+        <EntityInspector
+          projectKey={snapshot.project.key}
+          center={node}
+          node={node}
+          entity={flow}
+          feature={selectedFeature}
+          tags={tags}
+          snapshot={snapshot}
+          relatedFeatures={relatedFeatures}
+          incomingCount={incomingCount}
+          outgoingCount={outgoingCount}
+        />
+      </div>
     </InspectorHost>
   );
 }

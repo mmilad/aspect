@@ -2,7 +2,7 @@ import { getNodeModel } from "../nodes/registry";
 import type { WorkflowGraph } from "../graph";
 import type { BagShape, BagShapeCatalogRef, WorkflowMapConfig, WorkflowNode } from "../nodes";
 
-import { derivedWrites, resolveWriteBindings } from "./ports";
+import { derivedWrites, resolveWriteBindings, resolveInputBindings } from "./ports";
 
 function getNodeWrites(node: WorkflowNode): string[] {
   return derivedWrites(node);
@@ -465,11 +465,12 @@ export function warnShapeMismatches(graph: WorkflowGraph): string[] {
   const warnings: string[] = [];
   for (const node of graph.nodes) {
     const view = bagViewAtNode(graph, node.id);
+    const inputBindings = resolveInputBindings(node);
     for (const [key, contract] of Object.entries(node.data.inputs ?? {})) {
       if (!contract.shape) {
         continue;
       }
-      const upstream = view[key];
+      const upstream = view[inputBindings[key] ?? key];
       if (!upstream || upstream.kind === "unknown") {
         warnings.push(`Node ${node.id} expects shape for \`${key}\`, but upstream does not guarantee it.`);
         continue;

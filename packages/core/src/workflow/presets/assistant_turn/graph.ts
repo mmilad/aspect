@@ -47,7 +47,7 @@ const TURN_B_SYSTEM = [
 const TURN_B_INSTRUCTIONS = ["Context pack: {{contextPack}}", "User message: {{message}}"].join("\n");
 
 /**
- * Session standing data first, then transcript window, then Turn A (JSON pack) → Turn B (text).
+ * Session standing data and transcript window, then Turn A (JSON pack) → Turn B (text).
  * Decision between A and B is an insertion point, not seeded.
  */
 export const assistantTurnGraph: WorkflowGraph = {
@@ -83,27 +83,15 @@ export const assistantTurnGraph: WorkflowGraph = {
       data: {
         title: "Session read",
         inputs: {
-          session: { required: true, shape: JSON_SHAPE }
+          session: { required: true, shape: JSON_SHAPE },
+          windowSize: { required: false, shape: NUMBER }
         },
         outputContracts: {
           priorSummary: { required: false, shape: JSON_SHAPE },
           priorTopics: { required: true, shape: JSON_ARRAY },
           priorQuestions: { required: true, shape: JSON_ARRAY },
-          priorContext: { required: true, shape: JSON_SHAPE }
-        }
-      }
-    },
-    {
-      id: "window",
-      type: "assistant_window",
-      position: { x: 620, y: 200 },
-      data: {
-        title: "Window",
-        inputs: {
-          session: { required: true, shape: JSON_SHAPE },
-          windowSize: { required: false, shape: NUMBER }
-        },
-        outputContracts: {
+          priorContext: { required: true, shape: JSON_SHAPE },
+          allTurns: { required: true, shape: JSON_ARRAY },
           recentTurns: { required: true, shape: JSON_ARRAY }
         }
       }
@@ -111,7 +99,7 @@ export const assistantTurnGraph: WorkflowGraph = {
     {
       id: "llm_context",
       type: "llm",
-      position: { x: 920, y: 200 },
+      position: { x: 700, y: 200 },
       data: {
         title: "Turn A context pack",
         inputs: {
@@ -136,7 +124,7 @@ export const assistantTurnGraph: WorkflowGraph = {
     {
       id: "llm_reply",
       type: "llm",
-      position: { x: 1240, y: 200 },
+      position: { x: 1020, y: 200 },
       data: {
         title: "Turn B reply",
         inputs: {
@@ -157,7 +145,7 @@ export const assistantTurnGraph: WorkflowGraph = {
     {
       id: "end",
       type: "end",
-      position: { x: 1540, y: 200 },
+      position: { x: 1320, y: 200 },
       data: {
         title: "End",
         inputs: {
@@ -169,14 +157,12 @@ export const assistantTurnGraph: WorkflowGraph = {
   ],
   edges: [
     { id: "e1", source: "start", target: "session_read", kind: "next", sourcePin: "then", targetPin: "in" },
-    { id: "e2", source: "session_read", target: "window", kind: "next", sourcePin: "then", targetPin: "in" },
-    { id: "e3", source: "window", target: "llm_context", kind: "next", sourcePin: "then", targetPin: "in" },
-    { id: "e4", source: "llm_context", target: "llm_reply", kind: "next", sourcePin: "then", targetPin: "in" },
-    { id: "e5", source: "llm_reply", target: "end", kind: "next", sourcePin: "then", targetPin: "in" },
+    { id: "e2", source: "session_read", target: "llm_context", kind: "next", sourcePin: "then", targetPin: "in" },
+    { id: "e3", source: "llm_context", target: "llm_reply", kind: "next", sourcePin: "then", targetPin: "in" },
+    { id: "e4", source: "llm_reply", target: "end", kind: "next", sourcePin: "then", targetPin: "in" },
     data("d_start_r_session", "start", "session", "r_session", "value"),
     data("d_r_session_read", "r_session", "value", "session_read", "session"),
-    data("d_r_session_window", "r_session", "value", "window", "session"),
-    data("d_start_window_size", "start", "windowSize", "window", "windowSize"),
+    data("d_start_window_size", "start", "windowSize", "session_read", "windowSize"),
     data("d_start_r_message", "start", "message", "r_message", "value"),
     data("d_r_message_a", "r_message", "value", "llm_context", "message"),
     data("d_r_message_b", "r_message", "value", "llm_reply", "message"),
@@ -184,7 +170,7 @@ export const assistantTurnGraph: WorkflowGraph = {
     data("d_prior_topics", "session_read", "priorTopics", "llm_context", "priorTopics"),
     data("d_prior_questions", "session_read", "priorQuestions", "llm_context", "priorQuestions"),
     data("d_prior_context", "session_read", "priorContext", "llm_context", "priorContext"),
-    data("d_recent_turns", "window", "recentTurns", "llm_context", "recentTurns"),
+    data("d_recent_turns", "session_read", "recentTurns", "llm_context", "recentTurns"),
     data("d_pack_r", "llm_context", "contextPack", "r_pack", "value"),
     data("d_r_pack_reply", "r_pack", "value", "llm_reply", "contextPack"),
     data("d_r_pack_end", "r_pack", "value", "end", "contextPack"),

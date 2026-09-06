@@ -17,6 +17,8 @@ export type WorkflowInspectorSession = {
   variables: WorkflowVariable[];
   onUpdateVariables: (next: WorkflowVariable[]) => void;
   onUpdateData: (patch: Partial<WorkflowNodeData>) => void;
+  onRenameDataPort: (nodeId: string, direction: "in" | "out", from: string, to: string) => void;
+  onRemoveDataPort: (nodeId: string, direction: "in" | "out", portId: string) => void;
   onDelete: () => void;
   authorOpen: boolean;
   brief: string;

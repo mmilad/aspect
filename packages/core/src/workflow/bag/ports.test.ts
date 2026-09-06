@@ -69,4 +69,18 @@ describe("ports bindings", () => {
     expect(resolveWriteBindings(n)).toEqual({});
     expect(derivedWrites(n)).toEqual([]);
   });
+
+  it("normalizeNodePorts prunes bindings for removed ports", () => {
+    const data = normalizeNodePorts({
+      title: "T",
+      inputs: { keptInput: { required: true, shape: { kind: "unknown" } } },
+      inputBindings: { keptInput: "bagInput", removedInput: "staleInput" },
+      outputContracts: { keptOutput: { required: true, shape: { kind: "unknown" } } },
+      writeBindings: { keptOutput: "bagOutput", removedOutput: "staleOutput" }
+    });
+    expect(data.inputBindings).toEqual({ keptInput: "bagInput" });
+    expect(data.writeBindings).toEqual({ keptOutput: "bagOutput" });
+    expect(data.reads).toEqual(["bagInput"]);
+    expect(data.writes).toEqual(["bagOutput"]);
+  });
 });

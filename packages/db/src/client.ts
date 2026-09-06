@@ -58,6 +58,22 @@ function findEnvFiles(startDir: string): string[] {
   }
 }
 
+function findWorkspaceRoot(startDir: string): string {
+  let current = path.resolve(startDir);
+
+  while (true) {
+    if (fs.existsSync(path.join(current, "pnpm-workspace.yaml"))) {
+      return current;
+    }
+
+    const parent = path.dirname(current);
+    if (parent === current) {
+      return path.resolve(startDir);
+    }
+    current = parent;
+  }
+}
+
 /** Load nearest `.env` files into `process.env` (once). */
 export function loadEnv(): void {
   if (loadedEnv) {
@@ -78,7 +94,7 @@ export function loadEnv(): void {
 
 function defaultDatabasePath(): string {
   loadEnv();
-  return process.env.PROJECTPLANER_DB_PATH ?? path.resolve(process.cwd(), "projectplaner.db");
+  return process.env.PROJECTPLANER_DB_PATH ?? path.join(findWorkspaceRoot(process.cwd()), "projectplaner.db");
 }
 
 export function createDatabase(dbPath = defaultDatabasePath()) {

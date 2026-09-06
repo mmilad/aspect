@@ -1,4 +1,3 @@
-import path from "node:path";
 import { NextResponse } from "next/server";
 import { openDatabase } from "@projectplaner/db";
 import entities from "@projectplaner/db/entities";
@@ -11,7 +10,7 @@ const { scaffoldWorkflowFromBrief } = generator.author;
 const { write: writeWorkflowGraph } = workflow.graph;
 
 async function openDb() {
-  return openDatabase(process.env.PROJECTPLANER_DB_PATH ?? path.resolve(process.cwd(), "../../projectplaner.db"));
+  return openDatabase();
 }
 
 interface CreateFlowBody {

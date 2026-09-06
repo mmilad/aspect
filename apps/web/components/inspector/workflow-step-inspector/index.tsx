@@ -1,477 +1,33 @@
 "use client";
 
-import type {
-  BagShape,
-  WorkflowInspectorField,
-  WorkflowMapField,
-  WorkflowNode,
-  WorkflowNodeData
-} from "@projectplaner/core";
+import type { BagShape, WorkflowInspectorField, WorkflowNode, WorkflowNodeData } from "@projectplaner/core";
 import workflow from "@projectplaner/core/workflow";
+import { Button, FormLabel, Input } from "../../ui";
+import { WorkflowBagPanel } from "../../workflow-workspace/workflow-bag-panel";
+import { NodeMeta, renderField, SwitchCasesEditor } from "./fields";
+import { BagPortsEditor } from "./ports";
 
-const { getDataPath, getNodeModel, setDataPath } = workflow.nodes;
-const { listShapePaths } = workflow.bag;
-import { FormLabel, Button, NativeSelect, Textarea, Input } from "../../ui";
-import { LlmJsonSchemaPicker } from "./llm-json-schema-picker";
-import { QueryConfigEditor } from "./query-config-editor";
-import { PropPicker, WorkflowBagPanel } from "../../workflow-workspace/workflow-bag-panel";
-import { BagPortsEditor } from "./bag-ports-editor";
-import { StartRunInputsEditor } from "./start-run-inputs-editor";
-import { WorkflowVariablesPanel } from "./workflow-variables-panel";
-import type { WorkflowVariable } from "@projectplaner/core";
+const { getNodeModel } = workflow.nodes;
 
 export interface WorkflowStepInspectorProps {
   selected: WorkflowNode | null;
   bagView: Record<string, BagShape>;
   pinMode?: boolean;
-  variables?: WorkflowVariable[];
-  onUpdateVariables?: (next: WorkflowVariable[]) => void;
   projectKey?: string;
   onUpdateData: (patch: Partial<WorkflowNodeData>) => void;
+  onRenameDataPort?: (nodeId: string, direction: "in" | "out", from: string, to: string) => void;
+  onRemoveDataPort?: (nodeId: string, direction: "in" | "out", portId: string) => void;
   onDelete: () => void;
-}
-
-function bagKeyOptions(view: Record<string, BagShape>): string[] {
-  return Object.keys(view).sort();
-}
-
-function pathOptionsForKey(view: Record<string, BagShape>, key: string): string[] {
-  return listShapePaths(view[key]);
-}
-
-function applyFieldPatch(
-  selected: WorkflowNode,
-  path: string,
-  value: unknown,
-  onUpdateData: (patch: Partial<WorkflowNodeData>) => void
-): void {
-  if (path === "join.mode" && typeof value === "string" && value.startsWith("count:")) {
-    onUpdateData({
-      join: {
-        ...(selected.data.join ?? {}),
-        mode: { count: Number(value.slice(6)) || 1 }
-      }
-    });
-    return;
-  }
-  if (path === "foreach.body.workflowId") {
-    onUpdateData({
-      foreach: {
-        itemsFrom: selected.data.foreach?.itemsFrom ?? "",
-        body: { type: "subworkflow", workflowId: String(value ?? "") },
-        failureMode: selected.data.foreach?.failureMode ?? "fail",
-        collect: selected.data.foreach?.collect
-      }
-    });
-    return;
-  }
-  if (path === "map.from" || path === "map.as") {
-    const next = setDataPath(selected.data, path, value);
-    const as = String(path === "map.as" ? value : (next.map?.as ?? "projected"));
-    const writeBindings = {
-      ...(selected.data.writeBindings ?? {}),
-      [as]: as
-    };
-    const writes =
-      path === "map.as"
-        ? [as]
-        : selected.data.writes?.includes(as)
-          ? selected.data.writes
-          : [...(selected.data.writes ?? []), as];
-    onUpdateData({ ...next, writes, writeBindings });
-    return;
-  }
-  if (path === "llm.schemaKey") {
-    const key = String(value ?? "").trim();
-    const next = setDataPath(selected.data, "llm.schemaKey", key || undefined);
-    onUpdateData({
-      llm: {
-        ...(next.llm ?? {}),
-        schemaKey: key || undefined,
-        format: key ? "json_schema" : next.llm?.format === "json_schema" ? "text" : next.llm?.format
-      }
-    });
-    return;
-  }
-  if (path === "llm.systemPrompt" || path === "llm.instructions") {
-    const next = setDataPath(selected.data, path, value);
-    const inputPorts = Object.keys(selected.data.inputs ?? {});
-    const outputPorts = Object.keys(selected.data.outputContracts ?? {});
-    onUpdateData({
-      llm: {
-        ...(next.llm ?? {}),
-        inputKeys:
-          inputPorts.length > 0
-            ? inputPorts
-            : (selected.data.reads ?? selected.data.llm?.inputKeys),
-        outputSchema:
-          outputPorts.length > 0
-            ? outputPorts
-            : (selected.data.writes ?? selected.data.llm?.outputSchema)
-      }
-    });
-    return;
-  }
-  onUpdateData(setDataPath(selected.data, path, value));
-}
-
-function readFieldValue(selected: WorkflowNode, field: WorkflowInspectorField): string {
-  if (
-    field.kind === "executionPolicy" ||
-    field.kind === "mapFields" ||
-    field.kind === "toolArgs" ||
-    field.kind === "bagPorts" ||
-    field.kind === "startRunInputs" ||
-    field.kind === "llmSchemaKey" ||
-    field.kind === "queryConfig"
-  ) {
-    return "";
-  }
-  if (field.path === "join.mode") {
-    const mode = selected.data.join?.mode;
-    if (typeof mode === "object" && mode && "count" in mode) {
-      return `count:${mode.count}`;
-    }
-    return String(mode ?? "all");
-  }
-  const raw = getDataPath(selected.data, field.path);
-  if (raw === undefined || raw === null) {
-    return "";
-  }
-  return String(raw);
-}
-
-function renderField(
-  field: WorkflowInspectorField,
-  selected: WorkflowNode,
-  bagView: Record<string, BagShape>,
-  onUpdateData: (patch: Partial<WorkflowNodeData>) => void,
-  projectKey: string
-) {
-  if (field.kind === "bagPorts") {
-    return (
-      <BagPortsEditor
-        key="bagPorts"
-        selected={selected}
-        bagView={bagView}
-        onUpdateData={onUpdateData}
-      />
-    );
-  }
-
-  if (field.kind === "startRunInputs") {
-    return <StartRunInputsEditor key="startRunInputs" selected={selected} onUpdateData={onUpdateData} />;
-  }
-
-  if (field.kind === "queryConfig") {
-    return <QueryConfigEditor key="queryConfig" selected={selected} onUpdateData={onUpdateData} />;
-  }
-
-  if (field.kind === "llmSchemaKey") {
-    return (
-      <LlmJsonSchemaPicker
-        key="llmSchemaKey"
-        projectKey={projectKey}
-        value={selected.data.llm?.schemaKey ?? ""}
-        onChange={(key) => applyFieldPatch(selected, "llm.schemaKey", key, onUpdateData)}
-      />
-    );
-  }
-
-  if (field.kind === "executionPolicy") {
-    return (
-      <div key="executionPolicy" className="space-y-3">
-        <FormLabel label="Timeout ms">
-          <Input
-            value={String(selected.data.executionPolicy?.timeoutMs ?? "")}
-            onChange={(event) =>
-              onUpdateData({
-                executionPolicy: {
-                  ...(selected.data.executionPolicy ?? {}),
-                  timeoutMs: Number(event.target.value) || undefined
-                }
-              })
-            }
-          />
-        </FormLabel>
-        <FormLabel label="Idempotency key from">
-          <Input
-            value={selected.data.executionPolicy?.idempotencyKeyFrom ?? ""}
-            onChange={(event) =>
-              onUpdateData({
-                executionPolicy: {
-                  ...(selected.data.executionPolicy ?? {}),
-                  idempotencyKeyFrom: event.target.value || undefined
-                }
-              })
-            }
-          />
-        </FormLabel>
-        <FormLabel label="On exhausted">
-          <NativeSelect
-            value={selected.data.executionPolicy?.onExhausted ?? "fail_run"}
-            onChange={(event) =>
-              onUpdateData({
-                executionPolicy: {
-                  ...(selected.data.executionPolicy ?? {}),
-                  onExhausted: event.target.value as "error_edge" | "fail_run"
-                }
-              })
-            }
-          >
-            <option value="fail_run">fail_run</option>
-            <option value="error_edge">error_edge</option>
-          </NativeSelect>
-        </FormLabel>
-      </div>
-    );
-  }
-
-  if (field.kind === "toolArgs") {
-    return (
-      <PropPicker
-        key="toolArgs"
-        label="Arg from bag (first mapping value)"
-        value={Object.values(selected.data.tool?.argsFromBag ?? {})[0] ?? ""}
-        options={bagKeyOptions(bagView)}
-        onChange={(value) => {
-          const keys = Object.keys(selected.data.tool?.argsFromBag ?? {});
-          const argName = keys[0] ?? "value";
-          onUpdateData({
-            tool: {
-              ...(selected.data.tool ?? { name: "" }),
-              argsFromBag: { ...(selected.data.tool?.argsFromBag ?? {}), [argName]: value }
-            }
-          });
-        }}
-      />
-    );
-  }
-
-  if (field.kind === "mapFields") {
-    return (
-      <div key="mapFields" className="space-y-2">
-        <div className="text-[11px] font-medium text-zinc-700">Fields</div>
-        {(selected.data.map?.fields ?? []).map((mapField, index) => (
-          <div key={`${mapField.as}-${index}`} className="grid grid-cols-2 gap-1">
-            <PropPicker
-              label="from"
-              value={mapField.from}
-              options={pathOptionsForKey(bagView, selected.data.map?.from ?? "")}
-              onChange={(value) => {
-                const fields = [...(selected.data.map?.fields ?? [])] as WorkflowMapField[];
-                fields[index] = { ...fields[index], from: value };
-                onUpdateData({
-                  map: {
-                    from: selected.data.map?.from ?? "",
-                    as: selected.data.map?.as ?? "projected",
-                    mode: selected.data.map?.mode,
-                    fields
-                  }
-                });
-              }}
-            />
-            <FormLabel label="as">
-              <Input
-                value={mapField.as}
-                onChange={(event) => {
-                  const fields = [...(selected.data.map?.fields ?? [])] as WorkflowMapField[];
-                  fields[index] = { ...fields[index], as: event.target.value };
-                  onUpdateData({
-                    map: {
-                      from: selected.data.map?.from ?? "",
-                      as: selected.data.map?.as ?? "projected",
-                      mode: selected.data.map?.mode,
-                      fields
-                    }
-                  });
-                }}
-              />
-            </FormLabel>
-          </div>
-        ))}
-        <Button
-          size="xs"
-          variant="outline"
-          onClick={() =>
-            onUpdateData({
-              map: {
-                from: selected.data.map?.from ?? "",
-                as: selected.data.map?.as ?? "projected",
-                mode: selected.data.map?.mode ?? "array",
-                fields: [
-                  ...(selected.data.map?.fields ?? []),
-                  {
-                    from: pathOptionsForKey(bagView, selected.data.map?.from ?? "")[0] ?? "id",
-                    as: "field"
-                  }
-                ]
-              }
-            })
-          }
-        >
-          Add field
-        </Button>
-      </div>
-    );
-  }
-
-  if (field.kind === "bagKey") {
-    return (
-      <PropPicker
-        key={field.path}
-        label={field.label}
-        value={readFieldValue(selected, field)}
-        options={bagKeyOptions(bagView)}
-        onChange={(value) => applyFieldPatch(selected, field.path, value, onUpdateData)}
-      />
-    );
-  }
-
-  if (field.kind === "select") {
-    return (
-      <FormLabel key={field.path} label={field.label}>
-        <NativeSelect
-          value={readFieldValue(selected, field) || field.options[0]?.value || ""}
-          onChange={(event) => applyFieldPatch(selected, field.path, event.target.value, onUpdateData)}
-        >
-          {field.options.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </NativeSelect>
-      </FormLabel>
-    );
-  }
-
-  if (field.kind === "textarea") {
-    return (
-      <FormLabel key={field.path} label={field.label}>
-        <Textarea
-          className={field.path.includes("instructions") ? "min-h-28" : "min-h-20"}
-          placeholder={field.placeholder}
-          value={readFieldValue(selected, field)}
-          onChange={(event) => applyFieldPatch(selected, field.path, event.target.value, onUpdateData)}
-        />
-      </FormLabel>
-    );
-  }
-
-  return (
-    <FormLabel key={field.path} label={field.label}>
-      <Input
-        placeholder={field.placeholder}
-        value={readFieldValue(selected, field)}
-        onChange={(event) => {
-          const value =
-            field.kind === "number" ? Number(event.target.value) || 0 : event.target.value;
-          applyFieldPatch(selected, field.path, value, onUpdateData);
-        }}
-      />
-    </FormLabel>
-  );
-}
-
-function SwitchCasesEditor({
-  selected,
-  onUpdateData
-}: {
-  selected: WorkflowNode;
-  onUpdateData: (patch: Partial<WorkflowNodeData>) => void;
-}) {
-  if (selected.type !== "switch") {
-    return null;
-  }
-  const cases = selected.data.switch?.cases ?? [];
-  return (
-    <div className="space-y-2">
-      <div className="text-[11px] font-medium text-zinc-700">Cases</div>
-      {cases.map((caseLabel, index) => (
-        <div key={`${caseLabel}-${index}`} className="flex gap-1">
-          <Input
-            className="text-xs"
-            value={caseLabel}
-            onChange={(event) => {
-              const next = [...cases];
-              next[index] = event.target.value;
-              onUpdateData({ switch: { ...(selected.data.switch ?? {}), cases: next } });
-            }}
-          />
-          <Button
-            size="xs"
-            variant="danger"
-            onClick={() => {
-              const next = cases.filter((_, itemIndex) => itemIndex !== index);
-              onUpdateData({ switch: { ...(selected.data.switch ?? {}), cases: next } });
-            }}
-          >
-            Remove
-          </Button>
-        </div>
-      ))}
-      <Button
-        size="xs"
-        variant="outline"
-        onClick={() =>
-          onUpdateData({
-            switch: {
-              ...(selected.data.switch ?? { defaultLabel: "default" }),
-              cases: [...cases, `case_${cases.length + 1}`]
-            }
-          })
-        }
-      >
-        Add case
-      </Button>
-    </div>
-  );
-}
-
-function NodeMeta({
-  selected
-}: {
-  selected: WorkflowNode;
-}) {
-  const model = getNodeModel(selected.type);
-  const execInputs = model.execInputs?.(selected) ?? ["in"];
-  const execOutputs = model.execOutputs?.(selected) ?? ["then"];
-  const inputDescriptions = model.execInputDescriptions?.(selected) ?? {};
-  const outputDescriptions = model.execOutputDescriptions?.(selected) ?? {};
-
-  if (!model.description && execInputs.length === 0 && execOutputs.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="rounded-md border border-dashed border-zinc-300 bg-zinc-50 p-2 text-[11px] text-zinc-700">
-      {model.description ? <div className="leading-snug">{model.description}</div> : null}
-      <div className="mt-2 grid gap-1">
-        {execInputs.map((pin) => (
-          <div key={`in:${pin}`}>
-            <span className="font-mono text-zinc-900">in:{pin}</span>
-            {inputDescriptions[pin] ? <span> - {inputDescriptions[pin]}</span> : null}
-          </div>
-        ))}
-        {execOutputs.map((pin) => (
-          <div key={`out:${pin}`}>
-            <span className="font-mono text-zinc-900">out:{pin}</span>
-            {outputDescriptions[pin] ? <span> - {outputDescriptions[pin]}</span> : null}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
 }
 
 export function WorkflowStepInspector({
   selected,
   bagView,
   pinMode = false,
-  variables = [],
-  onUpdateVariables,
   projectKey = "PLAN",
   onUpdateData,
+  onRenameDataPort,
+  onRemoveDataPort,
   onDelete
 }: WorkflowStepInspectorProps) {
   const highlight =
@@ -479,43 +35,37 @@ export function WorkflowStepInspector({
       ? [selected.data.foreach?.itemKey ?? "item", selected.data.foreach?.indexKey ?? "index"]
       : [];
   const fields = selected ? (getNodeModel(selected.type).inspectorFields ?? []) : [];
-  const visibleFields = fields.filter((field) => {
+  const visibleFields = fields.filter((field): field is Exclude<WorkflowInspectorField, { kind: "bagPorts" }> => {
     if (!pinMode) {
       return field.kind !== "bagPorts";
     }
-    return field.kind !== "bagPorts" && field.kind !== "bagKey" && field.kind !== "startRunInputs";
+    return field.kind !== "bagPorts" && field.kind !== "bagKey";
   });
 
   return (
     <div className="space-y-3 p-3">
-      <div>
-        {pinMode && onUpdateVariables ? (
-          <WorkflowVariablesPanel variables={variables} onChange={onUpdateVariables} />
-        ) : (
-          <WorkflowBagPanel view={bagView} highlightKeys={highlight} />
-        )}
-      </div>
+      <WorkflowBagPanel view={bagView} highlightKeys={highlight} />
       {!selected ? (
         <p className="text-sm text-muted-foreground">
           {pinMode
-            ? "NativeSelect a step to edit title, pins, and node config."
-            : "NativeSelect a step to edit title, bag bindings, control config, and execution policy."}
+            ? "Select a step to edit title, pins, and node config."
+            : "Select a step to edit title, bag bindings, control config, and execution policy."}
         </p>
       ) : (
         <div className="space-y-3">
-          <div>
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Node</div>
-            <div className="font-mono text-xs text-zinc-700">{selected.id}</div>
-            <div className="mt-0.5 text-[11px] text-muted-foreground">
-              type <span className="font-mono text-zinc-700">{selected.type}</span>
-            </div>
-          </div>
+          <SelectedNodeHeader selected={selected} />
           <NodeMeta selected={selected} />
           <FormLabel label="Title">
             <Input value={selected.data.title} onChange={(event) => onUpdateData({ title: event.target.value })} />
           </FormLabel>
-          {selected.type === "start" || selected.type === "query" || pinMode ? null : (
-            <BagPortsEditor selected={selected} bagView={bagView} onUpdateData={onUpdateData} />
+          {selected.type === "start" || selected.type === "end" || selected.type === "query" ? null : (
+            <BagPortsEditor
+              selected={selected}
+              bagView={bagView}
+              onUpdateData={onUpdateData}
+              onRenameDataPort={(direction, from, to) => onRenameDataPort?.(selected.id, direction, from, to)}
+              onRemoveDataPort={(direction, portId) => onRemoveDataPort?.(selected.id, direction, portId)}
+            />
           )}
           <SwitchCasesEditor selected={selected} onUpdateData={onUpdateData} />
           {visibleFields.map((field) => renderField(field, selected, bagView, onUpdateData, projectKey))}
@@ -526,6 +76,18 @@ export function WorkflowStepInspector({
           ) : null}
         </div>
       )}
+    </div>
+  );
+}
+
+function SelectedNodeHeader({ selected }: { selected: WorkflowNode }) {
+  return (
+    <div>
+      <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Node</div>
+      <div className="font-mono text-xs text-zinc-700">{selected.id}</div>
+      <div className="mt-0.5 text-[11px] text-muted-foreground">
+        type <span className="font-mono text-zinc-700">{selected.type}</span>
+      </div>
     </div>
   );
 }

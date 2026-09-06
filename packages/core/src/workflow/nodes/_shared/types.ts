@@ -28,8 +28,7 @@ export const workflowWorkNodeTypes = [
   "push",
   "create_workflow_node",
   "assemble_fragment",
-  "assistant_session",
-  "assistant_window"
+  "assistant_session"
 ] as const;
 
 export const workflowVariableNodeTypes = ["get", "set", "template"] as const;

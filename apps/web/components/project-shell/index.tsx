@@ -26,7 +26,7 @@ export function ProjectShell({
   rightSidebar
 }: ProjectShellProps) {
   return (
-    <RightPaneProvider projectKey={project.key}>
+    <RightPaneProvider projectKey={project.key} activeViewKey={activeView}>
       <main className={styles.shell}>
         <ProjectHeader project={project} scopeLabel={scopeLabel} activeView={activeView} chrome={chrome} />
         <ShellBody projectKey={project.key} leftSidebar={leftSidebar} center={center} rightSidebar={rightSidebar} />

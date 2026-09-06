@@ -33,6 +33,25 @@ describe("ensureWorkflowPresets", () => {
   }
 
   it(
+    "fresh and explicitly reseeded assistant turns use session transcript outputs",
+    withTempDb(async (db) => {
+      for (const force of [false, true]) {
+        await ensureWorkflowPresets(db, { projectKey: "PLAN", only: ["assistant_turn"], force });
+        const flow = (await entities.list(db, { projectKey: "PLAN", type: "flow" })).find((item) => item.metadata.presetKey === "assistant_turn");
+        assert.ok(flow);
+        assert.equal(flow.metadata.presetVersion, 4);
+        const graph = persist.loadGraph(db, flow.id);
+        assert.ok(graph);
+        assert.equal(graph.nodes.some((node) => String(node.type) === "assistant_window"), false);
+        const session = graph.nodes.find((node) => node.type === "assistant_session");
+        assert.ok(session?.data.outputContracts?.allTurns);
+        assert.ok(session?.data.outputContracts?.recentTurns);
+        assert.ok(graph.edges.some((edge) => edge.source === session.id && edge.sourcePin === "recentTurns"));
+      }
+    })
+  );
+
+  it(
     "seeds once then skips",
     withTempDb(async (db) => {
       const first = await ensureWorkflowPresets(db, { projectKey: "PLAN" });

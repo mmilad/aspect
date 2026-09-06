@@ -4,7 +4,6 @@ import { branchNode } from "./branch/model";
 import { contextNode } from "./context/model";
 import { assembleFragmentNode } from "./assemble_fragment/model";
 import { assistantSessionNode } from "./assistant_session/model";
-import { assistantWindowNode } from "./assistant_window/model";
 import { createWorkflowNodeNode } from "./create_workflow_node/model";
 import { endNode } from "./end/model";
 import { errorEndNode } from "./error_end/model";
@@ -46,7 +45,6 @@ export const workflowNodeModels: Record<WorkflowNodeType, WorkflowNodeModel> = {
   create_workflow_node: createWorkflowNodeNode,
   assemble_fragment: assembleFragmentNode,
   assistant_session: assistantSessionNode,
-  assistant_window: assistantWindowNode,
   context: contextNode,
   transform: transformNode,
   map: mapNode,

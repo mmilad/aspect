@@ -41,13 +41,13 @@ const fixturePack: AssistantContextPack = {
 };
 
 describe("assistant_turn preset", () => {
-  it("parses as session → window → Turn A JSON → Turn B text", () => {
+  it("parses as session → Turn A JSON → Turn B text", () => {
     const parsed = parseWorkflowGraph(assistantTurnGraph);
     expect(parsed.ok, parsed.ok ? "" : parsed.errors.join("; ")).toBe(true);
     expect(assistantTurnPreset.presetKey).toBe("assistant_turn");
     expect(assistantTurnPreset.kind).toBe("user");
     expect(assistantTurnPreset.drainLlm).toBe(true);
-    expect(assistantTurnPreset.presetVersion).toBe(3);
+    expect(assistantTurnPreset.presetVersion).toBe(4);
 
     const ids = assistantTurnGraph.nodes.map((node) => `${node.id}:${node.type}`);
     expect(ids).toEqual([
@@ -56,11 +56,15 @@ describe("assistant_turn preset", () => {
       "r_message:reroute",
       "r_pack:reroute",
       "session_read:assistant_session",
-      "window:assistant_window",
       "llm_context:llm",
       "llm_reply:llm",
       "end:end"
     ]);
+
+    const sessionRead = assistantTurnGraph.nodes.find((node) => node.id === "session_read");
+    expect(sessionRead?.data.inputs).toHaveProperty("windowSize");
+    expect(sessionRead?.data.outputContracts).toHaveProperty("allTurns");
+    expect(sessionRead?.data.outputContracts).toHaveProperty("recentTurns");
 
     const turnA = assistantTurnGraph.nodes.find((node) => node.id === "llm_context");
     expect(turnA?.data.llm?.schemaKey).toBe(ASSISTANT_CONTEXT_V2_KEY);
@@ -101,6 +105,7 @@ describe("assistant_turn preset", () => {
     const first = await runWorkflowUntilPause({ graph: parsed.graph, bag });
     expect(first.kind).toBe("pending_llm");
     expect(first.nodeId).toBe("llm_context");
+    expect(first.bag.frame?.pins["session_read::allTurns"]).toEqual(session.messages);
     expect(first.llm?.schemaKey).toBe(ASSISTANT_CONTEXT_V2_KEY);
     expect(first.llm?.format).toBe("json_schema");
     expect(first.llm?.reads.priorTopics).toEqual([
@@ -110,6 +115,7 @@ describe("assistant_turn preset", () => {
       { id: "q_scope", text: "What is in scope?", status: "open" }
     ]);
     expect(first.llm?.reads.priorSummary).toEqual({ text: "Working on auth" });
+    expect((first.llm?.reads.allTurns as { content: string }[] | undefined)).toBeUndefined();
     expect((first.llm?.reads.recentTurns as { content: string }[]).map((item) => item.content)).toEqual([
       "turn-3",
       "turn-4",

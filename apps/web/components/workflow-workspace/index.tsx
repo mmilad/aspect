@@ -44,6 +44,7 @@ import {
   type FlowRfEdge,
   type FlowRfNode
 } from "./rf-adapters";
+import { renameDataPortEdges, removeDataPortEdges } from "./data-port-edges";
 import { WorkflowWaypointProvider } from "./workflow-exec-edge";
 import { WorkflowToolbar } from "./workflow-toolbar";
 import { WorkflowStoryPanel } from "./workflow-story-panel";
@@ -312,6 +313,20 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
     [selectedId, setNodes]
   );
 
+  const renameDataPort = useCallback(
+    (nodeId: string, direction: "in" | "out", from: string, to: string) => {
+      setEdges((current) => renameDataPortEdges(current, nodeId, direction, from, to));
+    },
+    [setEdges]
+  );
+
+  const removeDataPort = useCallback(
+    (nodeId: string, direction: "in" | "out", portId: string) => {
+      setEdges((current) => removeDataPortEdges(current, nodeId, direction, portId));
+    },
+    [setEdges]
+  );
+
   const addNode = useCallback(
     (type: WorkflowNodeType) => {
       if (type === "start" && nodes.some((node) => node.data.workflow.type === "start")) {
@@ -483,6 +498,8 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
       variables: variables ?? [],
       onUpdateVariables: updateVariables,
       onUpdateData: updateSelectedData,
+      onRenameDataPort: renameDataPort,
+      onRemoveDataPort: removeDataPort,
       onDelete: deleteSelected,
       authorOpen,
       brief,
@@ -499,6 +516,8 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
     variables,
     updateVariables,
     updateSelectedData,
+    renameDataPort,
+    removeDataPort,
     deleteSelected,
     authorOpen,
     brief,

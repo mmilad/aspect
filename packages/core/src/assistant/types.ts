@@ -96,8 +96,9 @@ export type AssistantSessionPrior = {
   priorContext: AssistantContext;
 };
 
-/** Step 2 — transcript window only. */
+/** Transcript views from assistant_session. */
 export type AssistantTurnWindow = {
+  allTurns: AssistantMessage[];
   recentTurns: AssistantMessage[];
 };
 

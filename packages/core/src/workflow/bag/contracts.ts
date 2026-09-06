@@ -21,8 +21,7 @@ const WORK_NODE_TYPES = new Set<WorkflowNodeType>([
   "push",
   "create_workflow_node",
   "assemble_fragment",
-  "assistant_session",
-  "assistant_window"
+  "assistant_session"
 ]);
 
 function isRequired(contract: WorkflowBagKeyContract | undefined): boolean {

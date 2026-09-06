@@ -43,7 +43,7 @@ interface ShellBodyProps {
 }
 
 export function ShellBody({ projectKey, leftSidebar, center, rightSidebar }: ShellBodyProps) {
-  const { mode, setMode } = useRightPane();
+  const { mode } = useRightPane();
   const [width, setWidth] = useState(WIDTH_DEFAULT);
   const [collapsed, setCollapsed] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -149,13 +149,6 @@ export function ShellBody({ projectKey, leftSidebar, center, rightSidebar }: She
               </span>
               <div className="flex items-center gap-1">
                 <Button
-                  size="xs"
-                  variant={mode === "inspect" ? "default" : "ghost"}
-                  onClick={() => setMode("inspect")}
-                >
-                  Inspect
-                </Button>
-                <Button
                   size="icon"
                   variant="ghost"
                   title={`Collapse ${paneLabel.toLowerCase()}`}
@@ -180,10 +173,7 @@ export function ShellBody({ projectKey, leftSidebar, center, rightSidebar }: She
               </div>
             ) : (
               <div className="flex h-full min-h-0 flex-col">
-                <div className="flex-shrink-0">
-                  <AssistantRail />
-                </div>
-                <div className={`${styles.rightInspectScroll} border-t border-border`}>{rightSidebar}</div>
+                <div className={styles.rightInspectScroll}>{rightSidebar}</div>
               </div>
             )}
           </div>

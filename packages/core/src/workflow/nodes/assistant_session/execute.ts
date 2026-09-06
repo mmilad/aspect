@@ -1,4 +1,4 @@
-import { priorFromSession, requireAssistantSession } from "../../../assistant/window";
+import { priorFromSession, requireAssistantSession, sliceRecentTurns } from "../../../assistant/window";
 import type { NodeExecuteContext, WorkflowStepResult } from "../../runtime/types";
 
 export async function executeAssistantSession(ctx: NodeExecuteContext): Promise<WorkflowStepResult> {
@@ -11,7 +11,9 @@ export async function executeAssistantSession(ctx: NodeExecuteContext): Promise<
   const writes: Record<string, unknown> = {
     priorTopics: prior.priorTopics,
     priorQuestions: prior.priorQuestions,
-    priorContext: prior.priorContext
+    priorContext: prior.priorContext,
+    allTurns: session.messages,
+    recentTurns: sliceRecentTurns(session.messages, ctx.read("windowSize"))
   };
   if (prior.priorSummary) {
     writes.priorSummary = prior.priorSummary;

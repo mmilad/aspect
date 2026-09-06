@@ -7,7 +7,7 @@ import { useRightPane } from "../project-shell/right-pane-context";
 import styles from "./style.module.css";
 
 export function AssistantSessionsSection() {
-  const { record, sessions, loading, createSession, selectSession, error } = useRightPane();
+  const { record, sessions, loading, mode, createSession, selectSession, error } = useRightPane();
 
   return (
     <section className={styles.section} aria-label="Assistant">
@@ -31,7 +31,7 @@ export function AssistantSessionsSection() {
       ) : null}
       <div className={styles.nav}>
         {sessions.map((session) => {
-          const active = record?.id === session.id;
+          const active = mode === "assistant" && record?.id === session.id;
           return (
             <Button
               key={session.id}

@@ -38,10 +38,6 @@ export type WorkflowInspectorField =
       kind: "bagPorts";
     }
   | {
-      /** Start-only: author run-input outputContracts (name / shape / required). */
-      kind: "startRunInputs";
-    }
-  | {
       /** LLM node: pick a centralized JSON Schema by key (searchable select). */
       kind: "llmSchemaKey";
       label: string;

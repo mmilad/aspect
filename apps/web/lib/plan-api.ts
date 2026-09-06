@@ -1,4 +1,3 @@
-import path from "node:path";
 import type { EntityFilter, EntityType } from "@projectplaner/core";
 import planApi from "@projectplaner/core/plan-api";
 import { openDatabase } from "@projectplaner/db";
@@ -6,7 +5,7 @@ import query from "@projectplaner/db/query";
 import type { DatabaseSync } from "node:sqlite";
 
 export async function openDb() {
-  return openDatabase(process.env.PROJECTPLANER_DB_PATH ?? path.resolve(process.cwd(), "../../projectplaner.db"));
+  return openDatabase();
 }
 
 export function createWebPlanApi(db: DatabaseSync) {

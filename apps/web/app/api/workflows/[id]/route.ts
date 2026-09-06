@@ -1,4 +1,3 @@
-import path from "node:path";
 import { NextResponse } from "next/server";
 import { openDatabase, markWorkflowPresetDirty } from "@projectplaner/db";
 import entities from "@projectplaner/db/entities";
@@ -10,7 +9,7 @@ const { parse: parseWorkflowGraph, write: writeWorkflowGraph } = workflow.graph;
 import { drainPendingLlm, shouldDrainPendingLlm, workflowRunJson } from "../../../../lib/drain-pending-llm";
 
 async function openDb() {
-  return openDatabase(process.env.PROJECTPLANER_DB_PATH ?? path.resolve(process.cwd(), "../../projectplaner.db"));
+  return openDatabase();
 }
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {

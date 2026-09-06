@@ -1,11 +1,10 @@
-import path from "node:path";
 import { NextResponse } from "next/server";
 import { openDatabase } from "@projectplaner/db";
 import workflows from "@projectplaner/db/workflows";
 import { drainPendingLlm, shouldDrainPendingLlm, workflowRunJson } from "../../../../lib/drain-pending-llm";
 
 async function openDb() {
-  return openDatabase(process.env.PROJECTPLANER_DB_PATH ?? path.resolve(process.cwd(), "../../projectplaner.db"));
+  return openDatabase();
 }
 
 /**

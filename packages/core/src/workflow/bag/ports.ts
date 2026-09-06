@@ -7,9 +7,9 @@ import type { WorkflowNode, WorkflowNodeData } from "../nodes/_shared/types";
  */
 export function resolveInputBindings(node: WorkflowNode): Record<string, string> {
   const ports = Object.keys(node.data.inputs ?? {});
-  const bindings = { ...(node.data.inputBindings ?? {}) };
 
   if (ports.length === 0) {
+    const bindings = { ...(node.data.inputBindings ?? {}) };
     const reads = node.data.reads ?? [];
     for (const key of reads) {
       if (!(key in bindings)) {
@@ -19,8 +19,12 @@ export function resolveInputBindings(node: WorkflowNode): Record<string, string>
     return bindings;
   }
 
+  const bindings: Record<string, string> = {};
   for (const portId of ports) {
-    if (!(portId in bindings) || !bindings[portId]?.trim()) {
+    const bound = node.data.inputBindings?.[portId]?.trim();
+    if (bound) {
+      bindings[portId] = bound;
+    } else {
       bindings[portId] = portId;
     }
   }
@@ -35,7 +39,12 @@ export function resolveInputBindings(node: WorkflowNode): Record<string, string>
 export function resolveWriteBindings(node: WorkflowNode): Record<string, string> {
   if (node.data.writeBindings !== undefined) {
     const bindings: Record<string, string> = {};
+    const ports = Object.keys(node.data.outputContracts ?? {});
+    const allowed = ports.length > 0 ? new Set(ports) : null;
     for (const [portId, bagKey] of Object.entries(node.data.writeBindings)) {
+      if (allowed && !allowed.has(portId)) {
+        continue;
+      }
       const trimmed = bagKey?.trim();
       if (trimmed) {
         bindings[portId] = trimmed;

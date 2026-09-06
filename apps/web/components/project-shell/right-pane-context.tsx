@@ -34,16 +34,11 @@ type RightPaneContextValue = {
   setNav: (nav: AssistantNavFrame[]) => void;
   sendMessage: (message: string, patch?: unknown) => Promise<void>;
   publishContext: (context: Partial<AssistantContext>) => void;
-  openChat: () => void;
   selectSession: (id: string) => Promise<void>;
   createSession: () => Promise<void>;
 };
 
 const RightPaneContext = createContext<RightPaneContextValue | null>(null);
-
-function modeStorageKey(projectKey: string) {
-  return `projectplaner.pane.${projectKey}.mode`;
-}
 
 function sessionIdStorageKey(projectKey: string) {
   return `projectplaner.assistant.${projectKey}.sessionId`;
@@ -57,12 +52,14 @@ const CHAT_FRAME: AssistantNavFrame = { key: "transcript", label: "Chat" };
 
 export function RightPaneProvider({
   projectKey,
+  activeViewKey,
   children
 }: {
   projectKey: string;
+  activeViewKey?: string;
   children: ReactNode;
 }) {
-  const [mode, setModeState] = useState<RightPaneMode>("inspect");
+  const [mode, setMode] = useState<RightPaneMode>("inspect");
   const [record, setRecord] = useState<AssistantSessionRecord | null>(null);
   const [sessions, setSessions] = useState<AssistantSessionListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,9 +71,8 @@ export function RightPaneProvider({
   recordRef.current = record;
 
   useEffect(() => {
-    const stored = window.localStorage.getItem(modeStorageKey(projectKey));
-    setModeState(stored === "assistant" ? "assistant" : "inspect");
-  }, [projectKey]);
+    setMode("inspect");
+  }, [projectKey, activeViewKey]);
 
   const rememberSession = useCallback((id: string) => {
     window.localStorage.setItem(sessionIdStorageKey(projectKey), id);
@@ -96,13 +92,7 @@ export function RightPaneProvider({
     [rememberSession]
   );
 
-  const setMode = useCallback(
-    (next: RightPaneMode) => {
-      setModeState(next);
-      window.localStorage.setItem(modeStorageKey(projectKey), next);
-    },
-    [projectKey]
-  );
+
 
   const selectSession = useCallback(
     async (id: string) => {
@@ -135,16 +125,7 @@ export function RightPaneProvider({
     setMode("assistant");
   }, [applyRecord, projectKey, setMode]);
 
-  const openChat = useCallback(() => {
-    if (!recordRef.current) {
-      void createSession().catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : "Could not open chat.");
-      });
-      return;
-    }
-    setMode("assistant");
-    setNav([CHAT_FRAME]);
-  }, [createSession, setMode]);
+
 
   useEffect(() => {
     let cancelled = false;
@@ -258,7 +239,6 @@ export function RightPaneProvider({
       setNav,
       sendMessage,
       publishContext,
-      openChat,
       selectSession,
       createSession
     }),
@@ -274,7 +254,6 @@ export function RightPaneProvider({
       nav,
       sendMessage,
       publishContext,
-      openChat,
       selectSession,
       createSession
     ]

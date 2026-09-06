@@ -29,7 +29,7 @@ export function buildWorkflowCompileSystemPrompt(): string {
     "Variables need name, role (input|output|local), shape, and optional required. Start output pins mirror input variables; End input pins mirror output variables.",
     "Data edges must use kind:data with sourcePin and targetPin. Exec edges must use sourcePin:then and targetPin:in unless routing.",
     "Control node types: start, end, error_end, branch, switch, fork, join, foreach, gate, wait, subworkflow.",
-    "Work node types: tool, llm, context, transform, map, math, write, push, create_workflow_node, assemble_fragment, assistant_session, assistant_window.",
+    "Work node types: tool, llm, context, transform, map, math, write, push, create_workflow_node, assemble_fragment, assistant_session.",
     "Variable node types: get, set, template. Template is pure (no exec): declared data inputs, data.template with {{pin}} tokens, string output pin text.",
     "Exactly one start node and at least one end or error_end node.",
     "Each node needs id, type, position {x,y}, data.title.",

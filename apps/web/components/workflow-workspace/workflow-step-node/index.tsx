@@ -1,7 +1,7 @@
 "use client";
 
-import { createContext, useContext } from "react";
-import { Handle, type NodeProps, Position } from "@xyflow/react";
+import { createContext, useContext, useEffect } from "react";
+import { Handle, type NodeProps, Position, useUpdateNodeInternals } from "@xyflow/react";
 import { FlaskConical } from "lucide-react";
 import type { BagShape, WorkflowVariable } from "@projectplaner/core";
 import workflow from "@projectplaner/core/workflow";
@@ -171,15 +171,21 @@ function PinRow({
 export function WorkflowStepNode({ data, selected }: NodeProps<FlowRfNode>) {
   const pinCtx = useContext(WorkflowPinsContext);
   const node = data.workflow;
-  if (node.type === "reroute") {
-    return <RerouteNode data={data} selected={selected} />;
-  }
   const model = getNodeModel(node.type);
   const execInputs = model.execInputs?.(node) ?? (node.type === "get" ? [] : ["in"]);
   const execOutputs =
     model.execOutputs?.(node) ?? (node.type === "get" || node.type === "end" || node.type === "error_end" ? [] : ["then"]);
   const dataInputs = model.dataInputs?.(node) ?? Object.keys(node.data.inputs ?? {});
   const dataOutputs = model.dataOutputs?.(node) ?? Object.keys(node.data.outputContracts ?? {});
+  const updateNodeInternals = useUpdateNodeInternals();
+  const portSignature = JSON.stringify([execInputs, execOutputs, dataInputs, dataOutputs]);
+  useEffect(() => {
+    updateNodeInternals(node.id);
+  }, [node.id, portSignature, updateNodeInternals]);
+
+  if (node.type === "reroute") {
+    return <RerouteNode data={data} selected={selected} />;
+  }
   const execInDesc = model.execInputDescriptions?.(node) ?? {};
   const execOutDesc = model.execOutputDescriptions?.(node) ?? {};
   const isControl = CONTROL_TYPES.has(node.type);

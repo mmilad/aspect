@@ -144,7 +144,6 @@ function configForType(type: WorkflowNodeType): Record<string, unknown> {
     case "assemble_fragment":
       return { draftsFrom: "stepDrafts" };
     case "assistant_session":
-    case "assistant_window":
       return {};
     case "get":
     case "set":

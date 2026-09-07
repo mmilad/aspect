@@ -12,6 +12,8 @@
     "isolatedModules": true,
     "baseUrl": ".",
     "paths": {
+      "@projectplaner/workspace": ["packages/workspace/src/index.ts"],
+      "@projectplaner/db/project-workspaces": ["packages/db/src/repositories/project-workspaces.ts"],
       "@projectplaner/core": ["packages/core/src/index.ts"],
       "@projectplaner/core/query": ["packages/core/src/domain/query/index.ts"],
       "@projectplaner/core/plan-api": ["packages/core/src/domain/api/index.ts"],
@@ -36,4 +38,3 @@
     }
   }
 }
-

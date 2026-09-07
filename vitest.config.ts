@@ -12,6 +12,8 @@ export default defineConfig({
   },
   resolve: {
     alias: [
+      { find: "@projectplaner/workspace", replacement: path.join(root, "packages/workspace/src/index.ts") },
+      { find: "@projectplaner/db/project-workspaces", replacement: path.join(root, "packages/db/src/repositories/project-workspaces.ts") },
       { find: "@projectplaner/core/query", replacement: path.join(root, "packages/core/src/domain/query/index.ts") },
       { find: "@projectplaner/core/plan-api", replacement: path.join(root, "packages/core/src/domain/api/index.ts") },
       { find: "@projectplaner/core/domain", replacement: path.join(root, "packages/core/src/domain/index.ts") },
@@ -34,4 +36,3 @@ export default defineConfig({
     ]
   }
 });
-

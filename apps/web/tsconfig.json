@@ -5,17 +5,40 @@
     "allowJs": true,
     "noEmit": true,
     "incremental": true,
-    "plugins": [{ "name": "next" }],
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"],
-      "@projectplaner/core": ["../../packages/core/src/index.ts"],
-      "@projectplaner/core/*": ["../../packages/core/src/*"],
-      "@projectplaner/db": ["../../packages/db/src/index.ts"],
-      "@projectplaner/db/*": ["../../packages/db/src/*"]
+      "@/*": [
+        "./*"
+      ],
+      "@projectplaner/core": [
+        "../../packages/core/src/index.ts"
+      ],
+      "@projectplaner/workspace": [
+        "../../packages/workspace/src/index.ts"
+      ],
+      "@projectplaner/core/*": [
+        "../../packages/core/src/*"
+      ],
+      "@projectplaner/db": [
+        "../../packages/db/src/index.ts"
+      ],
+      "@projectplaner/db/*": [
+        "../../packages/db/src/*"
+      ]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "next-env.d.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }
-

@@ -34,3 +34,4 @@ export type * from "./workflow";
 export type * from "./planning";
 export type * from "./generator";
 export type * from "./assistant";
+export type * from "./workspace/types";

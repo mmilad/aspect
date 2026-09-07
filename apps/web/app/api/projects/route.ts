@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import projects, { type CreateProjectInput } from "@projectplaner/db/projects";
 import { withDb } from "../../../lib/plan-api";
 
-export async function GET() {
+export async function GET(request: Request) {
   return withDb(async (db) => {
-    const listed = await projects.list(db);
+    const listed = await projects.list(db, { includeArchived: new URL(request.url).searchParams.get("includeArchived") === "true" });
     return NextResponse.json({ projects: listed });
   });
 }

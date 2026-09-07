@@ -10,5 +10,6 @@ Living documentation for Projectplaner. Prefer these over chat history when onbo
 | [mcp.md](./mcp.md) | Projectplaner MCP tool surface |
 | [agent.md](./agent.md) | Thin `apps/agent` workflow host |
 | [ui.md](./ui.md) | Web app tabs and UX rules |
+| [workspaces.md](./workspaces.md) | Managed repositories, storage, archive and delegation roadmap |
 
 Root overview: [`../README.md`](../README.md). Agent operating rules: [`../AGENTS.md`](../AGENTS.md).

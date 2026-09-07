@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { runMigrations } from "./migrate";
+import { migrateWorkspaces } from "./migrate-workspaces";
 import { migrateEntityStatuses } from "./migrate-status";
 import { ensureWorkflowPresets } from "./presets";
 import llmJsonSchemas from "./repositories/llm-json-schemas";
@@ -100,6 +101,7 @@ function defaultDatabasePath(): string {
 export function createDatabase(dbPath = defaultDatabasePath()) {
   const sqlite = new DatabaseSync(dbPath);
   runMigrations(sqlite);
+  migrateWorkspaces(sqlite);
   migrateEntityStatuses(sqlite);
   return sqlite;
 }

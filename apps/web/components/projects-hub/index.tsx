@@ -6,21 +6,12 @@ import { useRouter } from "next/navigation";
 import { FolderKanban, Trash2 } from "lucide-react";
 import { Button, FormLabel, Input } from "../ui";
 import { projectPaths } from "../../lib/project-paths";
+import type { ProjectSummary } from "@projectplaner/core";
 
 /** Keep in sync with EXAMPLE_PROJECT_KEY in @projectplaner/db (do not import db in client). */
 const EXAMPLE_PROJECT_KEY = "DEMO";
 const PROTECTED_KEY = "PLAN";
 
-type ProjectSummary = {
-  id: string;
-  key: string;
-  title: string;
-  description: string;
-  createdAt: string;
-  updatedAt: string;
-  entityCount: number;
-  workflowCount: number;
-};
 
 interface ProjectsHubProps {
   initialProjects: ProjectSummary[];
@@ -29,6 +20,7 @@ interface ProjectsHubProps {
 export function ProjectsHub({ initialProjects }: ProjectsHubProps) {
   const router = useRouter();
   const [projects, setProjects] = useState(initialProjects);
+  const [includeArchived, setIncludeArchived] = useState(false);
   const [key, setKey] = useState("");
   const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
@@ -43,8 +35,8 @@ export function ProjectsHub({ initialProjects }: ProjectsHubProps) {
     [projects]
   );
 
-  async function refreshList() {
-    const response = await fetch("/api/projects");
+  async function refreshList(archived = includeArchived) {
+    const response = await fetch(`/api/projects?includeArchived=${archived}`);
     const payload = (await response.json()) as { projects?: ProjectSummary[]; error?: string };
     if (!response.ok || !payload.projects) {
       throw new Error(payload.error ?? "Could not reload projects.");
@@ -101,7 +93,8 @@ export function ProjectsHub({ initialProjects }: ProjectsHubProps) {
     if (project.key === PROTECTED_KEY) {
       return;
     }
-    const confirmed = window.confirm(
+    const archiveAction = Boolean(project.workspace || project.archivedAt);
+    const confirmed = archiveAction || window.confirm(
       `Delete project ${project.key} (${project.title})? This permanently removes its entities and workflows.`
     );
     if (!confirmed) {
@@ -110,8 +103,10 @@ export function ProjectsHub({ initialProjects }: ProjectsHubProps) {
     setDeletingKey(project.key);
     setError(null);
     try {
-      const response = await fetch(`/api/projects?key=${encodeURIComponent(project.key)}`, {
-        method: "DELETE"
+      const response = await fetch(archiveAction ? `/api/projects/${encodeURIComponent(project.key)}` : `/api/projects?key=${encodeURIComponent(project.key)}`, {
+        method: archiveAction ? "PATCH" : "DELETE",
+        headers: { "content-type": "application/json" },
+        ...(archiveAction ? { body: JSON.stringify({ archived: !project.archivedAt }) } : {})
       });
       const payload = (await response.json()) as { error?: string };
       if (!response.ok) {
@@ -134,7 +129,7 @@ export function ProjectsHub({ initialProjects }: ProjectsHubProps) {
           <div>
             <h1 className="text-base font-semibold">Projects</h1>
             <p className="text-xs text-muted-foreground">
-              Multi-project hub — open a workspace, create, or delete. MCP stays PLAN-default.
+              Open a project, create one, or manage archived projects. MCP stays PLAN-default.
             </p>
           </div>
         </header>
@@ -194,6 +189,13 @@ export function ProjectsHub({ initialProjects }: ProjectsHubProps) {
         </div>
 
         {error ? <p className="text-xs text-rose-700">{error}</p> : null}
+        <label className="flex items-center gap-2 text-xs">
+          <input type="checkbox" checked={includeArchived} onChange={(event) => {
+            const value = event.target.checked;
+            setIncludeArchived(value);
+            void refreshList(value).catch((err: Error) => setError(err.message));
+          }} /> Include archived projects
+        </label>
 
         <div className="overflow-hidden rounded-md border border-border bg-white">
           <table className="w-full text-left text-sm">
@@ -221,6 +223,7 @@ export function ProjectsHub({ initialProjects }: ProjectsHubProps) {
                     <Link href={projectPaths.workspace(project.key)} className="font-medium hover:underline">
                       {project.title}
                     </Link>
+                    {project.archivedAt ? <span className="ml-2 text-xs text-muted-foreground">Archived</span> : null}
                   </td>
                   <td className="px-3 py-2 tabular-nums text-zinc-700">{project.entityCount}</td>
                   <td className="px-3 py-2 tabular-nums text-zinc-700">{project.workflowCount}</td>
@@ -236,7 +239,7 @@ export function ProjectsHub({ initialProjects }: ProjectsHubProps) {
                       >
                         <span className="inline-flex items-center gap-1">
                           <Trash2 className="h-3.5 w-3.5" />
-                          {deletingKey === project.key ? "Deleting…" : "Delete"}
+                          {deletingKey === project.key ? "Saving…" : project.archivedAt ? "Restore" : project.workspace ? "Archive" : "Delete"}
                         </span>
                       </Button>
                     )}

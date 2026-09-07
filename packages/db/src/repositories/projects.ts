@@ -2,19 +2,11 @@ import type { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
 import { insertEntity, run, slugify, type ProjectRow } from "../storage";
 import { assertValidProjectGraph } from "./graph";
+import type { ProjectSummary } from "@projectplaner/core";
 
 export const PROTECTED_PROJECT_KEY = "PLAN";
 
-export type ProjectSummary = {
-  id: string;
-  key: string;
-  title: string;
-  description: string;
-  createdAt: string;
-  updatedAt: string;
-  entityCount: number;
-  workflowCount: number;
-};
+export type { ProjectSummary } from "@projectplaner/core";
 
 export type ProjectStatsBucket = {
   total: number;
@@ -63,7 +55,7 @@ function normalizeProjectKey(raw: string): string {
   return key;
 }
 
-async function list(db: DatabaseSync): Promise<ProjectSummary[]> {
+async function list(db: DatabaseSync, options: { includeArchived?: boolean } = {}): Promise<ProjectSummary[]> {
   const rows = db
     .prepare(
       `SELECT
@@ -73,6 +65,9 @@ async function list(db: DatabaseSync): Promise<ProjectSummary[]> {
          p.description,
          p.created_at AS createdAt,
          p.updated_at AS updatedAt,
+         p.archived_at AS archivedAt,
+         w.id AS workspaceId,
+         w.status AS workspaceStatus,
          (
            SELECT COUNT(*) FROM entities e
            WHERE e.project_id = p.id AND e.status != 'archived'
@@ -82,15 +77,20 @@ async function list(db: DatabaseSync): Promise<ProjectSummary[]> {
            WHERE w.project_id = p.id
          ) AS workflowCount
        FROM projects p
+       LEFT JOIN project_workspaces w ON w.project_id = p.id
+       WHERE (? = 1 OR p.archived_at IS NULL)
        ORDER BY p.key ASC`
     )
-    .all() as Array<{
+    .all(options.includeArchived ? 1 : 0) as Array<{
     id: string;
     key: string;
     title: string;
     description: string;
     createdAt: string;
     updatedAt: string;
+    archivedAt: string | null;
+    workspaceId: string | null;
+    workspaceStatus: "provisioning" | "ready" | "failed" | null;
     entityCount: number;
     workflowCount: number;
   }>;
@@ -102,6 +102,8 @@ async function list(db: DatabaseSync): Promise<ProjectSummary[]> {
     description: row.description,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+    archivedAt: row.archivedAt,
+    workspace: row.workspaceId ? { id: row.workspaceId, status: row.workspaceStatus! } : null,
     entityCount: Number(row.entityCount) || 0,
     workflowCount: Number(row.workflowCount) || 0
   }));
@@ -166,6 +168,9 @@ async function remove(db: DatabaseSync, key: string): Promise<{ deleted: string 
     throw new Error("Project not found.");
   }
 
+  if (db.prepare("SELECT 1 FROM project_workspaces WHERE project_id = ?").get(project.id)) {
+    throw new Error("Projects with a code workspace must be archived, not deleted.");
+  }
   run(db, "DELETE FROM projects WHERE id = ?", [project.id]);
   return { deleted: project.key };
 }
@@ -215,7 +220,18 @@ async function stats(db: DatabaseSync, key: string): Promise<ProjectStats | null
   };
 }
 
+async function setArchived(db: DatabaseSync, key: string, archived: boolean): Promise<ProjectSummary> {
+  const normalized = key.trim().toUpperCase();
+  if (normalized === PROTECTED_PROJECT_KEY) throw new Error("Cannot archive protected project PLAN.");
+  const found = db.prepare("SELECT id FROM projects WHERE key = ?").get(normalized) as { id: string } | undefined;
+  if (!found) throw new Error("Project not found.");
+  db.prepare("UPDATE projects SET archived_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+    .run(archived ? new Date().toISOString() : null, found.id);
+  return (await list(db, { includeArchived: true })).find((project) => project.id === found.id)!;
+}
+
 const projects = {
+  setArchived,
   list,
   create,
   remove,

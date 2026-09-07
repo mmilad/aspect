@@ -9,6 +9,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@projectplaner/workspace": "workspace:*",
     "@projectplaner/core": "workspace:*",
     "@projectplaner/db": "workspace:*",
     "@radix-ui/react-avatar": "^1.2.6",

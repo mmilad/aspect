@@ -11,6 +11,7 @@ import type { ProjectStats, ProjectStatsBucket } from "@projectplaner/db";
 import { EntityBadges, InfoField } from "../ui";
 import { formatEntityType, formatStatus } from "../../lib/entity-label";
 import { projectPaths } from "../../lib/project-paths";
+import { CodeWorkspacePanel } from "./code-workspace-panel";
 
 const TYPE_ROWS: Array<{ type: string; label: string }> = [
   { type: "aspect", label: "Aspects" },
@@ -95,6 +96,8 @@ export function ProjectWorkspaceHub({ snapshot, stats }: ProjectWorkspaceHubProp
           ))}
         </div>
       </div>
+
+      <CodeWorkspacePanel projectKey={projectKey} />
 
       {root ? (
         <div className="space-y-3 rounded-md border border-border bg-white p-3">

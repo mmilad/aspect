@@ -5,6 +5,7 @@
 - **`packages/core`** — Domain types (`domain/`), process/decision/question statuses, candidacy/scoring, workflow schema + step runner (`workflow/`, `generator/workflow`), legacy snapshot adapters (`legacy/`).
 - **`packages/db`** — SQLite via `node:sqlite`, migrations, repository, query layer, workflow run persistence, preset seeding, parent-status rollup. Storage adapter: domain logic stays in core.
 - **`packages/mcp`** — Stdio MCP server wrapping db/core for Cursor agents.
+- **`packages/workspace`** — Managed directory ownership, Git provisioning and inspection. Depends on core types; server orchestration connects it to SQLite. See [workspaces](./workspaces.md).
 - **`apps/web`** — Next.js App Router UI + HTTP APIs used by the UI and `apps/agent`.
 - **`apps/agent`** — Thin host: `WorkflowClient` + LLM adapters + run loop. No freeform tools; no direct DB.
 

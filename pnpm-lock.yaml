@@ -45,6 +45,9 @@ importers:
       '@projectplaner/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@projectplaner/workspace':
+        specifier: workspace:*
+        version: link:../../packages/workspace
       '@radix-ui/react-avatar':
         specifier: ^1.2.6
         version: 1.2.6(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -135,6 +138,12 @@ importers:
       zod:
         specifier: ^3.24.2
         version: 3.25.76
+
+  packages/workspace:
+    dependencies:
+      '@projectplaner/core':
+        specifier: workspace:*
+        version: link:../core
 
 packages:
 

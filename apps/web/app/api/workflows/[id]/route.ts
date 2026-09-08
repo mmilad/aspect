@@ -1,77 +1,70 @@
 import { NextResponse } from "next/server";
-import { openDatabase, markWorkflowPresetDirty } from "@projectplaner/db";
-import entities from "@projectplaner/db/entities";
-import workflows from "@projectplaner/db/workflows";
+import { getDatabaseController} from "@projectplaner/db";
+
+
 import type { JsonRecord, WorkflowGraph } from "@projectplaner/core";
 import workflow from "@projectplaner/core/workflow";
 
 const { parse: parseWorkflowGraph, write: writeWorkflowGraph } = workflow.graph;
 import { drainPendingLlm, shouldDrainPendingLlm, workflowRunJson } from "../../../../lib/drain-pending-llm";
 
-async function openDb() {
-  return openDatabase();
-}
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
-  const db = await openDb();
+  const db = getDatabaseController();
   try {
-    const entity = await entities.get(db, id);
+    const entity = await db.entities.get(id);
     if (!entity || entity.type !== "flow") {
       return NextResponse.json({ error: "Workflow flow not found." }, { status: 404 });
     }
-    const graph = workflows.persist.getOrMigrateGraph(db, {
+    const graph = (await db.persist.getOrMigrateGraph({
       workflowId: entity.id,
       projectId: entity.projectId,
       metadata: entity.metadata as JsonRecord
-    });
+    }));
     const fallback = graph ? null : parseWorkflowGraph((entity.metadata as JsonRecord).graph);
     return NextResponse.json({
       entity,
       graph: graph ?? (fallback && fallback.ok ? fallback.graph : null),
-      triggers: workflows.persist.listTriggers(db, entity.id)
+      triggers: (await db.persist.listTriggers(entity.id))
     });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Could not load workflow." },
       { status: 400 }
     );
-  } finally {
-    db.close();
   }
 }
 
 export async function PUT(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
   const body = (await request.json()) as { graph?: WorkflowGraph };
-  const db = await openDb();
+  const db = getDatabaseController();
   try {
-    const entity = await entities.get(db, id);
+    const entity = await db.entities.get(id);
     if (!entity || entity.type !== "flow") {
       return NextResponse.json({ error: "Workflow flow not found." }, { status: 404 });
     }
     if (!body.graph) {
       return NextResponse.json({ error: "graph is required." }, { status: 400 });
     }
-    const graph = workflows.persist.saveGraph(db, {
+    const graph = (await db.persist.saveGraph({
       workflowId: entity.id,
       projectId: entity.projectId,
       graph: body.graph
-    });
+    }));
     let metadata = writeWorkflowGraph((entity.metadata ?? {}) as JsonRecord, graph);
     if (typeof metadata.presetKey === "string") {
       metadata = { ...metadata, presetDirty: true };
     }
-    const updated = await entities.update(db, { id: entity.id, patch: { metadata } });
-    await markWorkflowPresetDirty(db, entity.id);
+    const updated = await db.entities.update({ id: entity.id, patch: { metadata } });
+    await db.presets.markDirty(entity.id);
     return NextResponse.json({ entity: updated, graph });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Could not save workflow." },
       { status: 400 }
     );
-  } finally {
-    db.close();
   }
 }
 
@@ -87,9 +80,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   if (body.action !== "run") {
     return NextResponse.json({ error: "Unsupported action." }, { status: 400 });
   }
-  const db = await openDb();
+  const db = getDatabaseController();
   try {
-    const started = await workflows.run(db, {
+    const started = await db.workflows.run({
       id,
       goal: body.goal,
       bag: body.bag as Record<string, unknown> | undefined
@@ -103,8 +96,6 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       { error: error instanceof Error ? error.message : "Could not start workflow run." },
       { status: 400 }
     );
-  } finally {
-    db.close();
   }
 }
 
@@ -119,9 +110,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (!body.runId) {
     return NextResponse.json({ error: "runId required." }, { status: 400 });
   }
-  const db = await openDb();
+  const db = getDatabaseController();
   try {
-    const result = await workflows.run(db, {
+    const result = await db.workflows.run({
       id,
       runId: body.runId,
       llmWrites: body.llmWrites,
@@ -138,7 +129,5 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       { error: error instanceof Error ? error.message : "Could not advance workflow run." },
       { status: 400 }
     );
-  } finally {
-    db.close();
   }
 }

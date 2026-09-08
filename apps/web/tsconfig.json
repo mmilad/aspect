@@ -26,9 +26,6 @@
       ],
       "@projectplaner/db": [
         "../../packages/db/src/index.ts"
-      ],
-      "@projectplaner/db/*": [
-        "../../packages/db/src/*"
       ]
     }
   },

@@ -1,11 +1,11 @@
-import type { DatabaseSync } from "node:sqlite";
+import type { DatabaseController } from "@projectplaner/db";
 import type { WorkflowLlmPending } from "@projectplaner/core";
 import generator from "@projectplaner/core/generator";
 import workflow from "@projectplaner/core/workflow";
 
 const { chatCompletions, readLlmChatConfigFromEnv, llmWritesFromPending } = generator.author;
 const { workflowPresetAllowsDrainLlm } = workflow.presets;
-import { runWorkflow, type RunWorkflowResult } from "@projectplaner/db/workflows";
+import type { RunWorkflowResult } from "@projectplaner/db";
 
 export type LlmDrainTurn = {
   turn: number;
@@ -21,7 +21,7 @@ export type DrainedWorkflowResult = RunWorkflowResult & {
 };
 
 export async function drainPendingLlm(
-  db: DatabaseSync,
+  db: DatabaseController,
   started: RunWorkflowResult & { note?: string },
   options?: { maxTurns?: number }
 ): Promise<DrainedWorkflowResult> {
@@ -66,7 +66,7 @@ export async function drainPendingLlm(
       schemaKey: pending.schemaKey,
       writeKeys: Object.keys(writes)
     });
-    current = await runWorkflow(db, {
+    current = await db.workflows.run({
       runId: current.run.id,
       llmWrites: writes
     });

@@ -1,83 +1,19 @@
-import { SemanticWrites } from "./semantic";
-import { createDatabase, loadEnv, openDatabase } from "./client";
-import { createExampleProject, EXAMPLE_PROJECT_KEY } from "./example-signal-desk";
-import { ensureWorkflowPresets, findSeededWorkflowPreset, markWorkflowPresetDirty } from "./presets";
-import query from "./query";
-import assistantSessions from "./repositories/assistant-sessions";
-import entities from "./repositories/entities";
-import llmJsonSchemas from "./repositories/llm-json-schemas";
-import projects from "./repositories/projects";
-import relations from "./repositories/relations";
-import snapshots from "./repositories/snapshots";
-import tags from "./repositories/tags";
-import tasks from "./repositories/tasks";
-import { rollupParentStatus } from "./rollup";
-import workflows from "./workflows";
-
-const planer = {
-  entities,
-  relations,
-  projects,
-  tags,
-  tasks,
-  snapshots,
-  query,
-  workflows,
-  llmJsonSchemas,
-  assistantSessions
-};
-
-export default planer;
-
-export {
-  SemanticWrites,
-  createDatabase,
-  createExampleProject,
-  EXAMPLE_PROJECT_KEY,
-  ensureWorkflowPresets,
-  findSeededWorkflowPreset,
-  loadEnv,
-  markWorkflowPresetDirty,
-  openDatabase,
-  rollupParentStatus
-};
-
-export type {
-  CreateAspectInput,
-  CreateFeatureInput,
-  CreateSemanticTaskInput,
-  SemanticEntityInput
-} from "./semantic";
-export { AspectHandle, FeatureHandle, ProjectWrites, TaskHandle } from "./semantic";
-
-export type { CreateEntityInput, EntityQuery, UpdateEntityInput } from "./repositories/entities";
-export type { CreateRelationInput, RelationQuery, UpdateRelationInput } from "./repositories/relations";
-export type {
-  CreateProjectInput,
-  ProjectStats,
-  ProjectStatsBucket,
-  ProjectSummary
-} from "./repositories/projects";
-export { PROTECTED_PROJECT_KEY } from "./repositories/projects";
-export type { CreateTaskInput } from "./repositories/tasks";
-export type { GenericPlanExport, GenericProjectSnapshot } from "./repositories/snapshots";
-export type {
-  CreateLlmJsonSchemaInput,
-  EnsureLlmJsonSchemasOptions,
-  EnsureLlmJsonSchemasResult,
-  LlmJsonSchemaRecord
-} from "./repositories/llm-json-schemas";
-export type { AssistantSessionRecord, AssistantSessionRow } from "./repositories/assistant-sessions";
-export type {
-  AdvanceWorkflowRunInput,
-  AdvanceWorkflowRunResult,
-  ResolveWorkflowFlowInput,
-  RunWorkflowInput,
-  RunWorkflowResult,
-  WorkflowNodeRun,
-  WorkflowNodeRunStatus,
-  WorkflowRunRecord,
-  WorkflowRunStatus,
-  WorkflowTrigger,
-  WorkflowTriggerKind
-} from "./workflows";
+export { getDatabaseController, createDatabaseController } from "./controller";
+export type { DatabaseController, ControllerOptions } from "./controller";
+export type { DatabaseOperations } from "./services";
+export type { Storage, StorageConnection, StorageFactory } from "./contracts/storage";
+export { entityStore } from "./contracts/storage";
+export { loadEnv } from "./environment";
+export { SemanticWrites, AspectHandle, FeatureHandle, ProjectWrites, TaskHandle } from "./semantic";
+export type { CreateAspectInput, CreateFeatureInput, CreateSemanticTaskInput, SemanticEntityInput } from "./semantic";
+export { EXAMPLE_PROJECT_KEY } from "./example-signal-desk";
+export const PROTECTED_PROJECT_KEY = "PLAN";
+export type { CreateEntityInput, EntityQuery, UpdateEntityInput } from "./contracts/entities";
+export type { CreateRelationInput, RelationQuery, UpdateRelationInput } from "./contracts/relations";
+export type { CreateProjectInput, ProjectStats, ProjectStatsBucket, ProjectSummary } from "./contracts/projects";
+export type { CreateTaskInput } from "./contracts/tasks";
+export type { GenericPlanExport, GenericProjectSnapshot } from "./contracts/snapshots";
+export type { CreateLlmJsonSchemaInput, EnsureLlmJsonSchemasOptions, EnsureLlmJsonSchemasResult, LlmJsonSchemaRecord } from "./contracts/llm-json-schemas";
+export type { AssistantSessionRecord } from "./contracts/assistant-sessions";
+export type { RunWorkflowInput, RunWorkflowResult, AdvanceWorkflowRunInput, AdvanceWorkflowRunResult, ResolveWorkflowFlowInput } from "./workflows/execute";
+export type { WorkflowNodeRun, WorkflowNodeRunStatus, WorkflowRunRecord, WorkflowRunStatus, WorkflowTrigger, WorkflowTriggerKind } from "./contracts/persist";

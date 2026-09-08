@@ -1,24 +1,14 @@
+import { entityStore } from "@projectplaner/db";
 import type { EntityFilter, EntityType } from "@projectplaner/core";
 import planApi from "@projectplaner/core/plan-api";
-import { openDatabase } from "@projectplaner/db";
-import query from "@projectplaner/db/query";
-import type { DatabaseSync } from "node:sqlite";
+import { getDatabaseController } from "@projectplaner/db";
 
-export async function openDb() {
-  return openDatabase();
-}
+import type { DatabaseController } from "@projectplaner/db";
 
-export function createWebPlanApi(db: DatabaseSync) {
-  return planApi.create(query.createStore(db));
-}
-
-export async function withDb<T>(fn: (db: DatabaseSync) => Promise<T>): Promise<T> {
-  const db = await openDb();
-  try {
-    return await fn(db);
-  } finally {
-    db.close();
-  }
+export function createWebPlanApi(db: DatabaseController) { return planApi.create(entityStore(db)); }
+/** Compatibility helper: callbacks do not own a connection or occupy the operation queue. */
+export async function withDb<T>(fn: (db: DatabaseController) => Promise<T>): Promise<T> {
+ return fn(getDatabaseController());
 }
 
 /** Build a PlanApi `where` from common HTTP list params. */

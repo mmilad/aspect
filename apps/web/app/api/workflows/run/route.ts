@@ -1,11 +1,8 @@
 import { NextResponse } from "next/server";
-import { openDatabase } from "@projectplaner/db";
-import workflows from "@projectplaner/db/workflows";
+import { getDatabaseController } from "@projectplaner/db";
+
 import { drainPendingLlm, shouldDrainPendingLlm, workflowRunJson } from "../../../../lib/drain-pending-llm";
 
-async function openDb() {
-  return openDatabase();
-}
 
 /**
  * General workflow runner.
@@ -23,9 +20,9 @@ export async function GET(request: Request) {
   if (!runId) {
     return NextResponse.json({ error: "Provide runId." }, { status: 400 });
   }
-  const db = await openDb();
+  const db = getDatabaseController();
   try {
-    const started = await workflows.run(db, { runId });
+    const started = await db.workflows.run({ runId });
     return NextResponse.json(
       workflowRunJson({ ...started, turns: [], llmConfigured: false })
     );
@@ -33,8 +30,6 @@ export async function GET(request: Request) {
     const message = error instanceof Error ? error.message : "Could not load workflow run.";
     const status = /not found/i.test(message) ? 404 : 400;
     return NextResponse.json({ error: message }, { status });
-  } finally {
-    db.close();
   }
 }
 
@@ -58,9 +53,9 @@ export async function POST(request: Request) {
     );
   }
 
-  const db = await openDb();
+  const db = getDatabaseController();
   try {
-    const started = await workflows.run(db, {
+    const started = await db.workflows.run({
       id: body.id,
       key: body.key,
       projectKey: body.projectKey,
@@ -77,7 +72,5 @@ export async function POST(request: Request) {
     const message = error instanceof Error ? error.message : "Could not run workflow.";
     const status = /not found/i.test(message) ? 404 : 400;
     return NextResponse.json({ error: message }, { status });
-  } finally {
-    db.close();
   }
 }

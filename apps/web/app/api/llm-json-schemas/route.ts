@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import llmJsonSchemas from "@projectplaner/db/llm-json-schemas";
+
 import { withDb } from "../../../lib/plan-api";
 
 function isJsonObject(value: unknown): value is Record<string, unknown> {
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
   const projectKey = url.searchParams.get("projectKey") ?? "PLAN";
 
   return withDb(async (db) => {
-    const schemas = llmJsonSchemas.list(db, projectKey)
+    const schemas = (await db.llmJsonSchemas.list(projectKey))
       .filter((row) => row.status === "active")
       .map(schemaResponse);
     return NextResponse.json({ schemas });
@@ -57,13 +57,13 @@ export async function POST(request: Request) {
 
   return withDb(async (db) => {
     try {
-      const created = llmJsonSchemas.create(db, {
+      const created = (await db.llmJsonSchemas.create({
         projectKey,
         key,
         title,
         description,
         schema: schemaObject
-      });
+      }));
       return NextResponse.json({ schema: schemaResponse(created) }, { status: 201 });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not create schema.";

@@ -2,7 +2,7 @@ import type { EntityType } from "@projectplaner/core";
 import domain from "@projectplaner/core/domain";
 
 const { getNarrative } = domain;
-import entities from "@projectplaner/db/entities";
+
 import { BODY_MAX, DEFAULT_LIST_LIMIT, DEFAULT_PROJECT_KEY, planApi, truncate, withDb } from "./session";
 
 export async function searchEntities(input: {
@@ -79,7 +79,7 @@ export async function getEntity(
     if (!options.includeBody && !options.includeMetadata) {
       return entity;
     }
-    const full = await entities.get(db, id);
+    const full = await db.entities.get(id);
     if (!full) {
       throw new Error(`Entity not found: ${id}`);
     }

@@ -9,9 +9,8 @@ import {
 import type { AssistantSessionRecord } from "@projectplaner/core/assistant";
 import type { WorkflowContextBag } from "@projectplaner/core";
 import generator from "@projectplaner/core/generator";
-import type { DatabaseSync } from "node:sqlite";
-import assistantSessions from "@projectplaner/db/assistant-sessions";
-import { runWorkflow } from "@projectplaner/db/workflows";
+import type { DatabaseController } from "@projectplaner/db";
+
 import { drainPendingLlm } from "./drain-pending-llm";
 
 const { readLlmChatConfigFromEnv } = generator.author;
@@ -31,10 +30,10 @@ function readTurnOutputs(bag: WorkflowContextBag | undefined): { pack: unknown; 
 }
 
 export async function runAssistantTurn(
-  db: DatabaseSync,
+  db: DatabaseController,
   input: AssistantTurnInput
 ): Promise<AssistantSessionRecord> {
-  const existing = assistantSessions.get(db, input.sessionId);
+  const existing = (await db.assistantSessions.get(input.sessionId));
   if (!existing) {
     throw new Error(`Unknown assistant session: ${input.sessionId}`);
   }
@@ -46,7 +45,7 @@ export async function runAssistantTurn(
     let session = appendMessage(existing.session, "user", message);
     session = mergeSession(session, fixturePatch);
     session = appendMessage(session, "assistant", "Updated session from fixture patch.");
-    return assistantSessions.save(db, existing.id, session);
+    return (await db.assistantSessions.save(existing.id, session));
   }
 
   const config = readLlmChatConfigFromEnv();
@@ -57,10 +56,10 @@ export async function runAssistantTurn(
       "assistant",
       "LLM is not configured. Set PROJECTPLANER_LLM_BASE_URL and PROJECTPLANER_LLM_MODEL, or POST a fixture patch."
     );
-    return assistantSessions.save(db, existing.id, session);
+    return (await db.assistantSessions.save(existing.id, session));
   }
 
-  const started = await runWorkflow(db, {
+  const started = await db.workflows.run({
     key: "assistant_turn",
     projectKey: existing.session.context.projectKey || "PLAN",
     goal: "Assistant turn",
@@ -90,9 +89,5 @@ export async function runAssistantTurn(
     throw new Error("Assistant turn completed without a reply.");
   }
 
-  return assistantSessions.save(
-    db,
-    existing.id,
-    commitAssistantTurn(existing.session, message, pack, rawReply)
-  );
+  return (await db.assistantSessions.save(existing.id, commitAssistantTurn(existing.session, message, pack, rawReply)));
 }

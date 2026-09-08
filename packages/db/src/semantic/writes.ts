@@ -1,8 +1,6 @@
-import type { DatabaseSync } from "node:sqlite";
+import type { DatabaseOperations } from "../services";
 import type { Entity, EntityRelationType, EntityType, JsonRecord, TaskPriority } from "@projectplaner/core";
-import entities from "../repositories/entities";
-import relations from "../repositories/relations";
-import { rollupParentStatus } from "../rollup";
+
 
 type EntityOfType<T extends EntityType> = Entity & { type: T };
 
@@ -32,7 +30,7 @@ export type CreateSemanticTaskInput = SemanticEntityInput & {
 };
 
 export class SemanticWrites {
-  constructor(private readonly db: DatabaseSync) {}
+  constructor(private readonly db: Pick<DatabaseOperations, "entities" | "semantic">) {}
 
   project(projectKey: string): ProjectWrites {
     return new ProjectWrites(this.db, projectKey);
@@ -41,7 +39,7 @@ export class SemanticWrites {
 
 export class ProjectWrites {
   constructor(
-    private readonly db: DatabaseSync,
+    private readonly db: Pick<DatabaseOperations, "entities" | "semantic">,
     readonly projectKey: string
   ) {}
 
@@ -58,84 +56,22 @@ export class ProjectWrites {
   }
 
   async createAspect(input: CreateAspectInput): Promise<AspectHandle> {
-    const parent = input.parentId ? await this.requireEntity(input.parentId, ["aspect", "project"]) : null;
-    const created = await entities.create(this.db, {
-      projectKey: this.projectKey,
-      type: "aspect",
-      title: input.title,
-      key: input.key,
-      slug: input.slug,
-      summary: input.summary,
-      body: input.body,
-      metadata: input.metadata,
-      skipRollup: Boolean(parent)
-    });
-
-    if (parent) {
-      await relations.create(this.db, {
-        projectKey: this.projectKey,
-        sourceEntityId: parent.id,
-        targetEntityId: created.entity.id,
-        type: "contains",
-        isPrimary: true
-      });
-      await rollupParentStatus(this.db, created.entity.id, { projectKey: this.projectKey });
-    }
-
-    return new AspectHandle(this, created.entity.id, created.entity as EntityOfType<"aspect">);
-  }
+ const entity = await this.db.semantic.createAspect(this.projectKey, input);
+ return new AspectHandle(this, entity.id, entity);
+}
 
   async createFeature(input: CreateFeatureInput): Promise<FeatureHandle> {
-    const parent = await this.requireEntity(input.parentId, ["aspect", "feature"]);
-    const metadata = {
-      ...(input.metadata ?? {}),
-      ...(input.acceptanceShape ? { acceptanceShape: input.acceptanceShape } : {})
-    };
-    const created = await entities.create(this.db, {
-      projectKey: this.projectKey,
-      type: "feature",
-      title: input.title,
-      key: input.key,
-      slug: input.slug,
-      summary: input.summary,
-      body: input.body,
-      metadata,
-      skipRollup: true
-    });
-    await relations.create(this.db, {
-      projectKey: this.projectKey,
-      sourceEntityId: parent.id,
-      targetEntityId: created.entity.id,
-      type: "contains",
-      isPrimary: true
-    });
-    await rollupParentStatus(this.db, created.entity.id, { projectKey: this.projectKey });
-    return new FeatureHandle(this, created.entity.id, created.entity as EntityOfType<"feature">);
-  }
+ const entity = await this.db.semantic.createFeature(this.projectKey, input);
+ return new FeatureHandle(this, entity.id, entity);
+}
 
   async createTask(input: CreateSemanticTaskInput): Promise<TaskHandle> {
-    const target = await this.requireEntity(input.targetId, ["aspect", "feature"]);
-    const linkType = input.linkType ?? (target.type === "feature" ? "implements" : "affects");
-    const created = await entities.create(this.db, {
-      projectKey: this.projectKey,
-      type: "task",
-      title: input.title,
-      key: input.key,
-      slug: input.slug,
-      summary: input.summary,
-      body: input.body ?? input.summary,
-      metadata: {
-        ...(input.metadata ?? {}),
-        priority: input.priority ?? "medium",
-        acceptanceCriteria: input.acceptanceCriteria ?? []
-      },
-      relations: [{ targetEntityId: target.id, type: linkType, isPrimary: true }]
-    });
-    return new TaskHandle(this, created.entity.id, created.entity as EntityOfType<"task">);
-  }
+ const entity = await this.db.semantic.createTask(this.projectKey, input);
+ return new TaskHandle(this, entity.id, entity);
+}
 
   async requireEntity<T extends EntityType>(id: string, allowed: T[]): Promise<EntityOfType<T>> {
-    const entity = await entities.get(this.db, id);
+    const entity = await this.db.entities.get(id);
     if (!entity || !allowed.includes(entity.type as T)) {
       throw new Error(`Expected ${allowed.join(" or ")} entity: ${id}`);
     }

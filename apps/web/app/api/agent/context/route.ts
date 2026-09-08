@@ -3,7 +3,7 @@ import type { Entity, EntityRelation } from "@projectplaner/core";
 import domain from "@projectplaner/core/domain";
 
 const { expandTaskChainIds, selectCompactContextRelations } = domain;
-import relations from "@projectplaner/db/relations";
+
 import { createWebPlanApi, withDb } from "../../../../lib/plan-api";
 
 function parseLimit(value: string | null, fallback: number): number {
@@ -163,7 +163,7 @@ export async function GET(request: Request) {
   try {
     return await withDb(async (db) => {
       const api = createWebPlanApi(db);
-      const listedRelations = await relations.list(db, { projectKey });
+      const listedRelations = await db.relations.list({ projectKey });
 
       const search = query
         ? await api.entities.search({ projectKey, q: query, limit, select: "full" })

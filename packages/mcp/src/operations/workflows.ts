@@ -1,4 +1,4 @@
-import workflows from "@projectplaner/db/workflows";
+
 import { DEFAULT_PROJECT_KEY, withDb } from "./session";
 
 /** Start or resume a seeded workflow (by preset key or flow id). */
@@ -13,7 +13,7 @@ export async function runWorkflow(input: {
   projectKey?: string;
 }) {
   return withDb(async (db) => {
-    const result = await workflows.run(db, {
+    const result = await db.workflows.run({
       id: input.id,
       key: input.key,
       projectKey: input.projectKey ?? DEFAULT_PROJECT_KEY,

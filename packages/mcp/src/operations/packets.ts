@@ -2,8 +2,8 @@ import type { Entity, JsonRecord } from "@projectplaner/core";
 import domain from "@projectplaner/core/domain";
 
 const { getNarrative, withNarrative } = domain;
-import entities from "@projectplaner/db/entities";
-import relations from "@projectplaner/db/relations";
+
+
 import {
   DEFAULT_PROJECT_KEY,
   mergeNarrativeMetadata,
@@ -78,14 +78,14 @@ function normalizePacketMetadata(metadata: JsonRecord, entityId: string, workflo
 
 export async function packetRead(entityId: string, workflow?: string) {
   return withDb(async (db) => {
-    const entity = await entities.get(db, entityId);
+    const entity = await db.entities.get(entityId);
     if (!entity) {
       throw new Error(`Entity not found: ${entityId}`);
     }
 
     const [outgoing, incoming] = await Promise.all([
-      relations.list(db, { projectKey: DEFAULT_PROJECT_KEY, sourceEntityId: entityId }),
-      relations.list(db, { projectKey: DEFAULT_PROJECT_KEY, targetEntityId: entityId })
+      (await db.relations.list({ projectKey: DEFAULT_PROJECT_KEY, sourceEntityId: entityId })),
+      (await db.relations.list({ projectKey: DEFAULT_PROJECT_KEY, targetEntityId: entityId }))
     ]);
 
     const neighborIds = [
@@ -95,7 +95,7 @@ export async function packetRead(entityId: string, workflow?: string) {
       ])
     ];
 
-    const neighbors = (await Promise.all(neighborIds.map((id) => entities.get(db, id)))).filter(
+    const neighbors = (await Promise.all(neighborIds.map((id) => db.entities.get(id)))).filter(
       (item): item is Entity => item != null
     );
     const packets = neighbors.filter((item) => isOrientationPacket(item, workflow)).map(compactPacket);
@@ -123,21 +123,21 @@ export async function packetWrite(input: {
 }) {
   const reason = requireReason(input.reason, "packet_write");
   return withDb(async (db) => {
-    const target = await entities.get(db, input.entityId);
+    const target = await db.entities.get(input.entityId);
     if (!target) {
       throw new Error(`Entity not found: ${input.entityId}`);
     }
     const metadata = normalizePacketMetadata(input.metadata, input.entityId, input.workflow);
     const packet = input.id
-      ? await entities.update(db, {
+      ? await db.entities.update({
           id: input.id,
           patch: {
             metadata,
-            title: input.title ?? (await entities.get(db, input.id))?.title ?? "Orientation Packet"
+            title: input.title ?? (await db.entities.get(input.id))?.title ?? "Orientation Packet"
           }
         })
       : (
-          await entities.create(db, {
+          await db.entities.create({
             projectKey: DEFAULT_PROJECT_KEY,
             type: "reference",
             title: input.title ?? `Orientation Packet for ${target.key ?? target.title}`,
@@ -147,13 +147,13 @@ export async function packetWrite(input: {
           })
         ).entity;
 
-    const existingRelations = await relations.list(db, {
+    const existingRelations = await db.relations.list({
       projectKey: DEFAULT_PROJECT_KEY,
       sourceEntityId: input.entityId,
       targetEntityId: packet.id
     });
     if (existingRelations.length === 0) {
-      await relations.create(db, {
+      await db.relations.create({
         projectKey: DEFAULT_PROJECT_KEY,
         sourceEntityId: input.entityId,
         targetEntityId: packet.id,
@@ -163,7 +163,7 @@ export async function packetWrite(input: {
       });
     }
 
-    await entities.update(db, {
+    await db.entities.update({
       id: target.id,
       patch: {
         metadata: mergeNarrativeMetadata(target.metadata, {

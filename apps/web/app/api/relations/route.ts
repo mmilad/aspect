@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import relations, { type CreateRelationInput } from "@projectplaner/db/relations";
+import { type CreateRelationInput } from "@projectplaner/db";
 import { withDb } from "../../../lib/plan-api";
 
 export async function GET(request: Request) {
@@ -7,7 +7,7 @@ export async function GET(request: Request) {
 
   return withDb(async (db) =>
     NextResponse.json({
-      relations: await relations.list(db, {
+      relations: await db.relations.list({
         projectKey: url.searchParams.get("projectKey") ?? "PLAN",
         sourceEntityId: url.searchParams.get("from") ?? undefined,
         targetEntityId: url.searchParams.get("to") ?? undefined,
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
 
   try {
     return await withDb(async (db) =>
-      NextResponse.json({ relation: await relations.create(db, { ...body, projectKey: body.projectKey ?? "PLAN" }) })
+      NextResponse.json({ relation: await db.relations.create({ ...body, projectKey: body.projectKey ?? "PLAN" }) })
     );
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Could not create relation." }, { status: 400 });

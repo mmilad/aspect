@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { openDatabase } from "@projectplaner/db";
-import entities from "@projectplaner/db/entities";
-import workflows from "@projectplaner/db/workflows";
+import { getDatabaseController } from "@projectplaner/db";
+
+
 import type { JsonRecord } from "@projectplaner/core";
 import generator from "@projectplaner/core/generator";
 import workflow from "@projectplaner/core/workflow";
@@ -9,9 +9,6 @@ import workflow from "@projectplaner/core/workflow";
 const { scaffoldWorkflowFromBrief } = generator.author;
 const { write: writeWorkflowGraph } = workflow.graph;
 
-async function openDb() {
-  return openDatabase();
-}
 
 interface CreateFlowBody {
   projectKey?: string;
@@ -26,10 +23,10 @@ export async function POST(request: Request) {
   const body = (await request.json()) as CreateFlowBody;
   const title = body.title?.trim() || body.brief?.trim().slice(0, 80) || "New workflow";
   const brief = body.brief?.trim() || title;
-  const db = await openDb();
+  const db = getDatabaseController();
 
   try {
-    const created = await entities.create(db, {
+    const created = await db.entities.create({
       projectKey: body.projectKey ?? "PLAN",
       type: "flow",
       title,
@@ -50,23 +47,23 @@ export async function POST(request: Request) {
     });
 
     const graph = scaffoldWorkflowFromBrief({ brief, title });
-    workflows.persist.saveGraph(db, {
+    (await db.persist.saveGraph({
       workflowId: created.entity.id,
       projectId: created.entity.projectId,
       graph
-    });
+    }));
     const metadata = writeWorkflowGraph((created.entity.metadata ?? {}) as JsonRecord, graph);
-    const entity = await entities.update(db, {
+    const entity = await db.entities.update({
       id: created.entity.id,
       patch: { metadata }
     });
 
     // Ensure tables are preferred on next load.
-    workflows.persist.getOrMigrateGraph(db, {
+    (await db.persist.getOrMigrateGraph({
       workflowId: entity.id,
       projectId: entity.projectId,
       metadata: entity.metadata as JsonRecord
-    });
+    }));
 
     return NextResponse.json({ entity, warnings: created.warnings, graph });
   } catch (error) {
@@ -74,7 +71,5 @@ export async function POST(request: Request) {
       { error: error instanceof Error ? error.message : "Could not create workflow flow." },
       { status: 400 }
     );
-  } finally {
-    db.close();
   }
 }

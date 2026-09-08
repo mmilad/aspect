@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import entities, { type CreateEntityInput, type UpdateEntityInput } from "@projectplaner/db/entities";
+import { type CreateEntityInput, type UpdateEntityInput } from "@projectplaner/db";
 import { createWebPlanApi, entityListWhere, withDb } from "../../../lib/plan-api";
 
 export async function GET(request: Request) {
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
 
   try {
     return await withDb(async (db) => {
-      const result = await entities.create(db, { ...body, projectKey: body.projectKey ?? "PLAN" });
+      const result = await db.entities.create({ ...body, projectKey: body.projectKey ?? "PLAN" });
       return NextResponse.json(result);
     });
   } catch (error) {
@@ -38,7 +38,7 @@ export async function PATCH(request: Request) {
 
   try {
     return await withDb(async (db) => {
-      return NextResponse.json({ entity: await entities.update(db, body) });
+      return NextResponse.json({ entity: await db.entities.update(body) });
     });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Could not update entity." }, { status: 400 });

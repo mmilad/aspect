@@ -16,18 +16,15 @@ import domain from "@projectplaner/core/domain";
 import planApi from "@projectplaner/core/plan-api";
 import query from "@projectplaner/core/query";
 import workflow from "@projectplaner/core/workflow";
-import type { DatabaseSync } from "node:sqlite";
+import type { Storage } from "../contracts/storage";
 import { findSeededWorkflowPreset } from "../presets";
 import { rollupParentStatus } from "../rollup";
-import llmJsonSchemas from "../repositories/llm-json-schemas";
-import entities from "../repositories/entities";
-import relations from "../repositories/relations";
-import sqliteQuery from "../query";
-import persist, {
+import { entityStore } from "../contracts/storage";
+import {
   type WorkflowNodeRun,
   type WorkflowRunRecord,
   type WorkflowRunStatus
-} from "./persist";
+} from "../contracts/persist";
 
 const { compileListQuery } = query;
 const { create: createPlanApi } = planApi;
@@ -111,17 +108,17 @@ function toMatch(entity: { id: string; type: EntityType; title: string; status: 
 }
 
 /** Build runtime adapters that read/write the living SQLite graph. */
-export function createSqliteWorkflowAdapters(
-  db: DatabaseSync,
+export function createWorkflowAdapters(
+  db: Storage,
   projectKey = "PLAN"
 ): WorkflowAdapters {
-  const store = sqliteQuery.createStore(db);
+  const store = entityStore(db);
   const api = createPlanApi(store);
 
   return {
-    getEntity: (id) => entities.get(db, id),
-    listEntities: (listQuery: EntityListQuery, options) =>
-      sqliteQuery.execute(db, compileListQuery({ ...listQuery, projectKey: listQuery.projectKey ?? projectKey }, options)),
+    getEntity: async (id) => (await db.entities.get(id)),
+    listEntities: async (listQuery: EntityListQuery, options) =>
+      (await db.query.execute(compileListQuery({ ...listQuery, projectKey: listQuery.projectKey ?? projectKey }, options))),
     searchEntities: async (input) => {
       const parts: EntityFilter[] = [];
       if (input.types?.length === 1) {
@@ -165,22 +162,19 @@ export function createSqliteWorkflowAdapters(
       });
     },
     neighborhood: async (input) => {
-      const graphEntities = await entities.list(db, {
+      const graphEntities = await db.entities.list({
         projectKey,
         includeArchived: input.includeArchived === true
       });
-      const graphRelations = await relations.list(db, { projectKey });
+      const graphRelations = await db.relations.list({ projectKey });
       return walkNeighborhood(input.id, input.depth, graphEntities, graphRelations, input.select ?? "compact");
     },
     loadContext: async ({ query, types, limit, mode }) => {
       if (mode === "all") {
-        const rows = await sqliteQuery.execute(
-          db,
-          compileListQuery(
+        const rows = await db.query.execute(compileListQuery(
             { projectKey, limit },
             types?.length === 1 ? { type: types[0] } : undefined
-          )
-        );
+          ));
         const filtered = types && types.length > 1 ? rows.filter((row) => types.includes(row.type)) : rows;
         return filtered.map((entity) => toMatch(compactEntity(entity)));
       }
@@ -214,7 +208,7 @@ export function createSqliteWorkflowAdapters(
           typeof args.linkFrom === "string" && args.linkFrom.trim() ? args.linkFrom.trim() : "";
         const resultKey = writeResultKey(args, "aspectId");
 
-        const created = await entities.create(db, {
+        const created = await db.entities.create({
           projectKey,
           type: asEntityType(args.type, "aspect"),
           title,
@@ -228,11 +222,11 @@ export function createSqliteWorkflowAdapters(
         });
 
         if (linkFrom) {
-          const source = await entities.get(db, linkFrom);
+          const source = await db.entities.get(linkFrom);
           if (!source) {
             throw new Error(`create_entity linkFrom '${linkFrom}' not found.`);
           }
-          await relations.create(db, {
+          await db.relations.create({
             projectKey,
             sourceEntityId: linkFrom,
             targetEntityId: created.entity.id,
@@ -253,7 +247,7 @@ export function createSqliteWorkflowAdapters(
             ? args.reason.trim()
             : "Workflow write: update_entity";
         const resultKey = writeResultKey(args, "entityId");
-        const patch: Parameters<typeof entities.update>[1]["patch"] = {};
+        const patch: Parameters<Storage["entities"]["update"]>[0]["patch"] = {};
         if (typeof args.title === "string") {
           patch.title = args.title;
         }
@@ -263,7 +257,7 @@ export function createSqliteWorkflowAdapters(
         if (typeof args.status === "string") {
           patch.status = asStatus(args.status, "planned");
         }
-        const current = await entities.get(db, id);
+        const current = await db.entities.get(id);
         if (!current) {
           throw new Error(`update_entity target ${id} not found.`);
         }
@@ -275,7 +269,7 @@ export function createSqliteWorkflowAdapters(
             updatedBy: "workflow"
           }
         };
-        const updated = await entities.update(db, { id, patch });
+        const updated = await db.entities.update({ id, patch });
         return { values: { [resultKey]: updated.id } };
       }
 
@@ -300,8 +294,8 @@ export function createSqliteWorkflowAdapters(
 
       throw new Error(`Unsupported write action: ${action}`);
     },
-    resolveLlmJsonSchema: (key: string) => {
-      const row = llmJsonSchemas.getByKey(db, key, projectKey);
+    resolveLlmJsonSchema: async (key: string) => {
+      const row = (await db.llmJsonSchemas.getByKey(key, projectKey));
       if (!row) {
         return null;
       }
@@ -313,27 +307,27 @@ export function createSqliteWorkflowAdapters(
       };
     },
     resolveSubworkflow: async (workflowId: string) => {
-      const direct = await entities.get(db, workflowId);
+      const direct = await db.entities.get(workflowId);
       if (direct?.type === "flow") {
-        return persist.getOrMigrateGraph(db, {
+        return (await db.persist.getOrMigrateGraph({
           workflowId: direct.id,
           projectId: direct.projectId,
           metadata: direct.metadata as JsonRecord
-        });
+        }));
       }
-      const seeded = findSeededWorkflowPreset(db, workflowId, projectKey);
+      const seeded = (await findSeededWorkflowPreset(db, workflowId, projectKey));
       if (!seeded) {
         return null;
       }
-      const flow = await entities.get(db, seeded.id);
+      const flow = await db.entities.get(seeded.id);
       if (!flow) {
         return null;
       }
-      return persist.getOrMigrateGraph(db, {
+      return (await db.persist.getOrMigrateGraph({
         workflowId: flow.id,
         projectId: flow.projectId,
         metadata: flow.metadata as JsonRecord
-      });
+      }));
     }
   };
 }
@@ -382,32 +376,26 @@ export interface AdvanceWorkflowRunResult {
  * Advance a persisted workflow run with the core step runner until pause/complete/fail.
  */
 export async function advanceWorkflowRun(
-  db: DatabaseSync,
+  db: Storage,
   input: AdvanceWorkflowRunInput
 ): Promise<AdvanceWorkflowRunResult> {
-  const run = persist.getRun(db, input.runId);
+  const run = (await db.persist.getRun(input.runId));
   if (!run) {
     throw new Error(`Workflow run ${input.runId} not found.`);
   }
 
-  const flow = await entities.get(db, run.workflowId);
+  const flow = await db.entities.get(run.workflowId);
   const projectKey =
     input.projectKey ??
-    (flow
-      ? ((
-          db
-            .prepare(`SELECT key FROM projects WHERE id = ?`)
-            .get(flow.projectId) as { key: string } | undefined
-        )?.key ?? "PLAN")
-      : "PLAN");
+    (flow ? (await db.projects.keyForId(flow.projectId)) ?? "PLAN" : "PLAN");
 
   const graph = run.definitionSnapshot;
   let bag = asBag(run.bag);
   bag = { ...bag, runId: run.id };
 
-  const graphEntities = await entities.list(db, { projectKey });
-  const graphRelations = await relations.list(db, { projectKey });
-  const adapters = createSqliteWorkflowAdapters(db, projectKey);
+  const graphEntities = await db.entities.list({ projectKey });
+  const graphRelations = await db.relations.list({ projectKey });
+  const adapters = createWorkflowAdapters(db, projectKey);
 
   let step: WorkflowStepResult;
 
@@ -444,16 +432,16 @@ export async function advanceWorkflowRun(
   }
 
   const status = mapRunStatus(step);
-  persist.updateRun(db, {
+  (await db.persist.updateRun({
     id: run.id,
     status,
     bag: step.bag as unknown as JsonRecord,
     error: step.kind === "failed" ? step.message ?? step.bag.error ?? "Workflow failed." : null,
     finished: status === "completed" || status === "failed"
-  });
+  }));
 
   if (step.nodeId) {
-    persist.recordNodeRun(db, {
+    (await db.persist.recordNodeRun({
       runId: run.id,
       nodeId: step.nodeId,
       status:
@@ -480,10 +468,10 @@ export async function advanceWorkflowRun(
         keys: step.bag.keys
       },
       error: step.kind === "failed" ? { message: step.message ?? step.bag.error } : null
-    });
+    }));
   }
 
-  const updated = persist.getRun(db, run.id);
+  const updated = (await db.persist.getRun(run.id));
   if (!updated) {
     throw new Error(`Workflow run ${input.runId} missing after update.`);
   }
@@ -491,7 +479,7 @@ export async function advanceWorkflowRun(
   return {
     run: updated,
     step,
-    nodeRuns: persist.listNodeRuns(db, run.id)
+    nodeRuns: (await db.persist.listNodeRuns(run.id))
   };
 }
 
@@ -508,7 +496,7 @@ export interface ResolveWorkflowFlowInput {
 
 /** Resolve a flow by id or preset/entity key. */
 export async function resolveWorkflowFlow(
-  db: DatabaseSync,
+  db: Storage,
   input: ResolveWorkflowFlowInput
 ): Promise<Entity> {
   const projectKey = input.projectKey ?? "PLAN";
@@ -516,7 +504,7 @@ export async function resolveWorkflowFlow(
   const key = input.key?.trim();
 
   if (id) {
-    const entity = await entities.get(db, id);
+    const entity = await db.entities.get(id);
     if (!entity || entity.type !== "flow") {
       throw new Error(`Workflow flow not found for id '${id}'.`);
     }
@@ -527,39 +515,19 @@ export async function resolveWorkflowFlow(
     throw new Error("Provide workflow id or key (presetKey / flow key).");
   }
 
-  const byPreset = db
-    .prepare(
-      `SELECT entities.id
-       FROM entities
-       INNER JOIN projects ON projects.id = entities.project_id
-       WHERE projects.key = ?
-         AND entities.type = 'flow'
-         AND json_extract(entities.metadata_json, '$.presetKey') = ?
-       LIMIT 1`
-    )
-    .get(projectKey, key) as { id: string } | undefined;
+  const byPreset = await db.catalog.findPreset(projectKey, key);
 
   if (byPreset) {
-    const entity = await entities.get(db, byPreset.id);
+    const entity = await db.entities.get(byPreset.id);
     if (entity) {
       return entity;
     }
   }
 
-  const byKey = db
-    .prepare(
-      `SELECT entities.id
-       FROM entities
-       INNER JOIN projects ON projects.id = entities.project_id
-       WHERE projects.key = ?
-         AND entities.type = 'flow'
-         AND entities.key = ?
-       LIMIT 1`
-    )
-    .get(projectKey, key) as { id: string } | undefined;
+  const byKey = (await db.entities.list({projectKey, type: "flow"})).find(entity => entity.key === key);
 
   if (byKey) {
-    const entity = await entities.get(db, byKey.id);
+    const entity = await db.entities.get(byKey.id);
     if (entity) {
       return entity;
     }
@@ -598,11 +566,11 @@ function pauseNote(step: WorkflowStepResult): string | undefined {
  * - Resume: pass runId (+ llmWrites or userRoute)
  */
 export async function runWorkflow(
-  db: DatabaseSync,
+  db: Storage,
   input: RunWorkflowInput
 ): Promise<RunWorkflowResult & { note?: string }> {
   if (input.runId) {
-    const existing = persist.getRun(db, input.runId);
+    const existing = (await db.persist.getRun(input.runId));
     if (!existing) {
       throw new Error(`Workflow run ${input.runId} not found.`);
     }
@@ -612,7 +580,7 @@ export async function runWorkflow(
         throw new Error("runId does not belong to the resolved workflow.");
       }
     }
-    const flow = await entities.get(db, existing.workflowId);
+    const flow = await db.entities.get(existing.workflowId);
     if (!flow || flow.type !== "flow") {
       throw new Error("Workflow flow missing for run.");
     }
@@ -636,7 +604,7 @@ export async function runWorkflow(
             ? ((existing.bag as { cursor: string }).cursor)
             : null
         },
-        nodeRuns: persist.listNodeRuns(db, existing.id),
+        nodeRuns: (await db.persist.listNodeRuns(existing.id)),
         note: pauseNote({
           kind: existing.status === "pending_llm" ? "pending_llm" : existing.status === "pending_user" ? "pending_user" : "advanced",
           bag: asBag(existing.bag),
@@ -656,11 +624,11 @@ export async function runWorkflow(
 
   const flow = await resolveWorkflowFlow(db, input);
   const graph =
-    persist.getOrMigrateGraph(db, {
+    (await db.persist.getOrMigrateGraph({
       workflowId: flow.id,
       projectId: flow.projectId,
       metadata: flow.metadata as JsonRecord
-    }) ?? null;
+    })) ?? null;
   if (!graph) {
     throw new Error("Workflow graph missing.");
   }
@@ -676,12 +644,12 @@ export async function runWorkflow(
     startNodeId: start.id,
     keys: input.bag
   });
-  const run = persist.createRun(db, {
+  const run = (await db.persist.createRun({
     workflowId: flow.id,
     projectId: flow.projectId,
     graph,
     bag: bag as unknown as JsonRecord
-  });
+  }));
   const advanced = await advanceWorkflowRun(db, {
     runId: run.id,
     projectKey: input.projectKey,

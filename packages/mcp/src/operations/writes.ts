@@ -1,6 +1,6 @@
 import type { EntityRelationType, EntityStatus, EntityType, JsonRecord } from "@projectplaner/core";
-import entities from "@projectplaner/db/entities";
-import relations from "@projectplaner/db/relations";
+
+
 import {
   assertNoSeededMutationPreset,
   DEFAULT_PROJECT_KEY,
@@ -29,13 +29,13 @@ export async function createEntity(input: {
 }) {
   const reason = requireReason(input.reason, "create_entity");
   return withDb(async (db) => {
-    assertNoSeededMutationPreset(db, "create", input.type);
+    await assertNoSeededMutationPreset(db, "create", input.type);
     if (input.type === "task" && !input.targetEntityId) {
       throw new Error("create_entity for tasks requires targetEntityId (Aspect or Feature).");
     }
 
     if (input.targetEntityId) {
-      const target = await entities.get(db, input.targetEntityId);
+      const target = await db.entities.get(input.targetEntityId);
       if (!target) {
         throw new Error(`Target entity not found: ${input.targetEntityId}`);
       }
@@ -59,7 +59,7 @@ export async function createEntity(input: {
     });
 
     const parentContainsChild = input.type === "aspect" && input.targetEntityId && linkType === "contains";
-    const result = await entities.create(db, {
+    const result = await db.entities.create({
       projectKey: DEFAULT_PROJECT_KEY,
       type: input.type,
       title: input.title,
@@ -76,7 +76,7 @@ export async function createEntity(input: {
     });
 
     if (parentContainsChild && input.targetEntityId) {
-      await relations.create(db, {
+      await db.relations.create({
         projectKey: DEFAULT_PROJECT_KEY,
         sourceEntityId: input.targetEntityId,
         targetEntityId: result.entity.id,
@@ -106,17 +106,17 @@ export async function updateEntity(input: {
 }) {
   const reason = requireReason(input.reason, "update_entity");
   return withDb(async (db) => {
-    const existing = await entities.get(db, input.id);
+    const existing = await db.entities.get(input.id);
     if (!existing) {
       throw new Error(`Entity not found: ${input.id}`);
     }
     const op = input.status === "archived" && existing.status !== "archived" ? "delete" : "update";
-    assertNoSeededMutationPreset(db, op, existing.type);
+    await assertNoSeededMutationPreset(db, op, existing.type);
     const metadata = mergeNarrativeMetadata(
       { ...existing.metadata, ...(input.metadata ?? {}) },
       { reason, proposal: input.proposal, intent: input.intent }
     );
-    const entity = await entities.update(db, {
+    const entity = await db.entities.update({
       id: input.id,
       patch: {
         title: input.title ?? existing.title,
@@ -143,7 +143,7 @@ export async function createRelation(input: {
   reason?: string;
 }) {
   return withDb(async (db) => {
-    const relation = await relations.create(db, {
+    const relation = await db.relations.create({
       projectKey: DEFAULT_PROJECT_KEY,
       sourceEntityId: input.from,
       targetEntityId: input.to,

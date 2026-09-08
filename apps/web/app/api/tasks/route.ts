@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import tasks from "@projectplaner/db/tasks";
+
 import { withDb } from "../../../lib/plan-api";
 
 export async function POST(request: Request) {
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
 
   try {
     return await withDb(async (db) => {
-      const task = await tasks.create(db, {
+      const task = await db.tasks.create({
         projectKey: body.projectKey!,
         title: body.title!,
         description: body.description ?? "",

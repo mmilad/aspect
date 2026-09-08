@@ -2,27 +2,27 @@ import type { Entity, EntityRelation, Tag } from "@projectplaner/core";
 import legacy from "@projectplaner/core/legacy";
 
 const { getTagsForEntity } = legacy;
-import llmJsonSchemas, { type LlmJsonSchemaRecord } from "@projectplaner/db/llm-json-schemas";
-import projects, { type ProjectStats, type ProjectSummary } from "@projectplaner/db/projects";
-import relations from "@projectplaner/db/relations";
-import snapshots from "@projectplaner/db/snapshots";
+import { type LlmJsonSchemaRecord } from "@projectplaner/db";
+import { type ProjectStats, type ProjectSummary } from "@projectplaner/db";
+
+
 import { createWebPlanApi, withDb } from "./plan-api";
 
 export async function loadProject(key = "PLAN") {
-  return withDb(async (db) => snapshots.get(db, key));
+  return withDb(async (db) => (await db.snapshots.get(key)));
 }
 
 export async function loadProjects(): Promise<ProjectSummary[]> {
-  return withDb(async (db) => projects.list(db));
+  return withDb(async (db) => (await db.projects.list()));
 }
 
 export async function loadProjectStats(key: string): Promise<ProjectStats | null> {
-  return withDb(async (db) => projects.stats(db, key));
+  return withDb(async (db) => (await db.projects.stats(key)));
 }
 
 export async function loadLlmJsonSchemas(key: string): Promise<LlmJsonSchemaRecord[]> {
   return withDb(async (db) =>
-    llmJsonSchemas.list(db, key).filter((schema) => schema.status === "active")
+    (await db.llmJsonSchemas.list(key)).filter((schema) => schema.status === "active")
   );
 }
 
@@ -49,7 +49,7 @@ export type EntityDetailData = {
 
 export async function loadEntityDetail(projectKey: string, entityId: string): Promise<EntityDetailData | null> {
   return withDb(async (db) => {
-    const snapshot = await snapshots.get(db, projectKey);
+    const snapshot = await db.snapshots.get(projectKey);
     if (!snapshot) {
       return null;
     }
@@ -61,8 +61,8 @@ export async function loadEntityDetail(projectKey: string, entityId: string): Pr
     }
 
     const [outgoing, incoming] = await Promise.all([
-      relations.list(db, { projectKey, sourceEntityId: entityId }),
-      relations.list(db, { projectKey, targetEntityId: entityId })
+      (await db.relations.list({ projectKey, sourceEntityId: entityId })),
+      (await db.relations.list({ projectKey, targetEntityId: entityId }))
     ]);
 
     const relatedIds = [

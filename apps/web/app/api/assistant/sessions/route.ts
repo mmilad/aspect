@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import assistantSessions from "@projectplaner/db/assistant-sessions";
+
 import { withDb } from "../../../../lib/plan-api";
 
 export async function GET(request: Request) {
@@ -7,7 +7,7 @@ export async function GET(request: Request) {
   const projectKey = url.searchParams.get("projectKey") ?? "PLAN";
   const includeArchived = url.searchParams.get("includeArchived") === "1";
   return withDb(async (db) => {
-    const sessions = assistantSessions.list(db, projectKey, { includeArchived });
+    const sessions = (await db.assistantSessions.list(projectKey, { includeArchived }));
     return NextResponse.json({ sessions });
   });
 }
@@ -19,8 +19,8 @@ export async function POST(request: Request) {
   return withDb(async (db) => {
     try {
       const session = forceNew
-        ? assistantSessions.create(db, projectKey)
-        : assistantSessions.getOrCreateActive(db, projectKey);
+        ? (await db.assistantSessions.create(projectKey))
+        : (await db.assistantSessions.getOrCreateActive(projectKey));
       return NextResponse.json({ session });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not open assistant session.";

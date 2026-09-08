@@ -2,10 +2,10 @@ import type { EntityNarrative, EntityType, JsonRecord } from "@projectplaner/cor
 import corePlanApi from "@projectplaner/core/plan-api";
 import workflow from "@projectplaner/core/workflow";
 import {
-  openDatabase,
-  findSeededWorkflowPreset
+  getDatabaseController,
+  entityStore
 } from "@projectplaner/db";
-import query from "@projectplaner/db/query";
+
 
 const { resolveMutationPresetKey } = workflow.presets;
 
@@ -14,33 +14,10 @@ export const SUMMARY_MAX = 240;
 export const BODY_MAX = 2000;
 export const DEFAULT_LIST_LIMIT = 30;
 
-export type Db = Awaited<ReturnType<typeof openDatabase>>;
+export type Db = Awaited<ReturnType<typeof getDatabaseController>>;
 
-let queue: Promise<unknown> = Promise.resolve();
-
-function resolveDbPath(): string | undefined {
-  return process.env.PROJECTPLANER_DB_PATH;
-}
-
-export async function withDb<T>(fn: (db: Db) => Promise<T>): Promise<T> {
-  const run = queue.then(async () => {
-    const db = await openDatabase(resolveDbPath());
-    try {
-      return await fn(db);
-    } finally {
-      db.close();
-    }
-  });
-  queue = run.then(
-    () => undefined,
-    () => undefined
-  );
-  return run;
-}
-
-export function planApi(db: Db) {
-  return corePlanApi.create(query.createStore(db));
-}
+export async function withDb<T>(fn: (db: Db) => Promise<T>): Promise<T> { return fn(getDatabaseController()); }
+export function planApi(db: Db) { return corePlanApi.create(entityStore(db)); }
 
 export function truncate(value: string, max: number): string {
   const trimmed = value.trim();
@@ -58,16 +35,16 @@ export function requireReason(reason: string | undefined, action: string): strin
   return trimmed;
 }
 
-export function assertNoSeededMutationPreset(
+export async function assertNoSeededMutationPreset(
   db: Db,
   op: "create" | "update" | "delete",
   type: EntityType
-): void {
+): Promise<void> {
   const presetKey = resolveMutationPresetKey({ op, type });
   if (!presetKey) {
     return;
   }
-  const seeded = findSeededWorkflowPreset(db, presetKey);
+  const seeded = await db.presets.find(presetKey);
   if (!seeded) {
     return;
   }

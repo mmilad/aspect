@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import type { DatabaseSync } from "node:sqlite";
+import type { DatabaseController } from "@projectplaner/db";
 import type { ProjectWorkspace, WorkspaceView } from "@projectplaner/core";
-import workspaces from "@projectplaner/db/project-workspaces";
+
 import {
   GIT_TIMEOUT_MS, WorkspaceError, finalizedByAttempt, inspectGit, openRepositoryFolder,
   parseWorkspaceInput, provisionRepository, repositoryPathFor, workspaceFailure
@@ -11,11 +11,10 @@ import {
 const processState = globalThis as typeof globalThis & { projectplanerWorkspaceAttempts?: Set<string> };
 const activeAttempts = processState.projectplanerWorkspaceAttempts ??= new Set<string>();
 
-function project(db: DatabaseSync, key: string) {
-  const row = db.prepare("SELECT id, archived_at AS archivedAt FROM projects WHERE key = ?")
-    .get(key.toUpperCase()) as { id: string; archivedAt: string | null } | undefined;
-  if (!row) throw new WorkspaceError("not_found", "Project not found.");
-  return row;
+async function project(db: DatabaseController, key: string) {
+ const row = await db.projects.findByKey(key);
+ if (!row) throw new WorkspaceError("not_found", "Project not found.");
+ return row;
 }
 
 function ownerAlive(workspace: ProjectWorkspace): boolean {
@@ -25,19 +24,19 @@ function ownerAlive(workspace: ProjectWorkspace): boolean {
   }
 }
 
-export async function readProjectWorkspace(db: DatabaseSync, key: string): Promise<WorkspaceView> {
-  const found = project(db, key);
-  let workspace = workspaces.get(db, found.id);
+export async function readProjectWorkspace(db: DatabaseController, key: string): Promise<WorkspaceView> {
+  const found = (await project(db, key));
+  let workspace = (await db.workspaces.get(found.id));
   if (workspace?.status === "provisioning" && (!ownerAlive(workspace) || Date.parse(workspace.deadlineAt) < Date.now())) {
     if (await finalizedByAttempt(workspace)) {
       try {
         await inspectGit(workspace.repositoryPath);
-        workspaces.finish(db, workspace, null);
-      } catch (error) { workspaces.finish(db, workspace, workspaceFailure(error)); }
+        (await db.workspaces.finish(workspace, null));
+      } catch (error) { (await db.workspaces.finish(workspace, workspaceFailure(error))); }
     } else {
-      workspaces.finish(db, workspace, { code: "interrupted", message: "Repository setup was interrupted. Retry to start a new attempt." });
+      (await db.workspaces.finish(workspace, { code: "interrupted", message: "Repository setup was interrupted. Retry to start a new attempt." }));
     }
-    workspace = workspaces.get(db, found.id);
+    workspace = (await db.workspaces.get(found.id));
   }
   if (!workspace || workspace.status !== "ready") {
     return { workspace, archivedAt: found.archivedAt, git: null, error: workspace?.lastError ?? null };
@@ -49,9 +48,9 @@ export async function readProjectWorkspace(db: DatabaseSync, key: string): Promi
   }
 }
 
-export async function provisionProjectWorkspace(db: DatabaseSync, key: string, raw: unknown, retry = false): Promise<WorkspaceView> {
+export async function provisionProjectWorkspace(db: DatabaseController, key: string, raw: unknown, retry = false): Promise<WorkspaceView> {
   const state = await readProjectWorkspace(db, key);
-  const found = project(db, key);
+  const found = (await project(db, key));
   if (found.archivedAt) throw new WorkspaceError("archived", "Restore this Project before creating its workspace.");
   if (retry ? state.workspace?.status !== "failed" : Boolean(state.workspace)) {
     throw new WorkspaceError("conflict", retry ? "Only failed setup attempts can be retried." : "This Project already has a workspace.");
@@ -70,16 +69,16 @@ export async function provisionProjectWorkspace(db: DatabaseSync, key: string, r
   };
   activeAttempts.add(workspace.attemptId);
   try {
-    if (!workspaces.reserve(db, workspace, retry)) throw new WorkspaceError("conflict", "Workspace setup is already in progress, or the Project was archived.");
+    if (!(await db.workspaces.reserve(workspace, retry))) throw new WorkspaceError("conflict", "Workspace setup is already in progress, or the Project was archived.");
     try {
       await provisionRepository(workspace);
-      workspaces.finish(db, workspace, null);
-    } catch (error) { workspaces.finish(db, workspace, workspaceFailure(error)); }
+      (await db.workspaces.finish(workspace, null));
+    } catch (error) { (await db.workspaces.finish(workspace, workspaceFailure(error))); }
   } finally { activeAttempts.delete(workspace.attemptId); }
   return readProjectWorkspace(db, key);
 }
 
-export async function revealProjectWorkspace(db: DatabaseSync, key: string): Promise<void> {
+export async function revealProjectWorkspace(db: DatabaseController, key: string): Promise<void> {
   const state = await readProjectWorkspace(db, key);
   if (!state.workspace || !state.git) throw new WorkspaceError("unavailable", "The workspace repository is not available.");
   await openRepositoryFolder(state.workspace.repositoryPath);

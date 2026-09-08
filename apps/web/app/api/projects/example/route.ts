@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { createExampleProject } from "@projectplaner/db";
+
 import { withDb } from "../../../../lib/plan-api";
 
 export async function POST() {
   try {
     return await withDb(async (db) => {
-      const result = await createExampleProject(db);
+      const result = await db.examples.create();
       return NextResponse.json(result, { status: 201 });
     });
   } catch (error) {

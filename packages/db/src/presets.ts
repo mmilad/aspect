@@ -10,56 +10,17 @@ import workflow from "@projectplaner/core/workflow";
 const { parse: parseWorkflowGraph } = workflow.graph;
 const { WORKFLOW_SCHEMA_VERSION } = workflow.nodes;
 const { list: listWorkflowPresets } = workflow.presets;
-import type { DatabaseSync } from "node:sqlite";
-import entities from "./repositories/entities";
-import relations from "./repositories/relations";
-import persist from "./workflows/persist";
+import type { Storage } from "./contracts/storage";
 
-function parseJson<T>(value: string, fallback: T): T {
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return fallback;
-  }
-}
 
-function findFlowByPresetKey(
-  db: DatabaseSync,
-  projectKey: string,
-  presetKey: string
-): { id: string; projectId: string; metadata: JsonRecord; title: string } | null {
-  const row = db
-    .prepare(
-      `SELECT entities.id, entities.project_id, entities.metadata_json, entities.title
-       FROM entities
-       INNER JOIN projects ON projects.id = entities.project_id
-       WHERE projects.key = ?
-         AND entities.type = 'flow'
-         AND json_extract(entities.metadata_json, '$.presetKey') = ?
-       LIMIT 1`
-    )
-    .get(projectKey, presetKey) as
-    | { id: string; project_id: string; metadata_json: string; title: string }
-    | undefined;
-
-  if (!row) {
-    return null;
-  }
-  return {
-    id: row.id,
-    projectId: row.project_id,
-    metadata: parseJson(row.metadata_json, {}),
-    title: row.title
-  };
-}
 
 /** True when a preset pack has been seeded into the living DB. */
-export function findSeededWorkflowPreset(
-  db: DatabaseSync,
+export async function findSeededWorkflowPreset(
+  db: Storage,
   presetKey: string,
   projectKey = "PLAN"
-): { id: string; title: string; presetKey: string } | null {
-  const found = findFlowByPresetKey(db, projectKey, presetKey);
+): Promise<{ id: string; title: string; presetKey: string } | null> {
+  const found = await db.catalog.findPreset(projectKey, presetKey);
   if (!found) {
     return null;
   }
@@ -67,7 +28,7 @@ export function findSeededWorkflowPreset(
 }
 
 async function findSupportsTargetId(
-  db: DatabaseSync,
+  db: Storage,
   projectKey: string,
   slug: string | undefined,
   warnings: string[]
@@ -75,8 +36,8 @@ async function findSupportsTargetId(
   if (!slug) {
     return undefined;
   }
-  const aspects = await entities.list(db, { projectKey, type: "aspect" });
-  const features = await entities.list(db, { projectKey, type: "feature" });
+  const aspects = await db.entities.list({ projectKey, type: "aspect" });
+  const features = await db.entities.list({ projectKey, type: "feature" });
   const match =
     aspects.find((entity) => entity.slug === slug || entity.key === slug) ??
     features.find((entity) => entity.slug === slug || entity.key === slug);
@@ -88,18 +49,18 @@ async function findSupportsTargetId(
 }
 
 async function ensureSupportsLink(
-  db: DatabaseSync,
+  db: Storage,
   flowId: string,
   targetId: string | undefined
 ): Promise<void> {
   if (!targetId) {
     return;
   }
-  const existing = await relations.list(db, { sourceEntityId: flowId });
+  const existing = await db.relations.list({ sourceEntityId: flowId });
   if (existing.some((relation) => relation.targetEntityId === targetId && relation.type === "supports")) {
     return;
   }
-  await relations.create(db, {
+  await db.relations.create({
     sourceEntityId: flowId,
     targetEntityId: targetId,
     type: "supports"
@@ -126,13 +87,13 @@ function graphSnapshot(graph: WorkflowGraph): JsonRecord {
 }
 
 async function syncPresetCatalogFields(
-  db: DatabaseSync,
+  db: Storage,
   existing: { id: string; metadata: JsonRecord },
   preset: WorkflowPreset,
   targetId: string | undefined
 ): Promise<void> {
   if (existing.metadata.presetKind !== preset.kind) {
-    await entities.update(db, {
+    await db.entities.update({
       id: existing.id,
       patch: {
         metadata: {
@@ -150,7 +111,7 @@ async function syncPresetCatalogFields(
  * With force=true, replace pack graphs for matching preset keys (dev reseed).
  */
 export async function ensureWorkflowPresets(
-  db: DatabaseSync,
+  db: Storage,
   options: EnsureWorkflowPresetsOptions = {}
 ): Promise<EnsureWorkflowPresetsResult> {
   const projectKey = options.projectKey ?? "PLAN";
@@ -162,6 +123,8 @@ export async function ensureWorkflowPresets(
   const reseeded: string[] = [];
   const warnings: string[] = [];
 
+  if (!(await db.projects.findByKey(projectKey))) return { seeded, skipped, reseeded, warnings };
+
   const presets = listWorkflowPresets().filter((preset) => !only || only.has(preset.presetKey));
 
   for (const preset of presets) {
@@ -171,87 +134,95 @@ export async function ensureWorkflowPresets(
       continue;
     }
 
-    const existing = findFlowByPresetKey(db, projectKey, preset.presetKey);
     const targetId = await findSupportsTargetId(db, projectKey, preset.supportsTargetSlug, warnings);
+    const candidate = await db.catalog.findPreset(projectKey, preset.presetKey);
+    if (candidate && !force && candidate.metadata.presetKind === preset.kind) {
+      const linked = !targetId || (await db.relations.list({ sourceEntityId: candidate.id })).some(r => r.targetEntityId === targetId && r.type === "supports");
+      if (linked) { skipped.push(preset.presetKey); continue; }
+    }
+    // Acquire write ownership only when catalog changes are needed, then recheck.
+    await db.transaction(async db => {
+      const existing = await db.catalog.findPreset(projectKey, preset.presetKey);
 
-    if (!existing) {
-      const created = await entities.create(db, {
-        projectKey,
-        type: "flow",
-        title: preset.title,
-        summary: preset.summary,
-        body: preset.body ?? preset.summary,
-        status: preset.status ?? "accepted",
-        metadata: presetMetadata(preset, false),
-        ...(targetId
-          ? {
+      if (!existing) {
+        const created = await db.entities.create({
+          projectKey,
+          type: "flow",
+          title: preset.title,
+          summary: preset.summary,
+          body: preset.body ?? preset.summary,
+          status: preset.status ?? "accepted",
+          metadata: presetMetadata(preset, false),
+          ...(targetId
+            ? {
               relations: [{ targetEntityId: targetId, type: "supports" as const }]
             }
-          : {})
-      });
+            : {})
+        });
 
-      persist.saveGraph(db, {
-        workflowId: created.entity.id,
-        projectId: created.entity.projectId,
-        graph: parsed.graph
-      });
+        (await db.persist.saveGraph({
+          workflowId: created.entity.id,
+          projectId: created.entity.projectId,
+          graph: parsed.graph
+        }));
 
-      const metadata = {
-        ...presetMetadata(preset, false),
-        graph: graphSnapshot(parsed.graph)
-      };
-      await entities.update(db, {
-        id: created.entity.id,
-        patch: { metadata }
-      });
-
-      seeded.push(preset.presetKey);
-      continue;
-    }
-
-    if (!force) {
-      await syncPresetCatalogFields(db, existing, preset, targetId);
-      skipped.push(preset.presetKey);
-      continue;
-    }
-
-    if (existing.metadata.presetDirty === true) {
-      warnings.push(
-        `Force-reseeding dirty preset ${preset.presetKey} (local edits will be overwritten).`
-      );
-    }
-
-    persist.saveGraph(db, {
-      workflowId: existing.id,
-      projectId: existing.projectId,
-      graph: parsed.graph
-    });
-
-    await entities.update(db, {
-      id: existing.id,
-      patch: {
-        title: preset.title,
-        summary: preset.summary,
-        body: preset.body ?? preset.summary,
-        status: preset.status ?? "accepted",
-        metadata: {
-          ...existing.metadata,
+        const metadata = {
           ...presetMetadata(preset, false),
           graph: graphSnapshot(parsed.graph)
-        }
-      }
-    });
+        };
+        await db.entities.update({
+          id: created.entity.id,
+          patch: { metadata }
+        });
 
-    await ensureSupportsLink(db, existing.id, targetId);
-    reseeded.push(preset.presetKey);
+        seeded.push(preset.presetKey);
+        return;
+      }
+
+      if (!force) {
+        await syncPresetCatalogFields(db, existing, preset, targetId);
+        skipped.push(preset.presetKey);
+        return;
+      }
+
+      if (existing.metadata.presetDirty === true) {
+        warnings.push(
+          `Force-reseeding dirty preset ${preset.presetKey} (local edits will be overwritten).`
+        );
+      }
+
+      (await db.persist.saveGraph({
+        workflowId: existing.id,
+        projectId: existing.projectId,
+        graph: parsed.graph
+      }));
+
+      await db.entities.update({
+        id: existing.id,
+        patch: {
+          title: preset.title,
+          summary: preset.summary,
+          body: preset.body ?? preset.summary,
+          status: preset.status ?? "accepted",
+          metadata: {
+            ...existing.metadata,
+            ...presetMetadata(preset, false),
+            graph: graphSnapshot(parsed.graph)
+          }
+        }
+      });
+
+      await ensureSupportsLink(db, existing.id, targetId);
+      reseeded.push(preset.presetKey);
+    });
   }
 
   return { seeded, skipped, reseeded, warnings };
 }
 
 /** Mark a preset-backed flow dirty after human/bot edit. */
-export async function markWorkflowPresetDirty(db: DatabaseSync, flowId: string): Promise<void> {
-  const entity = await entities.get(db, flowId);
+export async function markWorkflowPresetDirty(db: Storage, flowId: string): Promise<void> {
+  const entity = await db.entities.get(flowId);
   if (!entity || entity.type !== "flow") {
     return;
   }
@@ -261,7 +232,7 @@ export async function markWorkflowPresetDirty(db: DatabaseSync, flowId: string):
   if (entity.metadata.presetDirty === true) {
     return;
   }
-  await entities.update(db, {
+  await db.entities.update({
     id: flowId,
     patch: {
       metadata: {

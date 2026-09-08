@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "pnpm --filter @projectplaner/web dev",
     "build": "pnpm -r build",
-    "typecheck": "pnpm -r typecheck",
+    "typecheck": "node scripts/check-db-boundary.cjs && pnpm -r typecheck",
     "test": "vitest run && pnpm --filter @projectplaner/db test:node && pnpm --filter @projectplaner/mcp test",
     "test:llm": "vitest run --config vitest.llm.config.ts",
     "plan": "pnpm --filter @projectplaner/db plan"

@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "strict": true,
@@ -12,29 +16,45 @@
     "isolatedModules": true,
     "baseUrl": ".",
     "paths": {
-      "@projectplaner/workspace": ["packages/workspace/src/index.ts"],
-      "@projectplaner/db/project-workspaces": ["packages/db/src/repositories/project-workspaces.ts"],
-      "@projectplaner/core": ["packages/core/src/index.ts"],
-      "@projectplaner/core/query": ["packages/core/src/domain/query/index.ts"],
-      "@projectplaner/core/plan-api": ["packages/core/src/domain/api/index.ts"],
-      "@projectplaner/core/domain": ["packages/core/src/domain/index.ts"],
-      "@projectplaner/core/legacy": ["packages/core/src/legacy/index.ts"],
-      "@projectplaner/core/workflow": ["packages/core/src/workflow/index.ts"],
-      "@projectplaner/core/planning": ["packages/core/src/planning/index.ts"],
-      "@projectplaner/core/generator": ["packages/core/src/generator/index.ts"],
-      "@projectplaner/core/assistant": ["packages/core/src/assistant/index.ts"],
-      "@projectplaner/db": ["packages/db/src/index.ts"],
-      "@projectplaner/db/entities": ["packages/db/src/repositories/entities.ts"],
-      "@projectplaner/db/relations": ["packages/db/src/repositories/relations.ts"],
-      "@projectplaner/db/projects": ["packages/db/src/repositories/projects.ts"],
-      "@projectplaner/db/snapshots": ["packages/db/src/repositories/snapshots.ts"],
-      "@projectplaner/db/tasks": ["packages/db/src/repositories/tasks.ts"],
-      "@projectplaner/db/query": ["packages/db/src/query/index.ts"],
-      "@projectplaner/db/workflows": ["packages/db/src/workflows/index.ts"],
-      "@projectplaner/db/llm-json-schemas": ["packages/db/src/repositories/llm-json-schemas.ts"],
-      "@projectplaner/db/assistant-sessions": ["packages/db/src/repositories/assistant-sessions.ts"],
-      "@projectplaner/mcp": ["packages/mcp/src/index.ts"],
-      "@projectplaner/agent": ["apps/agent/src/index.ts"]
+      "@projectplaner/workspace": [
+        "packages/workspace/src/index.ts"
+      ],
+      "@projectplaner/core": [
+        "packages/core/src/index.ts"
+      ],
+      "@projectplaner/core/query": [
+        "packages/core/src/domain/query/index.ts"
+      ],
+      "@projectplaner/core/plan-api": [
+        "packages/core/src/domain/api/index.ts"
+      ],
+      "@projectplaner/core/domain": [
+        "packages/core/src/domain/index.ts"
+      ],
+      "@projectplaner/core/legacy": [
+        "packages/core/src/legacy/index.ts"
+      ],
+      "@projectplaner/core/workflow": [
+        "packages/core/src/workflow/index.ts"
+      ],
+      "@projectplaner/core/planning": [
+        "packages/core/src/planning/index.ts"
+      ],
+      "@projectplaner/core/generator": [
+        "packages/core/src/generator/index.ts"
+      ],
+      "@projectplaner/core/assistant": [
+        "packages/core/src/assistant/index.ts"
+      ],
+      "@projectplaner/db": [
+        "packages/db/src/index.ts"
+      ],
+      "@projectplaner/mcp": [
+        "packages/mcp/src/index.ts"
+      ],
+      "@projectplaner/agent": [
+        "apps/agent/src/index.ts"
+      ]
     }
   }
 }

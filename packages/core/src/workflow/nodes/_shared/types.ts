@@ -28,7 +28,8 @@ export const workflowWorkNodeTypes = [
   "push",
   "create_workflow_node",
   "assemble_fragment",
-  "assistant_session"
+  "assistant_session",
+  "web_search"
 ] as const;
 
 export const workflowVariableNodeTypes = ["get", "set", "template"] as const;
@@ -95,6 +96,7 @@ export interface WorkflowFilterAuto {
 
 export interface WorkflowAssignAuto {
   set?: Record<string, unknown>;
+  coalesce?: { from: string[]; trim?: boolean };
   pickFirst?: { from: string };
   neighborhoodOf?: {
     of: string;
@@ -119,6 +121,11 @@ export interface WorkflowAutoConfig {
 export interface WorkflowToolConfig {
   name: string;
   argsFromBag?: Record<string, string>;
+}
+/* web search configuration */
+export interface WorkflowWebSearchConfig {
+  queryFrom?: string;
+  maxResultsFrom?: string;
 }
 
 export const workflowLlmFormats = ["text", "json", "json_schema"] as const;
@@ -377,6 +384,7 @@ export interface WorkflowNodeData {
   writeBindings?: Record<string, string>;
   auto?: WorkflowAutoConfig;
   tool?: WorkflowToolConfig;
+  webSearch?: WorkflowWebSearchConfig;
   llm?: WorkflowLlmConfig;
   query?: WorkflowQueryConfig;
   write?: WorkflowWriteConfig;

@@ -12,6 +12,9 @@ import {
   MessageScrollerViewport
 } from "../ui/message-scroller";
 
+import { AgentRunMessage } from "./agent-run-message";
+import type { AgentMessage } from "./turn-client";
+
 function groupMessages(messages: AssistantMessage[]): AssistantMessage[][] {
   const groups: AssistantMessage[][] = [];
   for (const message of messages) {
@@ -25,8 +28,8 @@ function groupMessages(messages: AssistantMessage[]): AssistantMessage[][] {
   return groups;
 }
 
-export function AssistantTranscript({ session }: { session: AssistantSession }) {
-  if (session.messages.length === 0) {
+export function AssistantTranscript({ session, agentRuns = [] }: { session?: AssistantSession; agentRuns?: AgentMessage[] }) {
+  if (!session?.messages.length && !agentRuns.length) {
     return (
       <div className="px-4 py-8 text-sm text-muted-foreground">
         Conversation lives here. Session views (summary, topics, context) show as buttons in the right sidebar.
@@ -34,7 +37,7 @@ export function AssistantTranscript({ session }: { session: AssistantSession }) 
     );
   }
 
-  const groups = groupMessages(session.messages);
+  const groups = groupMessages(session?.messages ?? []);
 
   return (
     <MessageScrollerProvider className="h-full">
@@ -65,6 +68,7 @@ export function AssistantTranscript({ session }: { session: AssistantSession }) 
                 </MessageGroup>
               );
             })}
+            {agentRuns.map(run => <AgentRunMessage key={run.runId} run={run} />)}
           </MessageScrollerContent>
         </MessageScrollerViewport>
       </MessageScroller>

@@ -4,6 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import assistant from "@projectplaner/core/assistant";
 import type { AssistantContext, AssistantSessionRecord } from "@projectplaner/core/assistant";
 import { createContext, useContext } from "react";
+import { submitTurn, type AgentMessage } from "../assistant/turn-client";
+import { useAgentMessages } from "../assistant/use-agent-messages";
+import { useAgentSelection } from "../assistant/use-agent-selection";
 
 const { merge } = assistant;
 
@@ -36,6 +39,13 @@ type RightPaneContextValue = {
   publishContext: (context: Partial<AssistantContext>) => void;
   selectSession: (id: string) => Promise<void>;
   createSession: () => Promise<void>;
+  selectedAgentId: string | null;
+  setSelectedAgentId: (id: string | null) => void;
+  agents: Array<{ id: string; name: string; role: string }>;
+  agentRuns: AgentMessage[];
+  agentHistoryError: string | null;
+  agentHistoryLoading: boolean;
+  refreshAgentHistory: () => void;
 };
 
 const RightPaneContext = createContext<RightPaneContextValue | null>(null);
@@ -59,13 +69,20 @@ export function RightPaneProvider({
   activeViewKey?: string;
   children: ReactNode;
 }) {
-  const [mode, setMode] = useState<RightPaneMode>("inspect");
+
   const [record, setRecord] = useState<AssistantSessionRecord | null>(null);
   const [sessions, setSessions] = useState<AssistantSessionListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nav, setNav] = useState<AssistantNavFrame[]>([CHAT_FRAME]);
+  const { selectedAgentId, setSelectedAgentId, mode, setMode } = useAgentSelection(projectKey);
+  const [agents] = useState<Array<{ id: string; name: string; role: string }>>([]);
+  const { messages: agentRuns, add: addAgentRun, error: agentHistoryError, loading: agentHistoryLoading, refresh: refreshAgentHistory } = useAgentMessages(projectKey, selectedAgentId, mode === "assistant");
+  const sendingRef = useRef(false);
+  const scopeRef = useRef(projectKey);
+  const sessionRequestRef = useRef(0);
+  scopeRef.current = projectKey;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recordRef = useRef(record);
   recordRef.current = record;
@@ -73,6 +90,7 @@ export function RightPaneProvider({
   useEffect(() => {
     setMode("inspect");
   }, [projectKey, activeViewKey]);
+
 
   const rememberSession = useCallback((id: string) => {
     window.localStorage.setItem(sessionIdStorageKey(projectKey), id);
@@ -96,20 +114,23 @@ export function RightPaneProvider({
 
   const selectSession = useCallback(
     async (id: string) => {
+      const requestId = ++sessionRequestRef.current;
       setError(null);
       const response = await fetch(`/api/assistant/sessions/${encodeURIComponent(id)}`);
       const payload = (await response.json()) as { session?: AssistantSessionRecord; error?: string };
       if (!response.ok || !payload.session) {
         throw new Error(payload.error ?? "Could not open session.");
       }
+      if (scopeRef.current !== projectKey || requestId !== sessionRequestRef.current) return;
       applyRecord(payload.session);
       setNav([CHAT_FRAME]);
-      setMode("assistant");
+      setSelectedAgentId(null);
     },
-    [applyRecord, setMode]
+    [applyRecord, setSelectedAgentId, projectKey]
   );
 
   const createSession = useCallback(async () => {
+    const requestId = ++sessionRequestRef.current;
     setError(null);
     const response = await fetch("/api/assistant/sessions", {
       method: "POST",
@@ -120,16 +141,20 @@ export function RightPaneProvider({
     if (!response.ok || !payload.session) {
       throw new Error(payload.error ?? "Could not create session.");
     }
+    if (scopeRef.current !== projectKey || requestId !== sessionRequestRef.current) return;
     applyRecord(payload.session);
     setNav([CHAT_FRAME]);
-    setMode("assistant");
-  }, [applyRecord, projectKey, setMode]);
+    setSelectedAgentId(null);
+  }, [applyRecord, projectKey, setSelectedAgentId]);
 
 
 
   useEffect(() => {
     let cancelled = false;
+    const requestId = ++sessionRequestRef.current;
     setLoading(true);
+    setRecord(null);
+    recordRef.current = null;
     setError(null);
     void (async () => {
       try {
@@ -144,7 +169,7 @@ export function RightPaneProvider({
           throw new Error(listPayload.error ?? "Could not list sessions.");
         }
         const rows = listPayload.sessions ?? [];
-        if (cancelled) {
+        if (cancelled || requestId !== sessionRequestRef.current) {
           return;
         }
         setSessions(rows.map(toListItem));
@@ -174,28 +199,29 @@ export function RightPaneProvider({
 
   const sendMessage = useCallback(async (message: string, patch?: unknown) => {
     const current = recordRef.current;
-    if (!current) {
+    if (sendingRef.current) return;
+    if (!current && !selectedAgentId) {
+      setError("Create an Assistant session before sending a message.");
       return;
     }
+    sendingRef.current = true;
     setSending(true);
     setError(null);
     try {
-      const response = await fetch("/api/assistant/turn", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ sessionId: current.id, message, patch })
+      const result = await submitTurn({
+        agentId: selectedAgentId, projectKey, sessionId: current?.id, message, patch
       });
-      const payload = (await response.json()) as { session?: AssistantSessionRecord; error?: string };
-      if (!response.ok || !payload.session) {
-        throw new Error(payload.error ?? "Turn failed.");
-      }
-      applyRecord(payload.session);
+      if (scopeRef.current !== projectKey) return;
+      if ("agent" in result) addAgentRun(result.agent);
+      else if (recordRef.current?.id === current?.id) applyRecord(result.session);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Turn failed.");
+      if (scopeRef.current === projectKey) setError(err instanceof Error ? err.message : "Turn failed.");
     } finally {
+      if (selectedAgentId && scopeRef.current === projectKey) refreshAgentHistory();
+      sendingRef.current = false;
       setSending(false);
     }
-  }, [applyRecord]);
+  }, [applyRecord, projectKey, selectedAgentId, addAgentRun, refreshAgentHistory]);
 
   const persistContext = useCallback((sessionId: string, context: Partial<AssistantContext>) => {
     fetch(`/api/assistant/sessions/${encodeURIComponent(sessionId)}`, {
@@ -240,7 +266,8 @@ export function RightPaneProvider({
       sendMessage,
       publishContext,
       selectSession,
-      createSession
+      createSession,
+      selectedAgentId, setSelectedAgentId, agents, agentRuns, agentHistoryError, agentHistoryLoading, refreshAgentHistory
     }),
     [
       projectKey,
@@ -255,7 +282,8 @@ export function RightPaneProvider({
       sendMessage,
       publishContext,
       selectSession,
-      createSession
+      createSession,
+      selectedAgentId, setSelectedAgentId, agents, agentRuns, agentHistoryError, agentHistoryLoading, refreshAgentHistory
     ]
   );
 
@@ -274,3 +302,4 @@ export function useAssistantContextPublisher() {
   const ctx = useContext(RightPaneContext);
   return ctx?.publishContext;
 }
+

@@ -60,7 +60,7 @@ export function createDatabaseController(options: ControllerOptions = {}): Datab
     });
     return result;
   };
-  const groups = ["entities", "relations", "projects", "workspaces", "tasks", "tags", "snapshots", "assistantSessions",
+  const groups = ["entities", "relations", "projects", "workspaces", "tasks", "tags", "snapshots", "assistantSessions", "agentRuns",
     "llmJsonSchemas", "query", "persist", "workflows", "presets", "examples", "semantic", "rollup"] as const;
   const controller = Object.fromEntries(groups.map(group => [group, new Proxy({}, {
     get: (_target, method) => {

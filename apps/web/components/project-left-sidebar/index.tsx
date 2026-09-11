@@ -6,6 +6,7 @@ import { ProjectTabsNav } from "./project-tabs-nav";
 import { ToolsNav } from "./tools-nav";
 import { GraphFilters } from "./graph-filters";
 import { AssistantSessionsSection } from "./assistant-sessions-section";
+import { AgentsSection } from "./agents-section";
 
 interface ProjectLeftSidebarProps {
   snapshot: ProjectPlanSnapshot;
@@ -31,6 +32,7 @@ export function ProjectLeftSidebar({
   return (
     <div className={styles.sidebar}>
       <ProjectTabsNav snapshot={snapshot} activeView={activeView} selectedId={selectedId} />
+      <AgentsSection snapshot={snapshot} />
       <AssistantSessionsSection />
       <ToolsNav snapshot={snapshot} activeView={activeView} />
       {graphActive && activeTypes && onSelectTypes && onToggleType ? (

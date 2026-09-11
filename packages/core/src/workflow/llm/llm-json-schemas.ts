@@ -39,6 +39,8 @@ export const THOUGHT_DECISION_V1_KEY = "thought_decision_v1";
 export const THOUGHT_VALIDATION_V1_KEY = "thought_validation_v1";
 export const THOUGHT_REFLECTION_V1_KEY = "thought_reflection_v1";
 export const THOUGHT_FINALIZE_V1_KEY = "thought_finalize_v1";
+export const AGENT_PROFILE_V1_KEY = "agent_profile_v1";
+export const AGENT_PROFILE_V1_SCHEMA: Record<string, unknown> = { $id: "projectplaner:llm-json-schema:agent_profile_v1", type: "object", properties: { role: { type: "string" }, responsibilities: { type: "array", items: { type: "string" } }, recurringActivities: { type: "array", items: { type: "string" } }, capabilities: { type: "array", items: { type: "string" } }, decisionAreas: { type: "array", items: { type: "string" } }, candidateWorkflows: { type: "array", items: { type: "string" } }, instructions: { type: "string" }, history: { type: "array", items: { type: "object" } } }, required: ["role", "responsibilities", "recurringActivities", "capabilities", "decisionAreas", "candidateWorkflows", "instructions", "history"], additionalProperties: false };
 
 export const WORKFLOW_IR_V1_SCHEMA: Record<string, unknown> = {
   $id: "projectplaner:llm-json-schema:workflow_ir_v1",
@@ -423,6 +425,7 @@ export const THOUGHT_FINALIZE_V1_SCHEMA: Record<string, unknown> = {
 };
 
 export const LLM_JSON_SCHEMA_PRESETS: LlmJsonSchemaPreset[] = [
+  { key: AGENT_PROFILE_V1_KEY, title: "Agent Profile v1", description: "Structured role profile.", schema: AGENT_PROFILE_V1_SCHEMA },
   {
     key: WORKFLOW_IR_V1_KEY,
     title: "Workflow IR v1",

@@ -4,6 +4,7 @@ export type { DatabaseOperations } from "./services";
 export type { Storage, StorageConnection, StorageFactory } from "./contracts/storage";
 export { entityStore } from "./contracts/storage";
 export { loadEnv } from "./environment";
+export { createSearxngProvider, createWebSearchProvider } from "./web-search";
 export { SemanticWrites, AspectHandle, FeatureHandle, ProjectWrites, TaskHandle } from "./semantic";
 export type { CreateAspectInput, CreateFeatureInput, CreateSemanticTaskInput, SemanticEntityInput } from "./semantic";
 export { EXAMPLE_PROJECT_KEY } from "./example-signal-desk";

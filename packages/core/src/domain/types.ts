@@ -11,7 +11,8 @@ export const nodeTypes = [
   "decision",
   "question",
   "reference",
-  "task_group"
+  "task_group",
+  "agent"
 ] as const;
 
 export type NodeType = (typeof nodeTypes)[number];

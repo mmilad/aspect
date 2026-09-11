@@ -11,6 +11,7 @@ import { WorkTab } from "./work-tab";
 import { RelationsTab } from "./relations-tab";
 import { NotesTab } from "./notes-tab";
 import { MetadataTab } from "./metadata-tab";
+import { AgentOverview } from "./agent-overview";
 
 export const DETAIL_TABS = ["overview", "work", "relations", "notes", "metadata"] as const;
 export type DetailTab = (typeof DETAIL_TABS)[number];
@@ -58,7 +59,8 @@ export function EntityDetail({ detail, tab }: EntityDetailProps) {
       </div>
 
       <div className="mt-5">
-        {tab === "overview" ? (
+        {tab === "overview" && entity.type === "agent" ? <AgentOverview entity={entity} projectKey={project.key} /> : null}
+        {tab === "overview" && entity.type !== "agent" ? (
           <OverviewTab
             entity={entity}
             tags={detail.tags}

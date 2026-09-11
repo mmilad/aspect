@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import "./agent-runs.node-test";
 import { test } from "node:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -113,7 +114,7 @@ test("legacy data migrations run once and failed initialization releases its han
   db.exec("INSERT INTO projects(id,key,title) VALUES('p','PLAN','Plan'); INSERT INTO entities(id,project_id,type,slug,title,status) VALUES('a','p','aspect','a','A','doing'); PRAGMA user_version=0");
   db.close(); db = createDatabase(dbPath);
   assert.equal(db.prepare("SELECT status FROM entities WHERE id='a'").get()?.status, "in_progress");
-  assert.equal(db.prepare("PRAGMA user_version").get()?.user_version, 1);
+  assert.equal(db.prepare("PRAGMA user_version").get()?.user_version, 2);
   db.close(); db = createDatabase(dbPath);
   assert.equal(db.prepare("SELECT total_changes() AS n").get()?.n, 0);
   db.exec("PRAGMA user_version=99"); db.close();

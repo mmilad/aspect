@@ -11,6 +11,7 @@ import snapshots from "./repositories/snapshots";
 import assistantSessions from "./repositories/assistant-sessions";
 import llmJsonSchemas from "./repositories/llm-json-schemas";
 import persist from "./workflows/persist";
+import agentRuns from "./repositories/agent-runs";
 import { execute } from "./query/compile";
 import { validateStoredProjectGraph } from "./repositories/graph";
 
@@ -38,7 +39,7 @@ export function sqliteStorage(db: DatabaseSync): Storage {
       }
     },
     workspaces: bind(db, workspaces), tasks: bind(db, tasks), tags: bind(db, tags),
-    snapshots: bind(db, snapshots), assistantSessions: bind(db, assistantSessions),
+    snapshots: bind(db, snapshots), assistantSessions: bind(db, assistantSessions), agentRuns: bind(db, agentRuns),
     llmJsonSchemas: bind(db, llmJsonSchemas), persist: bind(db, persist),
     query: {
       execute: (plan) => execute(db, plan),

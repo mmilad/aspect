@@ -1,3 +1,4 @@
+import { parseAgentProfile } from "@projectplaner/core";
 import type {
   Entity,
   EntityFilter,
@@ -20,6 +21,7 @@ import type { Storage } from "../contracts/storage";
 import { findSeededWorkflowPreset } from "../presets";
 import { rollupParentStatus } from "../rollup";
 import { entityStore } from "../contracts/storage";
+import { createWebSearchProvider } from "../web-search";
 import {
   type WorkflowNodeRun,
   type WorkflowRunRecord,
@@ -72,7 +74,17 @@ function createEntityMetadata(args: Record<string, unknown>, reason: string): Js
     metadata.kind = args.kind.trim();
   }
   if (args.document !== undefined) {
-    metadata.document = args.document;
+    if (args.type === "agent" && args.document && typeof args.document === "object" && !Array.isArray(args.document)) {
+      const profile = args.document as JsonRecord;
+      metadata.document = parseAgentProfile({
+        ...profile,
+        name: typeof profile.name === "string" ? profile.name : args.title,
+        role: typeof profile.role === "string" ? profile.role : args.title,
+        history: []
+      });
+    } else {
+      metadata.document = args.document;
+    }
   }
   return metadata;
 }
@@ -116,6 +128,7 @@ export function createWorkflowAdapters(
   const api = createPlanApi(store);
 
   return {
+    webSearch: (input) => createWebSearchProvider().search(input),
     getEntity: async (id) => (await db.entities.get(id)),
     listEntities: async (listQuery: EntityListQuery, options) =>
       (await db.query.execute(compileListQuery({ ...listQuery, projectKey: listQuery.projectKey ?? projectKey }, options))),

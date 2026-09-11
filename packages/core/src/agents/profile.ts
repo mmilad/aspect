@@ -1,0 +1,41 @@
+import type { JsonRecord } from "../domain/types";
+import type { AgentProfile } from "./types";
+
+const object = (value: unknown): JsonRecord =>
+  value && typeof value === "object" && !Array.isArray(value) ? value as JsonRecord : {};
+const text = (value: unknown, fallback = "") => typeof value === "string" ? value : fallback;
+const list = (value: unknown): string[] => Array.isArray(value)
+  ? value.filter((item): item is string => typeof item === "string" && !!item.trim()) : [];
+const bool = (value: unknown, fallback: boolean) => typeof value === "boolean" ? value : fallback;
+const integer = (value: unknown, fallback: number, minimum = 1) =>
+  typeof value === "number" && Number.isSafeInteger(value) && value >= minimum ? value : fallback;
+
+export function parseAgentProfile(metadata: JsonRecord): AgentProfile {
+  const raw = metadata.document === undefined ? metadata : object(metadata.document);
+  const context = object(raw.contextPolicy);
+  const runtime = object(raw.runtimePolicy);
+  const scope = object(raw.projectScope);
+  return {
+    profileVersion: 1,
+    name: text(raw.name), role: text(raw.role), instructions: text(raw.instructions),
+    responsibilities: list(raw.responsibilities), recurringActivities: list(raw.recurringActivities),
+    capabilities: list(raw.capabilities), decisionAreas: list(raw.decisionAreas),
+    candidateWorkflows: list(raw.candidateWorkflows), assignedWorkflowIds: list(raw.assignedWorkflowIds),
+    projectScope: {
+      projectKey: typeof scope.projectKey === "string" ? scope.projectKey : undefined,
+      workspaceId: typeof scope.workspaceId === "string" ? scope.workspaceId : undefined
+    },
+    contextPolicy: {
+      graphEnabled: bool(context.graphEnabled, true), memoryEnabled: false,
+      maxResults: integer(context.maxResults, 12),
+      ...(context.maxContextTokens === undefined ? {} : { maxContextTokens: integer(context.maxContextTokens, 4096) })
+    },
+    runtimePolicy: {
+      maxSteps: integer(runtime.maxSteps, 20), maxWorkflowCalls: integer(runtime.maxWorkflowCalls, 5, 0),
+      canAskClarification: bool(runtime.canAskClarification, true),
+      humanConfirmationDefault: bool(runtime.humanConfirmationDefault, false)
+    },
+    memoryPolicy: { enabled: false, scope: "project" },
+    history: Array.isArray(raw.history) ? raw.history as AgentProfile["history"] : []
+  };
+}

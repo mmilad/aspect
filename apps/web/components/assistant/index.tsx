@@ -13,19 +13,18 @@ export { AssistantContextBridge } from "./assistant-context-bridge";
 
 /** Main-area chat (or selected session view). Property buttons live in the right sidebar. */
 export function AssistantHost() {
-  const { record, loading, error, nav } = useRightPane();
+  const { record, loading, error, nav, agentRuns, selectedAgentId, agentHistoryError, agentHistoryLoading, refreshAgentHistory } = useRightPane();
   const frame = nav[nav.length - 1];
-  const isChat = !frame || frame.key === "transcript";
+  const isChat = Boolean(selectedAgentId) || !frame || frame.key === "transcript";
 
   let body;
-  if (loading) {
+  if (selectedAgentId ? agentHistoryLoading : loading) {
     body = <div className="px-4 py-6 text-sm text-muted-foreground">Loading session…</div>;
-  } else if (error) {
-    body = <div className="px-4 py-6 text-sm text-rose-700">{error}</div>;
+
+  } else if (isChat) {
+    body = <AssistantTranscript session={selectedAgentId ? undefined : record?.session} agentRuns={agentRuns} />;
   } else if (!record) {
     body = <div className="px-4 py-6 text-sm text-muted-foreground">No session.</div>;
-  } else if (isChat) {
-    body = <AssistantTranscript session={record.session} />;
   } else {
     body = (
       <ScrollArea className="h-full">
@@ -38,9 +37,14 @@ export function AssistantHost() {
 
   return (
     <div className="h-full min-h-0 bg-background">
-      <PaneFrame header={<AssistantBreadcrumb />} footer={<AssistantComposer />}>
-        {body}
+      <PaneFrame header={<AssistantBreadcrumb />} footer={<AssistantComposer key={selectedAgentId ?? record?.id ?? "assistant"} />}>
+        <div className="flex h-full min-h-0 flex-col">
+        {error ? <div role="alert" className="px-4 py-2 text-sm text-rose-700">{error}</div> : null}
+        {agentHistoryError ? <div role="alert" className="px-4 py-2 text-sm text-rose-700">{agentHistoryError} <button type="button" onClick={refreshAgentHistory}>Retry</button></div> : null}
+        <div className="min-h-0 flex-1">{body}</div>
+        </div>
       </PaneFrame>
     </div>
   );
 }
+

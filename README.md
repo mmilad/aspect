@@ -18,6 +18,8 @@ pnpm dev                 # web UI + API at http://127.0.0.1:3000
 
 Project key: **`PLAN`**. Database: `projectplaner.db` at the repo root (override with `PROJECTPLANER_DB_PATH`).
 
+Start local web search with `docker compose up -d`; workflows use the `web_search` node and `WEB_SEARCH_ENDPOINT` (default `http://localhost:8080`).
+
 Cursor MCP is configured in [`.cursor/mcp.json`](.cursor/mcp.json). After code changes that touch MCP/DB, restart the **projectplaner** MCP under Customize → MCPs.
 
 ```bash

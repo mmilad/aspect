@@ -27,6 +27,7 @@ import { toolNode } from "./tool/model";
 import { transformNode } from "./transform/model";
 import { waitNode } from "./wait/model";
 import { writeNode } from "./write/model";
+import { webSearchNode } from "./web_search/model";
 
 export const workflowNodeModels: Record<WorkflowNodeType, WorkflowNodeModel> = {
   start: startNode,
@@ -55,7 +56,8 @@ export const workflowNodeModels: Record<WorkflowNodeType, WorkflowNodeModel> = {
   get: getNode,
   set: setNode,
   template: templateNode,
-  reroute: rerouteNode
+  reroute: rerouteNode,
+  web_search: webSearchNode
 };
 
 export function getNodeModel(type: WorkflowNodeType): WorkflowNodeModel {

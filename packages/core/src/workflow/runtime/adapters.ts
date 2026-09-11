@@ -2,6 +2,7 @@ import type { Entity, EntityRelation, EntityType } from "../../domain/types";
 import type { EntityListQuery, EntitySelectMode } from "../../domain/query/types";
 import type { RankedTaskCandidate } from "../../domain/task-candidacy";
 import type { WorkflowGraph } from "../graph/types";
+import type { SearchQuery, SearchResponse } from "../../web-search";
 
 export interface WorkflowMatch {
   id: string;
@@ -43,6 +44,7 @@ export type ResolvedLlmJsonSchema = {
 };
 
 export interface WorkflowAdapters {
+  webSearch?: (input: SearchQuery) => Promise<SearchResponse> | SearchResponse;
   loadContext?: (input: {
     query: string;
     types?: EntityType[];

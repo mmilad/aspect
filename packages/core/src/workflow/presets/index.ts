@@ -16,6 +16,8 @@ import { nextWorkPreset } from "./next_work/preset";
 import { onboardingPreset } from "./onboarding/preset";
 import { rollupParentStatusPreset } from "./rollup_parent_status/preset";
 import { thinkingPreset } from "./thinking/preset";
+import { recruitAgentGraph } from "./recruit_agent/graph";
+import { recruitAgentPreset } from "./recruit_agent/preset";
 import { goalPlanningPreset } from "./goal_planning/preset";
 import {
   workflowPresetKinds,
@@ -65,7 +67,8 @@ export function listWorkflowPresets(): WorkflowPreset[] {
     createWorkflowPreset,
     thinkingPreset,
     goalPlanningPreset,
-    assistantTurnPreset
+    assistantTurnPreset,
+    recruitAgentPreset
   ];
 }
 
@@ -143,6 +146,7 @@ const presets = {
   thinkingGraph,
   goalPlanningGraph,
   assistantTurnGraph,
+  recruitAgentGraph,
   authorWorkflowPreset,
   createStepPreset,
   createWorkflowPreset,
@@ -152,7 +156,8 @@ const presets = {
   rollupParentStatusPreset,
   thinkingPreset,
   goalPlanningPreset,
-  assistantTurnPreset
+  assistantTurnPreset,
+  recruitAgentPreset
 };
 
 export default presets;

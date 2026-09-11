@@ -30,7 +30,8 @@ export const workflowStepToneByType: Record<WorkflowNodeType, string> = {
   get: "border-pink-600 bg-pink-50 text-pink-950",
   set: "border-pink-700 bg-pink-100 text-pink-950",
   template: "border-pink-500 bg-pink-50 text-pink-950",
-  reroute: "border-stone-600 bg-stone-50 text-stone-900"
+  reroute: "border-stone-600 bg-stone-50 text-stone-900",
+  web_search: "border-blue-600 bg-blue-50 text-blue-950"
 };
 
 export const workflowPaletteGroups: Array<{ label: string; types: readonly WorkflowNodeType[] }> = [

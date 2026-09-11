@@ -51,7 +51,8 @@ export type {
   WorkflowVariableNodeType,
   WorkflowWaitConfig,
   WorkflowWorkNodeType,
-  WorkflowWriteConfig
+  WorkflowWriteConfig,
+  WorkflowWebSearchConfig
 } from "./_shared/types";
 
 export {

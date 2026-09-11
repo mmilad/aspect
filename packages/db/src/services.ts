@@ -46,7 +46,7 @@ export function createServices(raw: Storage) {
   const db = domainStorage(raw);
   return {
     entities: db.entities, relations: db.relations, projects: db.projects, workspaces: db.workspaces,
-    tasks: db.tasks, tags: db.tags, snapshots: db.snapshots, assistantSessions: db.assistantSessions,
+    tasks: db.tasks, tags: db.tags, snapshots: db.snapshots, assistantSessions: db.assistantSessions, agentRuns: db.agentRuns,
     llmJsonSchemas: db.llmJsonSchemas, query: db.query, persist: db.persist,
     workflows: {
       run: (input: Parameters<typeof runWorkflow>[1]) => runWorkflow(db, input),

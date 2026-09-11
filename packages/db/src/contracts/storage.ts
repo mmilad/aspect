@@ -9,6 +9,7 @@ import type { Operations as Snapshots } from "./snapshots";
 import type { Operations as Sessions } from "./assistant-sessions";
 import type { Operations as Schemas } from "./llm-json-schemas";
 import type { Operations as Persist } from "./persist";
+import type { Operations as AgentRuns } from "./agent-runs";
 
 export interface Storage {
   entities: Entities;
@@ -24,6 +25,7 @@ export interface Storage {
   assistantSessions: Sessions;
   llmJsonSchemas: Schemas;
   persist: Persist;
+  agentRuns: AgentRuns;
   query: {
     execute(plan: QueryPlan): Promise<Entity[]>;
     validate(projectId: string): Promise<{ errors: string[]; warnings: string[] }>;

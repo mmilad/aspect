@@ -13,7 +13,8 @@ export const ENTITY_TYPE_ORDER: EntityType[] = [
   "entry",
   "area",
   "surface",
-  "task_group"
+  "task_group",
+  "agent"
 ];
 
 export function compareEntityTypes(left: EntityType, right: EntityType): number {

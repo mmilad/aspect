@@ -93,15 +93,7 @@ export function workflowRunJson(result: DrainedWorkflowResult) {
     note: result.note,
     turns: result.turns,
     llmConfigured: result.llmConfigured,
-    bag: {
-      plan: keys.plan,
-      stop: keys.stop,
-      frontierId: keys.frontierId,
-      result: keys.result,
-      iterations: keys.iterations,
-      decision: keys.decision,
-      validation: keys.validation
-    }
+    bag: keys
   };
 }
 

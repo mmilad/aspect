@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  AGENT_PROFILE_V1_KEY,
   ASSISTANT_CONTEXT_V1_KEY,
   ASSISTANT_CONTEXT_V1_SCHEMA,
   ASSISTANT_CONTEXT_V2_KEY,
@@ -58,6 +59,7 @@ describe("workflow_ir_v1 JSON Schema preset", () => {
       THOUGHT_VALIDATION_V1_SCHEMA
     );
     expect(LLM_JSON_SCHEMA_PRESETS.map((preset) => preset.key)).toEqual([
+      AGENT_PROFILE_V1_KEY,
       WORKFLOW_IR_V1_KEY,
       WORKFLOW_NODE_PLAN_V1_KEY,
       WORKFLOW_NODE_QA_V1_KEY,

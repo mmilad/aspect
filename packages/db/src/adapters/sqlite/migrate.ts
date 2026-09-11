@@ -340,5 +340,27 @@ export function runMigrations(sqlite: MigrationDatabase): void {
 
     CREATE INDEX IF NOT EXISTS assistant_sessions_context_entity_idx
       ON assistant_sessions(context_entity_id);
+
+    CREATE TABLE IF NOT EXISTS agent_runs (
+      id TEXT PRIMARY KEY,
+      agent_id TEXT NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
+      project_key TEXT NOT NULL,
+      task TEXT NOT NULL,
+      status TEXT NOT NULL,
+      workspace_json TEXT,
+      context_json TEXT,
+      step_count INTEGER NOT NULL DEFAULT 0,
+      workflow_call_count INTEGER NOT NULL DEFAULT 0,
+      result_json TEXT,
+      error TEXT,
+      started_at TEXT NOT NULL,
+      finished_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS agent_runs_agent_idx ON agent_runs(agent_id, started_at);
+    CREATE TABLE IF NOT EXISTS agent_run_events (
+      id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES agent_runs(id) ON DELETE CASCADE,
+      type TEXT NOT NULL, message TEXT NOT NULL, data_json TEXT, created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS agent_run_events_run_idx ON agent_run_events(run_id, created_at);
   `);
 }

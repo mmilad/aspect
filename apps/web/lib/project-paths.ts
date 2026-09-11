@@ -19,6 +19,7 @@ function withKanbanQuery(
 }
 
 export const projectPaths = {
+  agentChat: (projectKey: string, agentId: string) => `/projects/${projectKey}?assistant=1&agent=${encodeURIComponent(agentId)}`,
   workspace: (projectKey: string) => `/projects/${projectKey}`,
   graph: (projectKey: string, selectedId?: string) =>
     withSelected(`/projects/${projectKey}/graph`, selectedId),
@@ -34,3 +35,4 @@ export const projectPaths = {
       : `/projects/${projectKey}/entities/${entityId}`,
   flow: (projectKey: string, flowId: string) => `/projects/${projectKey}/flows/${flowId}`
 } as const;
+

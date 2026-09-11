@@ -78,6 +78,13 @@ async function runAssign(ctx: NodeExecuteContext): Promise<WorkflowStepResult> {
   const writes = ctx.getWrites();
   const values: Record<string, unknown> = { ...(assign.set ?? {}) };
 
+  if (assign.coalesce) {
+    const selected = assign.coalesce.from.map((key) => ctx.read(key)).find((value) => typeof value === "string" && value.trim().length > 0);
+    if (selected === undefined) return ctx.fail(`No usable value found in coalesce sources: ${assign.coalesce.from.join(", ")}.`);
+    const targetKey = writes.find((key) => !(key in values)) ?? writes[0] ?? "value";
+    values[targetKey] = assign.coalesce.trim === false ? selected : (selected as string).trim();
+  }
+
   if (assign.pickFirst) {
     const source = ctx.read(assign.pickFirst.from);
     if (!Array.isArray(source) || source.length === 0) {
@@ -143,13 +150,14 @@ async function runAssign(ctx: NodeExecuteContext): Promise<WorkflowStepResult> {
 
   if (
     !assign.set &&
+    !assign.coalesce &&
     !assign.pickFirst &&
     !assign.neighborhoodOf &&
     !assign.composeTaskPrompt &&
     !assign.plan
   ) {
     return ctx.fail(
-      `Assign requires auto.assign.set (or pickFirst/neighborhoodOf/composeTaskPrompt/plan) on node ${ctx.node.id}.`
+      `Assign requires auto.assign.set (or coalesce/pickFirst/neighborhoodOf/composeTaskPrompt/plan) on node ${ctx.node.id}.`
     );
   }
 

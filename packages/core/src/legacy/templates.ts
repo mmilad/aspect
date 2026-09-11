@@ -67,6 +67,12 @@ const templates: Record<NodeType, FieldDescriptor[]> = {
   task_group: [
     { key: "goal", label: "Goal" },
     { key: "acceptanceShape", label: "Acceptance shape" }
+  ],
+  agent: [
+    { key: "role", label: "Role" },
+    { key: "instructions", label: "Instructions" },
+    { key: "responsibilities", label: "Responsibilities" },
+    { key: "capabilities", label: "Capabilities" }
   ]
 };
 

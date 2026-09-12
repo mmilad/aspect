@@ -35,5 +35,6 @@ export type * from "./web-search";
 export type * from "./planning";
 export type * from "./generator";
 export type * from "./assistant";
+export type * from "./knowledge";
 export type * from "./workspace/types";
 export * from "./agents";

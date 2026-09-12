@@ -31,7 +31,8 @@ export const workflowWorkNodeTypes = [
   "create_workflow_node",
   "assemble_fragment",
   "assistant_session",
-  "web_search"
+  "web_search",
+  "knowledge_search"
 ] as const;
 
 export const workflowVariableNodeTypes = ["get", "set", "template"] as const;
@@ -135,6 +136,17 @@ export interface WorkflowDelegateConfig {
 export interface WorkflowWebSearchConfig {
   queryFrom?: string;
   maxResultsFrom?: string;
+}
+
+export interface WorkflowKnowledgeSearchConfig {
+  datasetKey?: string;
+  datasetKeyFrom?: string;
+  queryFrom?: string;
+  topKFrom?: string;
+  keywordQueryFrom?: string;
+  metadataFiltersFrom?: string;
+  vectorWeightFrom?: string;
+  accessFrom?: string;
 }
 
 export const workflowLlmFormats = ["text", "json", "json_schema"] as const;
@@ -400,6 +412,7 @@ export interface WorkflowNodeData {
   tool?: WorkflowToolConfig;
   delegate?: WorkflowDelegateConfig;
   webSearch?: WorkflowWebSearchConfig;
+  knowledgeSearch?: WorkflowKnowledgeSearchConfig;
   llm?: WorkflowLlmConfig;
   query?: WorkflowQueryConfig;
   write?: WorkflowWriteConfig;

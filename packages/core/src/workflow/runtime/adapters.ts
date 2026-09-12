@@ -3,6 +3,7 @@ import type { EntityListQuery, EntitySelectMode } from "../../domain/query/types
 import type { RankedTaskCandidate } from "../../domain/task-candidacy";
 import type { WorkflowGraph } from "../graph/types";
 import type { SearchQuery, SearchResponse } from "../../web-search";
+import type { KnowledgeSearchInput, KnowledgeSearchResult } from "../../knowledge";
 
 export interface WorkflowMatch {
   id: string;
@@ -54,6 +55,8 @@ export type ResolvedLlmJsonSchema = {
 
 export interface WorkflowAdapters {
   webSearch?: (input: SearchQuery) => Promise<SearchResponse> | SearchResponse;
+  /** Read-only semantic/keyword retrieval from the configured knowledge service. */
+  knowledgeSearch?: (input: KnowledgeSearchInput) => Promise<KnowledgeSearchResult> | KnowledgeSearchResult;
   loadContext?: (input: {
     query: string;
     types?: EntityType[];

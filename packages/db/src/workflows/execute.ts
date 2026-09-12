@@ -22,6 +22,7 @@ import { findSeededWorkflowPreset } from "../presets";
 import { rollupParentStatus } from "../rollup";
 import { entityStore } from "../contracts/storage";
 import { createWebSearchProvider } from "../web-search";
+import { createConfiguredKnowledgeSearchProvider } from "../knowledge";
 import {
   type WorkflowNodeRun,
   type WorkflowRunRecord,
@@ -126,9 +127,11 @@ export function createWorkflowAdapters(
 ): WorkflowAdapters {
   const store = entityStore(db);
   const api = createPlanApi(store);
+  const knowledgeSearch = createConfiguredKnowledgeSearchProvider(projectKey);
 
   return {
     webSearch: (input) => createWebSearchProvider().search(input),
+    knowledgeSearch,
     getEntity: async (id) => (await db.entities.get(id)),
     listEntities: async (listQuery: EntityListQuery, options) =>
       (await db.query.execute(compileListQuery({ ...listQuery, projectKey: listQuery.projectKey ?? projectKey }, options))),

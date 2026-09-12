@@ -30,6 +30,7 @@ import { transformNode } from "./transform/model";
 import { waitNode } from "./wait/model";
 import { writeNode } from "./write/model";
 import { webSearchNode } from "./web_search/model";
+import { knowledgeSearchNode } from "./knowledge_search/model";
 
 export const workflowNodeModels: Record<WorkflowNodeType, WorkflowNodeModel> = {
   start: startNode,
@@ -61,7 +62,8 @@ export const workflowNodeModels: Record<WorkflowNodeType, WorkflowNodeModel> = {
   set: setNode,
   template: templateNode,
   reroute: rerouteNode,
-  web_search: webSearchNode
+  web_search: webSearchNode,
+  knowledge_search: knowledgeSearchNode
 };
 
 export function getNodeModel(type: WorkflowNodeType): WorkflowNodeModel {

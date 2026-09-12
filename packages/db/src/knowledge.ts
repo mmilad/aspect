@@ -1,5 +1,10 @@
 import type {
   KnowledgeAccess,
+  KnowledgeGetInput,
+  KnowledgeGetResult,
+  KnowledgeIngestInput,
+  KnowledgeIngestResult,
+  KnowledgeItem,
   KnowledgeScope,
   KnowledgeSearchHit,
   KnowledgeSearchInput,
@@ -32,26 +37,41 @@ function normalizeScope(value: unknown): KnowledgeScope {
   };
 }
 
-function normalizeHit(value: unknown): KnowledgeSearchHit {
-  const hit = asRecord(value, "hit");
-  const item = asRecord(hit.item, "memory item");
+function normalizeItem(value: unknown): KnowledgeItem {
+  const item = asRecord(value, "memory item");
   if (typeof item.id !== "string" || typeof item.dataset_key !== "string" || typeof item.raw_text !== "string") {
     throw new Error("Knowledge search returned a memory item without id, dataset_key, or raw_text.");
   }
   const metadata = item.metadata && typeof item.metadata === "object" && !Array.isArray(item.metadata)
     ? item.metadata as Record<string, unknown>
     : {};
-  if (typeof hit.score !== "number") throw new Error("Knowledge search returned a hit without a numeric score.");
   return {
     id: item.id,
     datasetKey: item.dataset_key,
     rawText: item.raw_text,
     metadata,
     scope: normalizeScope(item.scope),
+    embeddingModel: typeof item.embedding_model === "string" ? item.embedding_model : null,
+    createdAt: typeof item.created_at === "string" ? item.created_at : null,
+    updatedAt: typeof item.updated_at === "string" ? item.updated_at : null,
+    isDeleted: typeof item.is_deleted === "boolean" ? item.is_deleted : false
+  };
+}
+
+function normalizeHit(value: unknown): KnowledgeSearchHit {
+  const hit = asRecord(value, "hit");
+  const item = normalizeItem(hit.item);
+  if (typeof hit.score !== "number") throw new Error("Knowledge search returned a hit without a numeric score.");
+  return {
+    id: item.id,
+    datasetKey: item.datasetKey,
+    rawText: item.rawText,
+    metadata: item.metadata,
+    scope: item.scope,
     score: hit.score,
     vectorScore: optionalNumber(hit.vector_score),
     keywordScore: optionalNumber(hit.keyword_score),
-    embeddingModel: typeof item.embedding_model === "string" ? item.embedding_model : null
+    embeddingModel: item.embeddingModel
   };
 }
 
@@ -111,6 +131,71 @@ export function createKnowledgeSearchProvider(endpoint: string): KnowledgeSearch
   };
 }
 
+type KnowledgeGetProvider = NonNullable<WorkflowAdapters["knowledgeGet"]>;
+type KnowledgeIngestProvider = NonNullable<WorkflowAdapters["knowledgeIngest"]>;
+
+export function createKnowledgeGetProvider(endpoint: string): KnowledgeGetProvider {
+  const base = endpoint.replace(/\/$/, "");
+  return async (input: KnowledgeGetInput): Promise<KnowledgeGetResult> => {
+    const url = new URL(`${base}/datasets/${encodeURIComponent(input.datasetKey)}/items/${encodeURIComponent(input.itemId)}`);
+    if (input.includeDeleted) url.searchParams.set("include_deleted", "true");
+    const access = toApiAccess(input.access);
+    for (const [key, value] of Object.entries(access ?? {})) {
+      if (value !== undefined) url.searchParams.set(key, String(value));
+    }
+    const response = await fetch(url, { headers: { "content-type": "application/json" } });
+    if (response.status === 404) return { item: null };
+    if (!response.ok) {
+      const detail = await response.text().catch(() => "");
+      throw new Error(`Knowledge get provider returned HTTP ${response.status}${detail ? `: ${detail}` : "."}`);
+    }
+    return { item: normalizeItem(await response.json()) };
+  };
+}
+
+function toApiScope(scope: KnowledgeScope | undefined): Record<string, unknown> {
+  const value = scope ?? { kind: "global" as const };
+  return {
+    kind: value.kind,
+    ...(value.ownerId ? { owner_id: value.ownerId } : {}),
+    ...(value.projectKey ? { project_key: value.projectKey } : {}),
+    ...(value.agentId ? { agent_id: value.agentId } : {}),
+    ...(value.sessionId ? { session_id: value.sessionId } : {}),
+    ...(value.sourceId ? { source_id: value.sourceId } : {})
+  };
+}
+
+export function createKnowledgeIngestProvider(endpoint: string): KnowledgeIngestProvider {
+  const base = endpoint.replace(/\/$/, "");
+  return async (input: KnowledgeIngestInput): Promise<KnowledgeIngestResult> => {
+    const response = await fetch(`${base}/datasets/${encodeURIComponent(input.datasetKey)}/ingest`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        items: input.items.map((item) => ({
+          ...(item.id ? { id: item.id } : {}),
+          raw_text: item.rawText,
+          metadata: item.metadata ?? {},
+          scope: toApiScope(item.scope)
+        }))
+      })
+    });
+    if (!response.ok) {
+      const detail = await response.text().catch(() => "");
+      throw new Error(`Knowledge ingest provider returned HTTP ${response.status}${detail ? `: ${detail}` : "."}`);
+    }
+    const payload = asRecord(await response.json(), "ingest response");
+    if (typeof payload.ingested !== "number" || !Array.isArray(payload.ids) || payload.ids.some((id) => typeof id !== "string")) {
+      throw new Error("Knowledge ingest returned an invalid response shape.");
+    }
+    return {
+      ingested: payload.ingested,
+      ids: payload.ids as string[],
+      embeddingModel: typeof payload.embedding_model === "string" ? payload.embedding_model : null
+    };
+  };
+}
+
 export function createConfiguredKnowledgeSearchProvider(projectKey: string): KnowledgeSearchProvider | undefined {
   const endpoint = process.env.PROJECTPLANER_KNOWLEDGE_URL ?? process.env.CORTEXDB_URL;
   if (!endpoint) return undefined;
@@ -119,4 +204,19 @@ export function createConfiguredKnowledgeSearchProvider(projectKey: string): Kno
     ...input,
     access: { projectKey, includeGlobal: true, ...input.access }
   });
+}
+
+export function createConfiguredKnowledgeGetProvider(projectKey: string): KnowledgeGetProvider | undefined {
+  const endpoint = process.env.PROJECTPLANER_KNOWLEDGE_URL ?? process.env.CORTEXDB_URL;
+  if (!endpoint) return undefined;
+  const provider = createKnowledgeGetProvider(endpoint);
+  return (input) => provider({
+    ...input,
+    access: { projectKey, includeGlobal: true, ...input.access }
+  });
+}
+
+export function createConfiguredKnowledgeIngestProvider(): KnowledgeIngestProvider | undefined {
+  const endpoint = process.env.PROJECTPLANER_KNOWLEDGE_URL ?? process.env.CORTEXDB_URL;
+  return endpoint ? createKnowledgeIngestProvider(endpoint) : undefined;
 }

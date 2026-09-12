@@ -31,6 +31,8 @@ import { waitNode } from "./wait/model";
 import { writeNode } from "./write/model";
 import { webSearchNode } from "./web_search/model";
 import { knowledgeSearchNode } from "./knowledge_search/model";
+import { knowledgeGetNode } from "./knowledge_get/model";
+import { knowledgeIngestNode } from "./knowledge_ingest/model";
 
 export const workflowNodeModels: Record<WorkflowNodeType, WorkflowNodeModel> = {
   start: startNode,
@@ -63,7 +65,9 @@ export const workflowNodeModels: Record<WorkflowNodeType, WorkflowNodeModel> = {
   template: templateNode,
   reroute: rerouteNode,
   web_search: webSearchNode,
-  knowledge_search: knowledgeSearchNode
+  knowledge_search: knowledgeSearchNode,
+  knowledge_get: knowledgeGetNode,
+  knowledge_ingest: knowledgeIngestNode
 };
 
 export function getNodeModel(type: WorkflowNodeType): WorkflowNodeModel {

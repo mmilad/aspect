@@ -28,6 +28,47 @@ export interface KnowledgeSearchInput {
   access?: KnowledgeAccess;
 }
 
+export interface KnowledgeItem {
+  id: string;
+  datasetKey: string;
+  rawText: string;
+  metadata: Record<string, unknown>;
+  scope: KnowledgeScope;
+  embeddingModel?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  isDeleted?: boolean;
+}
+
+export interface KnowledgeGetInput {
+  datasetKey: string;
+  itemId: string;
+  includeDeleted?: boolean;
+  access?: KnowledgeAccess;
+}
+
+export interface KnowledgeGetResult {
+  item: KnowledgeItem | null;
+}
+
+export interface KnowledgeIngestItem {
+  id?: string;
+  rawText: string;
+  metadata?: Record<string, unknown>;
+  scope?: KnowledgeScope;
+}
+
+export interface KnowledgeIngestInput {
+  datasetKey: string;
+  items: KnowledgeIngestItem[];
+}
+
+export interface KnowledgeIngestResult {
+  ingested: number;
+  ids: string[];
+  embeddingModel?: string | null;
+}
+
 export interface KnowledgeSearchHit {
   id: string;
   datasetKey: string;

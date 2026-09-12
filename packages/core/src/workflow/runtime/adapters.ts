@@ -3,7 +3,14 @@ import type { EntityListQuery, EntitySelectMode } from "../../domain/query/types
 import type { RankedTaskCandidate } from "../../domain/task-candidacy";
 import type { WorkflowGraph } from "../graph/types";
 import type { SearchQuery, SearchResponse } from "../../web-search";
-import type { KnowledgeSearchInput, KnowledgeSearchResult } from "../../knowledge";
+import type {
+  KnowledgeGetInput,
+  KnowledgeGetResult,
+  KnowledgeIngestInput,
+  KnowledgeIngestResult,
+  KnowledgeSearchInput,
+  KnowledgeSearchResult
+} from "../../knowledge";
 
 export interface WorkflowMatch {
   id: string;
@@ -57,6 +64,10 @@ export interface WorkflowAdapters {
   webSearch?: (input: SearchQuery) => Promise<SearchResponse> | SearchResponse;
   /** Read-only semantic/keyword retrieval from the configured knowledge service. */
   knowledgeSearch?: (input: KnowledgeSearchInput) => Promise<KnowledgeSearchResult> | KnowledgeSearchResult;
+  /** Read one scoped knowledge item, or return null when it is not visible. */
+  knowledgeGet?: (input: KnowledgeGetInput) => Promise<KnowledgeGetResult> | KnowledgeGetResult;
+  /** Ingest raw text into the configured knowledge service. Specialist-only by policy. */
+  knowledgeIngest?: (input: KnowledgeIngestInput) => Promise<KnowledgeIngestResult> | KnowledgeIngestResult;
   loadContext?: (input: {
     query: string;
     types?: EntityType[];

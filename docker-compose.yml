@@ -1,7 +1,28 @@
 services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-projectplaner}
+      POSTGRES_USER: ${POSTGRES_USER:-projectplaner}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-projectplaner-dev}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - projectplaner-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "${POSTGRES_USER:-projectplaner}" -d "${POSTGRES_DB:-projectplaner}"
+      interval: 5s
+      timeout: 5s
+      retries: 12
   searxng:
     image: searxng/searxng:latest
     ports:
       - "8080:8080"
     volumes:
       - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
+
+volumes:
+  projectplaner-postgres:

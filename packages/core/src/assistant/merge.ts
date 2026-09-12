@@ -176,7 +176,19 @@ export function commitAssistantTurn(
   session: AssistantSession,
   message: string,
   pack: AssistantContextPack,
-  reply: string
+  reply: string,
+  workflowRunId?: string
 ): AssistantSession {
-  return appendMessage(applyContextPack(appendMessage(session, "user", message), pack), "assistant", reply);
+  const next = appendMessage(applyContextPack(appendMessage(session, "user", message), pack), "assistant", reply);
+  if (!workflowRunId) {
+    return next;
+  }
+  const last = next.messages[next.messages.length - 1];
+  if (!last || last.role !== "assistant") {
+    return next;
+  }
+  return {
+    ...next,
+    messages: [...next.messages.slice(0, -1), { ...last, workflowRunId }]
+  };
 }

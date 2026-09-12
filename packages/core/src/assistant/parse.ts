@@ -95,7 +95,8 @@ export function parseMessage(value: unknown): AssistantMessage | null {
   if (!id || !role || content === undefined || !createdAt) {
     return null;
   }
-  return { id, role, content, createdAt };
+  const workflowRunId = role === "assistant" ? asString(value.workflowRunId)?.trim() : undefined;
+  return { id, role, content, createdAt, ...(workflowRunId ? { workflowRunId } : {}) };
 }
 
 export function parseTopic(

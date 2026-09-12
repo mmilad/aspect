@@ -5,6 +5,7 @@ import { runWorkflowUntilPause, stepWorkflow } from "../../runtime";
 import { createContextBag, parseWorkflowGraph } from "../../graph";
 import { assistantTurnGraph } from "./graph";
 import { assistantTurnPreset } from "./preset";
+import { ASSISTANT_ROLE_MANIFEST, serializeAssistantRoleManifest } from "../../../assistant";
 
 const session: AssistantSession = {
   messages: [],
@@ -57,7 +58,15 @@ describe("assistant_turn preset", () => {
     const parsed = parseWorkflowGraph(assistantTurnGraph);
     expect(parsed.ok, parsed.ok ? "" : parsed.errors.join("; ")).toBe(true);
     expect(assistantTurnPreset.presetKey).toBe("assistant_turn");
-    expect(assistantTurnPreset.presetVersion).toBe(7);
+    expect(assistantTurnPreset.presetVersion).toBe(8);
+
+    const decisionPrompt = String(assistantTurnGraph.nodes.find((node) => node.id === "llm_decide")?.data.llm?.systemPrompt);
+    const replyPrompt = String(assistantTurnGraph.nodes.find((node) => node.id === "llm_reply")?.data.llm?.systemPrompt);
+    expect(decisionPrompt).toContain(`Assistant role manifest (assistant_role_v1): ${serializeAssistantRoleManifest()}`);
+    expect(replyPrompt).toContain(`Assistant role manifest (assistant_role_v1): ${serializeAssistantRoleManifest()}`);
+    expect(decisionPrompt).toContain("agentFacts as the evidence for which active agents exist");
+    expect(replyPrompt).toContain("retrieved agent facts as the evidence for which agents exist");
+    expect(decisionPrompt).toContain(ASSISTANT_ROLE_MANIFEST.restrictions[3]);
 
     const ids = assistantTurnGraph.nodes.map((node) => `${node.id}:${node.type}`);
     expect(ids).toEqual(expect.arrayContaining([

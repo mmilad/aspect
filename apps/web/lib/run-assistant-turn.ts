@@ -125,6 +125,7 @@ export async function runAssistantTurn(
     bag: {
       session: existing.session,
       message,
+      assistantSessionId: existing.id,
       windowSize: DEFAULT_ASSISTANT_WINDOW_SIZE,
       projectKey,
       pendingDelegation: existing.session.pendingDelegation
@@ -151,7 +152,7 @@ export async function runAssistantTurn(
     throw new Error("Assistant turn completed without a reply.");
   }
 
-  let session = commitAssistantTurn(existing.session, message, pack, rawReply);
+  let session = commitAssistantTurn(existing.session, message, pack, rawReply, drained.run.id);
   if (rawPendingDelegation && typeof rawPendingDelegation === "object" && !Array.isArray(rawPendingDelegation)) {
     const pending = rawPendingDelegation as Record<string, unknown>;
     if (typeof pending.runId === "string" && typeof pending.agentId === "string" && typeof pending.task === "string") {

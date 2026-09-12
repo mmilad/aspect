@@ -7,6 +7,8 @@ export type AssistantMessage = {
   role: AssistantMessageRole;
   content: string;
   createdAt: string;
+  /** Persisted link to the workflow run that produced an Assistant reply. */
+  workflowRunId?: string;
 };
 
 export type AssistantTopicStatus = "active" | "parked";
@@ -119,6 +121,33 @@ export type AssistantContextPack = {
 };
 
 export type AssistantReply = string;
+
+export type AssistantTraceRunStatus = "running" | "pending_llm" | "pending_user" | "waiting" | "completed" | "failed" | "cancelled";
+export type AssistantTraceStepStatus = "completed" | "waiting" | "failed";
+
+export type AssistantTraceStep = {
+  nodeId: string;
+  title: string;
+  type: string;
+  visit: number;
+  status: AssistantTraceStepStatus;
+  createdAt: string;
+};
+
+export type AssistantTurnTrace = {
+  runId: string;
+  status: AssistantTraceRunStatus;
+  startedAt: string;
+  finishedAt?: string;
+  steps: AssistantTraceStep[];
+  route?: AssistantRoute["route"];
+  lookupKind?: NonNullable<AssistantRoute["lookupKind"]>;
+  delegation?: {
+    agentId?: string;
+    status?: string;
+  };
+  error?: string;
+};
 
 /** Later, between A and B */
 export type AssistantRoute = {

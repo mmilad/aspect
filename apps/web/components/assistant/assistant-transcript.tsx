@@ -14,6 +14,7 @@ import {
 
 import { AgentRunMessage } from "./agent-run-message";
 import type { AgentMessage } from "./turn-client";
+import { AssistantTraceDisclosure } from "./assistant-trace-disclosure";
 
 function groupMessages(messages: AssistantMessage[]): AssistantMessage[][] {
   const groups: AssistantMessage[][] = [];
@@ -28,7 +29,7 @@ function groupMessages(messages: AssistantMessage[]): AssistantMessage[][] {
   return groups;
 }
 
-export function AssistantTranscript({ session, agentRuns = [] }: { session?: AssistantSession; agentRuns?: AgentMessage[] }) {
+export function AssistantTranscript({ sessionId, session, agentRuns = [] }: { sessionId?: string; session?: AssistantSession; agentRuns?: AgentMessage[] }) {
   if (!session?.messages.length && !agentRuns.length) {
     return (
       <div className="px-4 py-8 text-sm text-muted-foreground">
@@ -60,6 +61,9 @@ export function AssistantTranscript({ session, agentRuns = [] }: { session?: Ass
                             <Bubble variant={role === "user" ? "default" : "muted"} align={align}>
                               <BubbleContent className="whitespace-pre-wrap">{message.content}</BubbleContent>
                             </Bubble>
+                            {message.role === "assistant" && sessionId && message.workflowRunId ? (
+                              <AssistantTraceDisclosure sessionId={sessionId} workflowRunId={message.workflowRunId} />
+                            ) : null}
                           </MessageContent>
                         </Message>
                       </MessageScrollerItem>

@@ -22,7 +22,7 @@ export function AssistantHost() {
     body = <div className="px-4 py-6 text-sm text-muted-foreground">Loading session…</div>;
 
   } else if (isChat) {
-    body = <AssistantTranscript session={selectedAgentId ? undefined : record?.session} agentRuns={agentRuns} />;
+    body = <AssistantTranscript sessionId={record?.id} session={selectedAgentId ? undefined : record?.session} agentRuns={agentRuns} />;
   } else if (!record) {
     body = <div className="px-4 py-6 text-sm text-muted-foreground">No session.</div>;
   } else {

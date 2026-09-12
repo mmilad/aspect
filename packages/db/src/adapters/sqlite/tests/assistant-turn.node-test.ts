@@ -6,6 +6,7 @@ import { describe, it } from "node:test";
 import assistant from "@projectplaner/core/assistant";
 import { createDatabase, ensureWorkflowPresets } from "./support";
 import assistantSessions from "../repositories/assistant-sessions";
+import entities from "./entities";
 import { runWorkflow } from "./support";
 
 const { commitAssistantTurn, emptySession, parseContextPack } = assistant;
@@ -87,12 +88,55 @@ describe("assistant_turn persist", () => {
       const saved = assistantSessions.save(
         db,
         record.id,
-        commitAssistantTurn(record.session, "Look at the graph", parsed, "Switching focus.")
+        commitAssistantTurn(record.session, "Look at the graph", parsed, "Switching focus.", started.run.id)
       );
       assert.equal(saved.session.summary?.text, "Graph inspect");
       assert.equal(saved.session.topics[0]?.title, "Graph inspect");
       assert.equal(saved.session.topics[0]?.status, "active");
       assert.equal(saved.session.messages.at(-1)?.content, "Switching focus.");
+      assert.equal(saved.session.messages.at(-1)?.workflowRunId, started.run.id);
+    } finally {
+      db.close();
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("passes real active agents from the database into the decision node", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "projectplaner-asst-eval-"));
+    const dbPath = path.join(dir, "test.db");
+    const db = createDatabase(dbPath);
+    try {
+      db.prepare(`INSERT INTO projects (id, key, title, description) VALUES (?, ?, ?, ?)`).run(
+        "project_test",
+        "PLAN",
+        "Plan",
+        ""
+      );
+      await ensureWorkflowPresets(db, { projectKey: "PLAN", only: ["assistant_turn"] });
+      const agent = await entities.create(db, {
+        projectKey: "PLAN",
+        type: "agent",
+        title: "Coding Agent",
+        summary: "Builds and tests software.",
+        status: "planned"
+      });
+
+      const started = await runWorkflow(db, {
+        key: "assistant_turn",
+        projectKey: "PLAN",
+        bag: { session: emptySession("PLAN"), message: "Which agents exist?" }
+      });
+      assert.equal(started.step.kind, "pending_llm");
+
+      const afterContext = await runWorkflow(db, {
+        runId: started.run.id,
+        llmWrites: { contextPack: pack }
+      });
+      assert.equal(afterContext.step.kind, "pending_llm");
+      assert.equal(afterContext.step.nodeId, "llm_decide");
+      const agentFacts = afterContext.step.llm?.reads.agentFacts;
+      assert.ok(Array.isArray(agentFacts));
+      assert.equal(agentFacts.some((item) => item && typeof item === "object" && "id" in item && item.id === agent.entity.id), true);
     } finally {
       db.close();
       fs.rmSync(dir, { recursive: true, force: true });

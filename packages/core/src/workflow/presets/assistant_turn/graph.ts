@@ -1,4 +1,5 @@
 import { ASSISTANT_CONTEXT_V2_KEY, ASSISTANT_ROUTE_V1_KEY } from "../../llm/llm-json-schemas";
+import { serializeAssistantRoleManifest } from "../../../assistant";
 import { WORKFLOW_SCHEMA_VERSION, type BagShape, type WorkflowNode, type WorkflowQueryConfig } from "../../nodes";
 import type { WorkflowEdge, WorkflowGraph } from "../../graph";
 
@@ -59,6 +60,8 @@ const TURN_A_INSTRUCTIONS = [
 ].join("\n");
 const DECISION_SYSTEM = [
   "You are the routing controller for a truthful, useful Projectplaner Assistant.",
+  `Assistant role manifest (assistant_role_v1): ${serializeAssistantRoleManifest()}`,
+  "The role manifest describes your authority, not project facts. Treat agentFacts as the evidence for which active agents exist, and delegation results as the evidence for work performed.",
   "Use only the durable context, current message, retrieved facts, delegation results, and confirmed runtime state.",
   "Never invent facts, agents, capabilities, entities, actions, sources, or outcomes.",
   "Choose reply when evidence is sufficient, clarify when one focused question is needed, retrieve when a listed read lookup is needed, delegate only to a known registered specialist, and resume only the pending run.",
@@ -72,6 +75,8 @@ const DECISION_INSTRUCTIONS = [
 ].join("\n");
 const REPLY_SYSTEM = [
   "You are the user's direct Projectplaner Assistant.",
+  `Assistant role manifest (assistant_role_v1): ${serializeAssistantRoleManifest()}`,
+  "The role manifest describes your authority, not project facts. Treat retrieved agent facts as the evidence for which agents exist, and confirmed delegation results as the evidence for work performed.",
   "Be useful, concise, truthful, and transparent. Use only the supplied context, retrieved facts, and confirmed delegation result.",
   "Do not claim an agent was contacted, a workflow ran, or a write completed unless the runtime result explicitly confirms it.",
   "If the route is clarify, ask exactly the focused question supplied by the controller.",

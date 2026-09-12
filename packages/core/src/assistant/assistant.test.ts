@@ -1,9 +1,19 @@
 import { describe, expect, it } from "vitest";
 import assistant from "./index";
+import { parseMessage } from "./parse";
 
 const { emptySession, merge, parseSession, titleFromSession, views } = assistant;
 
 describe("assistant session", () => {
+  it("preserves workflow run links while accepting legacy messages", () => {
+    expect(parseMessage({ id: "msg_old", role: "assistant", content: "old", createdAt: "now" })).toEqual({
+      id: "msg_old", role: "assistant", content: "old", createdAt: "now"
+    });
+    expect(parseMessage({ id: "msg_new", role: "assistant", content: "new", createdAt: "now", workflowRunId: "run_1" })).toEqual({
+      id: "msg_new", role: "assistant", content: "new", createdAt: "now", workflowRunId: "run_1"
+    });
+  });
+
   it("parses empty and round-trips defaults", () => {
     const session = parseSession({}, "PLAN");
     expect(session).toEqual(emptySession("PLAN"));
@@ -123,11 +133,12 @@ describe("assistant session", () => {
     expect(omitted.topics.find((topic) => topic.id === "t_auth")?.status).toBe("parked");
     expect(omitted.questions).toHaveLength(1);
 
-    const committed = commitAssistantTurn(session, "Look at the graph", pack, "Switching focus.");
+    const committed = commitAssistantTurn(session, "Look at the graph", pack, "Switching focus.", "run_1");
     expect(committed.messages.map((item) => item.content)).toEqual([
       "Look at the graph",
       "Switching focus."
     ]);
+    expect(committed.messages[1]?.workflowRunId).toBe("run_1");
     expect(committed.summary?.text).toBe("Graph inspect");
     expect(titleFromSession(committed)).toBe("Graph inspect");
   });

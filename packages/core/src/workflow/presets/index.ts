@@ -34,6 +34,15 @@ export type {
 export { workflowPresetKinds } from "./types";
 export { assistantTurnGraph } from "./assistant_turn/graph";
 export { assistantTurnPreset } from "./assistant_turn/preset";
+export {
+  assistantContextPackFixture,
+  assistantDecisionFixture,
+  assistantReplyFixture,
+  runAssistantEvaluation,
+  type AssistantEvaluationCase,
+  type AssistantEvaluationLlmWrites,
+  type AssistantEvaluationResult
+} from "./assistant_turn/evaluation";
 export { authorWorkflowGraph } from "./author_workflow/graph";
 export { authorWorkflowPreset } from "./author_workflow/preset";
 export { createStepGraph } from "./create_step/graph";

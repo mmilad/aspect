@@ -10,6 +10,9 @@ export type {
   AssistantQuestionStatus,
   AssistantReply,
   AssistantRoute,
+  AssistantTraceRunStatus,
+  AssistantTraceStep,
+  AssistantTraceStepStatus,
   AssistantSession,
   AssistantSessionPrior,
   AssistantSessionRecord,
@@ -20,6 +23,7 @@ export type {
   AssistantTopicStatus,
   AssistantTurnOutput,
   AssistantTurnStart,
+  AssistantTurnTrace,
   AssistantTurnWindow
 } from "./types";
 export type { AssistantBlock, AssistantProperty, AssistantView } from "./views";
@@ -62,6 +66,9 @@ export {
   propertyByKey,
   visibleNav
 } from "./views";
+export { ASSISTANT_ROLE_MANIFEST, serializeAssistantRoleManifest } from "./role";
+export type { AssistantRoleManifest } from "./role";
+export { projectAssistantTrace } from "./trace";
 
 import { appendMessage, newMessage } from "./messages";
 import { mergeSession, mergeSessionUnknown, normalizeSession, applyContextPack, commitAssistantTurn } from "./merge";

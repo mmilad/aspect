@@ -75,7 +75,7 @@ export const ASSISTANT_ROUTE_V1_SCHEMA: Record<string, unknown> = {
           additionalProperties: false,
           required: ["kind", "query", "id"],
           properties: {
-            kind: { type: "string", enum: ["agents", "agent", "entities", "entity", "workflows", "neighborhood"] },
+            kind: { type: "string", enum: ["agents", "agent", "entities", "entity", "workflows", "neighborhood", "knowledge"] },
             query: { type: ["string", "null"] },
             id: { type: ["string", "null"] }
           }
@@ -83,7 +83,7 @@ export const ASSISTANT_ROUTE_V1_SCHEMA: Record<string, unknown> = {
         { type: "null" }
       ]
     },
-    lookupKind: { type: ["string", "null"], enum: ["agents", "agent", "entities", "entity", "workflows", "neighborhood", null] },
+    lookupKind: { type: ["string", "null"], enum: ["agents", "agent", "entities", "entity", "workflows", "neighborhood", "knowledge", null] },
     lookupQuery: { type: ["string", "null"] },
     lookupId: { type: ["string", "null"] },
     agentId: { type: ["string", "null"] },

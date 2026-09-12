@@ -84,6 +84,43 @@ describe("deterministic Assistant evaluations", () => {
     expect(run.trace.steps.filter((step) => step.nodeId === "llm_decide")).toHaveLength(2);
   });
 
+  it("retrieves scoped knowledge before answering from project memory", async () => {
+    const knowledgeSearch = vi.fn().mockResolvedValue({
+      hits: [{
+        id: "memory-1",
+        datasetKey: "project-plan",
+        rawText: "The release target is September.",
+        metadata: { source: "project-note" },
+        scope: { kind: "project", projectKey: "PLAN" },
+        score: 0.91
+      }],
+      query: "release target",
+      embeddingModel: "fixture-embed",
+      totalSearched: 1,
+      searchMode: "vector"
+    });
+    const run = await runAssistantEvaluation({
+      id: "knowledge-retrieval",
+      ...base("What is the release target?"),
+      knowledgeDataset: "project-plan",
+      adapters: { knowledgeSearch },
+      llmWrites: {
+        llm_context: assistantContextPackFixture(),
+        llm_decide: [
+          assistantDecisionFixture({ route: "retrieve", reason: "Project memory is needed.", lookupKind: "knowledge", lookupQuery: "release target" }),
+          assistantDecisionFixture({ route: "reply", reason: "A scoped memory hit is available." })
+        ],
+        llm_reply: assistantReplyFixture("The project note says the release target is September.")
+      }
+    });
+
+    expect(run.result.kind, run.result.kind === "failed" ? run.result.message : "").toBe("completed");
+    expect(knowledgeSearch).toHaveBeenCalledWith({ datasetKey: "project-plan", query: "release target", topK: 10 });
+    expect(run.result.bag.frame?.pins["search_knowledge::hits"]).toHaveLength(1);
+    expect(run.result.bag.frame?.outputs.reply).toContain("September");
+    expect(run.trace.steps.some((step) => step.nodeId === "search_knowledge")).toBe(true);
+  });
+
   it("asks one focused question for an ambiguous request", async () => {
     const question = "Which project should I inspect?";
     const run = await runAssistantEvaluation({

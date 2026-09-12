@@ -39,13 +39,37 @@ function queryNode(id: string, title: string, y: number, query: WorkflowQueryCon
   return { id, type: "query", position: { x: 1420, y }, data: { title, query, writeBindings: { [outputPin]: outputKey } } };
 }
 
+function knowledgeNode(): WorkflowNode {
+  return {
+    id: "search_knowledge",
+    type: "knowledge_search",
+    position: { x: 1420, y: 680 },
+    data: {
+      title: "Search project knowledge",
+      inputs: {
+        datasetKey: { required: false, shape: STRING },
+        query: { required: true, shape: STRING }
+      },
+      outputContracts: {
+        hits: { required: true, shape: arrayOf(ANY) },
+        query: { required: true, shape: STRING },
+        embeddingModel: { required: true, shape: nullable(STRING) },
+        totalSearched: { required: true, shape: NUMBER },
+        searchMode: { required: true, shape: STRING }
+      },
+      knowledgeSearch: {}
+    }
+  };
+}
+
 const retrievalQueries: WorkflowNode[] = [
   queryNode("list_agents", "List active agents", 80, { op: "list", type: "agent", select: "full", limit: 50 }, "entities", "agentFacts"),
   queryNode("get_agent", "Get agent", 180, { op: "get", type: "agent", select: "full", slots: [{ id: "id", slot: "id", source: "pin" }] }, "entity", "agentFact"),
   queryNode("search_entities", "Search entities", 280, { op: "search", select: "compact", limit: 20, slots: [{ id: "q", slot: "q", source: "pin" }] }, "matches", "entityMatches"),
   queryNode("get_entity", "Get entity", 380, { op: "get", select: "full", slots: [{ id: "id", slot: "id", source: "pin" }] }, "entity", "entityFact"),
   queryNode("list_workflows", "List workflows", 480, { op: "list", type: "flow", select: "full", limit: 50 }, "entities", "workflowFacts"),
-  queryNode("neighborhood", "Load neighborhood", 580, { op: "neighborhood", depth: 1, select: "compact", slots: [{ id: "id", slot: "id", source: "pin" }] }, "entities", "neighborhoodEntities")
+  queryNode("neighborhood", "Load neighborhood", 580, { op: "neighborhood", depth: 1, select: "compact", slots: [{ id: "id", slot: "id", source: "pin" }] }, "entities", "neighborhoodEntities"),
+  knowledgeNode()
 ];
 
 const TURN_A_SYSTEM = [
@@ -61,7 +85,7 @@ const TURN_A_INSTRUCTIONS = [
 const DECISION_SYSTEM = [
   "You are the routing controller for a truthful, useful Projectplaner Assistant.",
   `Assistant role manifest (assistant_role_v1): ${serializeAssistantRoleManifest()}`,
-  "The role manifest describes your authority, not project facts. Treat agentFacts as the evidence for which active agents exist, and delegation results as the evidence for work performed.",
+  "The role manifest describes your authority, not project facts. Treat agentFacts as the evidence for which active agents exist, knowledgeHits as searchable memory evidence, and delegation results as the evidence for work performed.",
   "Use only the durable context, current message, retrieved facts, delegation results, and confirmed runtime state.",
   "Never invent facts, agents, capabilities, entities, actions, sources, or outcomes.",
   "Choose reply when evidence is sufficient, clarify when one focused question is needed, retrieve when a listed read lookup is needed, delegate only to a known registered specialist, and resume only the pending run.",
@@ -69,14 +93,14 @@ const DECISION_SYSTEM = [
 ].join(" ");
 const DECISION_INSTRUCTIONS = [
   "Durable context pack: {{contextPack}}", "Pending delegation: {{pendingDelegation}}", "Agents: {{agentFacts}}",
-  "Selected agent: {{agentFact}}", "Entity matches: {{entityMatches}}", "Selected entity: {{entityFact}}",
+  "Selected agent: {{agentFact}}", "Entity matches: {{entityMatches}}", "Selected entity: {{entityFact}}", "Knowledge hits: {{knowledgeHits}}",
   "Workflows: {{workflowFacts}}", "Neighborhood entities: {{neighborhoodEntities}}", "Neighborhood relations: {{neighborhoodRelations}}",
   "Delegation result: {{delegation}}", "User message: {{message}}"
 ].join("\n");
 const REPLY_SYSTEM = [
   "You are the user's direct Projectplaner Assistant.",
   `Assistant role manifest (assistant_role_v1): ${serializeAssistantRoleManifest()}`,
-  "The role manifest describes your authority, not project facts. Treat retrieved agent facts as the evidence for which agents exist, and confirmed delegation results as the evidence for work performed.",
+  "The role manifest describes your authority, not project facts. Treat retrieved agent facts as the evidence for which agents exist, knowledge search hits as searchable memory evidence, and confirmed delegation results as the evidence for work performed.",
   "Be useful, concise, truthful, and transparent. Use only the supplied context, retrieved facts, and confirmed delegation result.",
   "Do not claim an agent was contacted, a workflow ran, or a write completed unless the runtime result explicitly confirms it.",
   "If the route is clarify, ask exactly the focused question supplied by the controller.",
@@ -84,7 +108,7 @@ const REPLY_SYSTEM = [
 ].join(" ");
 const REPLY_INSTRUCTIONS = [
   "Route: {{route}}", "Route reason: {{reason}}", "Clarifying question: {{question}}", "Context pack: {{contextPack}}",
-  "Retrieved agents: {{agentFacts}}", "Retrieved agent: {{agentFact}}", "Retrieved entity matches: {{entityMatches}}",
+  "Retrieved agents: {{agentFacts}}", "Retrieved agent: {{agentFact}}", "Retrieved entity matches: {{entityMatches}}", "Retrieved knowledge: {{knowledgeHits}}",
   "Retrieved entity: {{entityFact}}", "Retrieved workflows: {{workflowFacts}}", "Neighborhood: {{neighborhoodEntities}} {{neighborhoodRelations}}",
   "Delegation result: {{delegation}}", "Delegation status: {{delegationStatus}}", "Delegation question: {{delegationQuestion}}",
   "Delegation error: {{delegationError}}", "User message: {{message}}"
@@ -97,6 +121,7 @@ export const assistantTurnGraph: WorkflowGraph = {
     { name: "message", role: "input", shape: STRING, required: true },
     { name: "windowSize", role: "input", shape: NUMBER, required: false },
     { name: "projectKey", role: "input", shape: STRING, required: false },
+    { name: "knowledgeDataset", role: "input", shape: STRING, required: false },
     { name: "pendingDelegation", role: "input", shape: ANY, required: false },
     { name: "contextPack", role: "output", shape: CONTEXT_PACK, required: true },
     { name: "reply", role: "output", shape: STRING, required: true },
@@ -121,21 +146,21 @@ export const assistantTurnGraph: WorkflowGraph = {
       title: "Assistant decision", executionPolicy: { maxVisits: 5, onExhausted: "fail_run" },
       inputs: {
         contextPack: { required: true, shape: CONTEXT_PACK }, message: { required: true, shape: STRING }, pendingDelegation: { required: false, shape: ANY },
-        agentFacts: { required: false, shape: ANY }, agentFact: { required: false, shape: ANY }, entityMatches: { required: false, shape: ANY }, entityFact: { required: false, shape: ANY }, workflowFacts: { required: false, shape: ANY }, neighborhoodEntities: { required: false, shape: ANY }, neighborhoodRelations: { required: false, shape: ANY }, delegation: { required: false, shape: ANY }
+        agentFacts: { required: false, shape: ANY }, agentFact: { required: false, shape: ANY }, entityMatches: { required: false, shape: ANY }, entityFact: { required: false, shape: ANY }, workflowFacts: { required: false, shape: ANY }, neighborhoodEntities: { required: false, shape: ANY }, neighborhoodRelations: { required: false, shape: ANY }, knowledgeHits: { required: false, shape: arrayOf(ANY) }, delegation: { required: false, shape: ANY }
       },
       outputContracts: { decision: { required: true, shape: ROUTE } },
       llm: { schemaKey: ASSISTANT_ROUTE_V1_KEY, outputSchema: ["decision"], systemPrompt: DECISION_SYSTEM, instructions: DECISION_INSTRUCTIONS }
     } },
     { id: "break_decision", type: "break", position: { x: 1240, y: 360 }, data: { title: "Break route", break: { from: "decision" } } },
     { id: "decision_switch", type: "switch", position: { x: 1480, y: 360 }, data: { title: "Route", switch: { on: "route", cases: ["reply", "clarify", "retrieve", "delegate", "resume"], defaultLabel: "default" } } },
-    { id: "lookup_switch", type: "switch", position: { x: 1730, y: 360 }, data: { title: "Read lookup", switch: { on: "lookupKind", cases: ["agents", "agent", "entities", "entity", "workflows", "neighborhood"], defaultLabel: "default" } } },
+    { id: "lookup_switch", type: "switch", position: { x: 1730, y: 360 }, data: { title: "Read lookup", switch: { on: "lookupKind", cases: ["agents", "agent", "entities", "entity", "workflows", "neighborhood", "knowledge"], defaultLabel: "default" } } },
     ...retrievalQueries,
     { id: "delegate", type: "delegate", position: { x: 1730, y: 760 }, data: { title: "Delegate / resume" } },
     { id: "llm_reply", type: "llm", position: { x: 2080, y: 360 }, data: {
       title: "Generate grounded answer",
       inputs: {
         route: { required: true, shape: STRING }, reason: { required: true, shape: STRING }, question: { required: false, shape: nullable(STRING) }, contextPack: { required: true, shape: CONTEXT_PACK }, message: { required: true, shape: STRING },
-        agentFacts: { required: false, shape: ANY }, agentFact: { required: false, shape: ANY }, entityMatches: { required: false, shape: ANY }, entityFact: { required: false, shape: ANY }, workflowFacts: { required: false, shape: ANY }, neighborhoodEntities: { required: false, shape: ANY }, neighborhoodRelations: { required: false, shape: ANY }, delegation: { required: false, shape: ANY }, delegationStatus: { required: false, shape: STRING }, delegationQuestion: { required: false, shape: ANY }, delegationError: { required: false, shape: ANY }
+        agentFacts: { required: false, shape: ANY }, agentFact: { required: false, shape: ANY }, entityMatches: { required: false, shape: ANY }, entityFact: { required: false, shape: ANY }, workflowFacts: { required: false, shape: ANY }, neighborhoodEntities: { required: false, shape: ANY }, neighborhoodRelations: { required: false, shape: ANY }, knowledgeHits: { required: false, shape: arrayOf(ANY) }, delegation: { required: false, shape: ANY }, delegationStatus: { required: false, shape: STRING }, delegationQuestion: { required: false, shape: ANY }, delegationError: { required: false, shape: ANY }
       },
       outputContracts: { reply: { required: true, shape: STRING } }, llm: { format: "text", outputSchema: ["reply"], systemPrompt: REPLY_SYSTEM, instructions: REPLY_INSTRUCTIONS }
     } },
@@ -144,13 +169,13 @@ export const assistantTurnGraph: WorkflowGraph = {
   edges: [
     next("e_start_session", "start", "session_read"), next("e_session_context", "session_read", "llm_context"), next("e_context_agents", "llm_context", "list_agents"), next("e_agents_decision", "list_agents", "llm_decide"), next("e_decision_switch", "llm_decide", "decision_switch"), next("e_delegate_reply", "delegate", "llm_reply"), next("e_reply_end", "llm_reply", "end"),
     route("r_reply", "decision_switch", "llm_reply", "reply"), route("r_clarify", "decision_switch", "llm_reply", "clarify"), route("r_retrieve", "decision_switch", "lookup_switch", "retrieve"), route("r_delegate", "decision_switch", "delegate", "delegate"), route("r_resume", "decision_switch", "delegate", "resume"), route("r_decision_default", "decision_switch", "llm_reply", "default"),
-    route("r_lookup_agents", "lookup_switch", "list_agents", "agents"), route("r_lookup_agent", "lookup_switch", "get_agent", "agent"), route("r_lookup_entities", "lookup_switch", "search_entities", "entities"), route("r_lookup_entity", "lookup_switch", "get_entity", "entity"), route("r_lookup_workflows", "lookup_switch", "list_workflows", "workflows"), route("r_lookup_neighborhood", "lookup_switch", "neighborhood", "neighborhood"), route("r_lookup_default", "lookup_switch", "llm_decide", "default"),
+    route("r_lookup_agents", "lookup_switch", "list_agents", "agents"), route("r_lookup_agent", "lookup_switch", "get_agent", "agent"), route("r_lookup_entities", "lookup_switch", "search_entities", "entities"), route("r_lookup_entity", "lookup_switch", "get_entity", "entity"), route("r_lookup_workflows", "lookup_switch", "list_workflows", "workflows"), route("r_lookup_neighborhood", "lookup_switch", "neighborhood", "neighborhood"), route("r_lookup_knowledge", "lookup_switch", "search_knowledge", "knowledge"), route("r_lookup_default", "lookup_switch", "llm_decide", "default"),
     ...retrievalQueries.map((node, index) => next(`e_query_${index}`, node.id, "llm_decide")),
-    data("d_start_session", "start", "session", "session_read", "session"), data("d_start_window", "start", "windowSize", "session_read", "windowSize"),
+    data("d_start_session", "start", "session", "session_read", "session"), data("d_start_window", "start", "windowSize", "session_read", "windowSize"), data("d_start_knowledge_dataset", "start", "knowledgeDataset", "search_knowledge", "datasetKey"),
     data("d_session_summary", "session_read", "priorSummary", "llm_context", "priorSummary"), data("d_session_topics", "session_read", "priorTopics", "llm_context", "priorTopics"), data("d_session_questions", "session_read", "priorQuestions", "llm_context", "priorQuestions"), data("d_session_context", "session_read", "priorContext", "llm_context", "priorContext"), data("d_session_recent", "session_read", "recentTurns", "llm_context", "recentTurns"),
-    data("d_context_decision", "llm_context", "contextPack", "llm_decide", "contextPack"), data("d_agents_decision", "list_agents", "entities", "llm_decide", "agentFacts"), data("d_agents_reply", "list_agents", "entities", "llm_reply", "agentFacts"), data("d_decision_break", "llm_decide", "decision", "break_decision", "value"), data("d_context_reply", "llm_context", "contextPack", "llm_reply", "contextPack"), data("d_context_end", "llm_context", "contextPack", "end", "contextPack"),
+    data("d_context_decision", "llm_context", "contextPack", "llm_decide", "contextPack"), data("d_agents_decision", "list_agents", "entities", "llm_decide", "agentFacts"), data("d_agents_reply", "list_agents", "entities", "llm_reply", "agentFacts"), data("d_knowledge_decision", "search_knowledge", "hits", "llm_decide", "knowledgeHits"), data("d_knowledge_reply", "search_knowledge", "hits", "llm_reply", "knowledgeHits"), data("d_decision_break", "llm_decide", "decision", "break_decision", "value"), data("d_context_reply", "llm_context", "contextPack", "llm_reply", "contextPack"), data("d_context_end", "llm_context", "contextPack", "end", "contextPack"),
     data("d_start_message_context", "start", "message", "llm_context", "message"), data("d_start_message_decision", "start", "message", "llm_decide", "message"), data("d_start_message_reply", "start", "message", "llm_reply", "message"), data("d_start_pending_decision", "start", "pendingDelegation", "llm_decide", "pendingDelegation"),
-    data("d_break_route", "break_decision", "route", "decision_switch", "route"), data("d_break_kind", "break_decision", "lookupKind", "lookup_switch", "lookupKind"), data("d_break_query_search", "break_decision", "lookupQuery", "search_entities", "q"), data("d_break_id_agent", "break_decision", "lookupId", "get_agent", "id"), data("d_break_id_entity", "break_decision", "lookupId", "get_entity", "id"), data("d_break_id_neighborhood", "break_decision", "lookupId", "neighborhood", "id"), data("d_break_agent", "break_decision", "agentId", "delegate", "agentId"), data("d_break_task", "break_decision", "task", "delegate", "task"), data("d_break_run", "break_decision", "runId", "delegate", "runId"), data("d_break_message", "break_decision", "message", "delegate", "message"), data("d_start_pending_delegate", "start", "pendingDelegation", "delegate", "pendingDelegation"),
+    data("d_break_route", "break_decision", "route", "decision_switch", "route"), data("d_break_kind", "break_decision", "lookupKind", "lookup_switch", "lookupKind"), data("d_break_query_search", "break_decision", "lookupQuery", "search_entities", "q"), data("d_break_query_knowledge", "break_decision", "lookupQuery", "search_knowledge", "query"), data("d_break_id_agent", "break_decision", "lookupId", "get_agent", "id"), data("d_break_id_entity", "break_decision", "lookupId", "get_entity", "id"), data("d_break_id_neighborhood", "break_decision", "lookupId", "neighborhood", "id"), data("d_break_agent", "break_decision", "agentId", "delegate", "agentId"), data("d_break_task", "break_decision", "task", "delegate", "task"), data("d_break_run", "break_decision", "runId", "delegate", "runId"), data("d_break_message", "break_decision", "message", "delegate", "message"), data("d_start_pending_delegate", "start", "pendingDelegation", "delegate", "pendingDelegation"),
     data("d_break_route_reply", "break_decision", "route", "llm_reply", "route"), data("d_break_reason_reply", "break_decision", "reason", "llm_reply", "reason"), data("d_break_question_reply", "break_decision", "question", "llm_reply", "question"),
     data("d_start_pending_end", "start", "pendingDelegation", "end", "pendingDelegationOut"), data("d_delegate_result_reply", "delegate", "delegation", "llm_reply", "delegation"), data("d_delegate_status_reply", "delegate", "delegationStatus", "llm_reply", "delegationStatus"), data("d_delegate_question_reply", "delegate", "delegationQuestion", "llm_reply", "delegationQuestion"), data("d_delegate_error_reply", "delegate", "delegationError", "llm_reply", "delegationError"), data("d_delegate_pending_end", "delegate", "pendingDelegation", "end", "pendingDelegationOut"), data("d_reply_end", "llm_reply", "reply", "end", "reply")
   ]

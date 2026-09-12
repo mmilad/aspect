@@ -21,6 +21,7 @@ export type AssistantEvaluationCase = {
   id: string;
   message: string;
   projectKey?: string;
+  knowledgeDataset?: string;
   session?: AssistantSession;
   pendingDelegation?: AssistantPendingDelegation;
   llmWrites: AssistantEvaluationLlmWrites;
@@ -60,7 +61,7 @@ export function assistantDecisionFixture(input: {
   route: "reply" | "clarify" | "retrieve" | "delegate" | "resume";
   reason: string;
   question?: string;
-  lookupKind?: "agents" | "agent" | "entities" | "entity" | "workflows" | "neighborhood";
+  lookupKind?: "agents" | "agent" | "entities" | "entity" | "workflows" | "neighborhood" | "knowledge";
   lookupQuery?: string;
   lookupId?: string;
   agentId?: string;
@@ -146,6 +147,7 @@ export async function runAssistantEvaluation(input: AssistantEvaluationCase): Pr
     actor: "assistant",
     keys: {
       projectKey,
+      knowledgeDataset: input.knowledgeDataset ?? `project-${projectKey.toLowerCase()}`,
       session,
       message: input.message,
       ...(input.pendingDelegation ?? session.pendingDelegation

@@ -155,11 +155,11 @@ export type AssistantRoute = {
   reason: string;
   question?: string;
   lookup?: {
-    kind: "agents" | "agent" | "entities" | "entity" | "workflows" | "neighborhood";
+    kind: "agents" | "agent" | "entities" | "entity" | "workflows" | "neighborhood" | "knowledge";
     query?: string;
     id?: string;
   };
-  lookupKind?: "agents" | "agent" | "entities" | "entity" | "workflows" | "neighborhood";
+  lookupKind?: "agents" | "agent" | "entities" | "entity" | "workflows" | "neighborhood" | "knowledge";
   lookupQuery?: string;
   lookupId?: string;
   agentId?: string;

@@ -128,6 +128,7 @@ export async function runAssistantTurn(
       assistantSessionId: existing.id,
       windowSize: DEFAULT_ASSISTANT_WINDOW_SIZE,
       projectKey,
+      knowledgeDataset: process.env.PROJECTPLANER_KNOWLEDGE_DATASET ?? `project-${projectKey.toLowerCase()}`,
       pendingDelegation: existing.session.pendingDelegation
     },
     adapters: agentAdapters

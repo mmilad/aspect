@@ -25,6 +25,7 @@ describe("workflow presets", () => {
     expect(presets.some((preset) => preset.presetKey === "thinking")).toBe(true);
     expect(presets.some((preset) => preset.presetKey === "goal_planning")).toBe(true);
     expect(presets.some((preset) => preset.presetKey === "assistant_turn")).toBe(true);
+    expect(presets.some((preset) => preset.presetKey === "knowledge_capture")).toBe(true);
   });
 
   it("assigns a closed kind to every catalog pack", () => {
@@ -48,6 +49,9 @@ describe("workflow presets", () => {
       "orientation"
     );
     expect(listWorkflowPresets().find((preset) => preset.presetKey === "assistant_turn")?.kind).toBe(
+      "user"
+    );
+    expect(listWorkflowPresets().find((preset) => preset.presetKey === "knowledge_capture")?.kind).toBe(
       "user"
     );
   });

@@ -39,6 +39,10 @@ describe("Assistant workflow policy", () => {
     await rejects({ type: "write", data: { write: { action: "create_entity" } } }, "rejects write node 'write'");
   });
 
+  it("rejects knowledge ingestion from the Assistant actor", async () => {
+    await rejects({ type: "knowledge_ingest", data: { knowledgeIngest: {} } }, "rejects write node 'knowledge_ingest'");
+  });
+
   it("rejects generic external Tool nodes", async () => {
     await rejects({ type: "tool", data: { tool: { name: "unknown" } } }, "rejects external node 'tool'");
   });

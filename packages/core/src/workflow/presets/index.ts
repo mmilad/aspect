@@ -19,6 +19,8 @@ import { thinkingPreset } from "./thinking/preset";
 import { recruitAgentGraph } from "./recruit_agent/graph";
 import { recruitAgentPreset } from "./recruit_agent/preset";
 import { goalPlanningPreset } from "./goal_planning/preset";
+import { knowledgeCaptureGraph } from "./knowledge_capture/graph";
+import { knowledgeCapturePreset } from "./knowledge_capture/preset";
 import {
   workflowPresetKinds,
   type WorkflowPreset,
@@ -66,6 +68,8 @@ export { thinkingGraph } from "./thinking/graph";
 export { thinkingPreset } from "./thinking/preset";
 export { goalPlanningGraph } from "./goal_planning/graph";
 export { goalPlanningPreset } from "./goal_planning/preset";
+export { knowledgeCaptureGraph } from "./knowledge_capture/graph";
+export { knowledgeCapturePreset } from "./knowledge_capture/preset";
 
 /** Seeded packs: mutation/rollup plus the pin-variable proof graph. */
 export function listWorkflowPresets(): WorkflowPreset[] {
@@ -77,7 +81,8 @@ export function listWorkflowPresets(): WorkflowPreset[] {
     thinkingPreset,
     goalPlanningPreset,
     assistantTurnPreset,
-    recruitAgentPreset
+    recruitAgentPreset,
+    knowledgeCapturePreset
   ];
 }
 
@@ -156,6 +161,7 @@ const presets = {
   goalPlanningGraph,
   assistantTurnGraph,
   recruitAgentGraph,
+  knowledgeCaptureGraph,
   authorWorkflowPreset,
   createStepPreset,
   createWorkflowPreset,
@@ -166,7 +172,8 @@ const presets = {
   thinkingPreset,
   goalPlanningPreset,
   assistantTurnPreset,
-  recruitAgentPreset
+  recruitAgentPreset,
+  knowledgeCapturePreset
 };
 
 export default presets;

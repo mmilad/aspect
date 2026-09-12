@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   AGENT_PROFILE_V1_KEY,
   AGENT_DECISION_V1_KEY,
+  KNOWLEDGE_CLASSIFICATION_V1_KEY,
+  KNOWLEDGE_CLASSIFICATION_V1_SCHEMA,
   ASSISTANT_ROUTE_V1_KEY,
   ASSISTANT_CONTEXT_V1_KEY,
   ASSISTANT_CONTEXT_V1_SCHEMA,
@@ -63,6 +65,7 @@ describe("workflow_ir_v1 JSON Schema preset", () => {
     expect(LLM_JSON_SCHEMA_PRESETS.map((preset) => preset.key)).toEqual([
       AGENT_PROFILE_V1_KEY,
       AGENT_DECISION_V1_KEY,
+      KNOWLEDGE_CLASSIFICATION_V1_KEY,
       ASSISTANT_ROUTE_V1_KEY,
       WORKFLOW_IR_V1_KEY,
       WORKFLOW_NODE_PLAN_V1_KEY,
@@ -83,6 +86,9 @@ describe("workflow_ir_v1 JSON Schema preset", () => {
       PLAN_EXPAND_V1_KEY
     ]);
     expect(WORKFLOW_IR_V1_SCHEMA.required).toEqual(["title", "steps"]);
+    expect(getLlmJsonSchemaPreset(KNOWLEDGE_CLASSIFICATION_V1_KEY)?.schema).toEqual(
+      KNOWLEDGE_CLASSIFICATION_V1_SCHEMA
+    );
     const steps = (WORKFLOW_IR_V1_SCHEMA.properties as { steps: { items: { properties: { type: { enum: string[] } } } } })
       .steps;
     expect(steps.items.properties.type.enum).toContain("llm");

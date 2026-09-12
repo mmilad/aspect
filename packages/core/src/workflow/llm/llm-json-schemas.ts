@@ -58,6 +58,24 @@ export const AGENT_DECISION_V1_SCHEMA: Record<string, unknown> = {
     args: { anyOf: [{ type: "object", additionalProperties: true }, { type: "null" }] }
   }
 };
+export const KNOWLEDGE_CLASSIFICATION_V1_KEY = "knowledge_classification_v1";
+export const KNOWLEDGE_CLASSIFICATION_V1_SCHEMA: Record<string, unknown> = {
+  $id: "projectplaner:llm-json-schema:knowledge_classification_v1",
+  type: "object",
+  additionalProperties: false,
+  required: ["decision", "kind", "confidence", "canonicalText", "sourceQuote", "suggestedDatasetKey", "suggestedScope", "needsConfirmation", "reason"],
+  properties: {
+    decision: { type: "string", enum: ["ignore", "candidate", "durable"] },
+    kind: { type: "string", enum: ["fact", "preference", "decision", "constraint", "task", "event", "reference", "other"] },
+    confidence: { type: "number", minimum: 0, maximum: 1 },
+    canonicalText: { type: "string" },
+    sourceQuote: { type: "string" },
+    suggestedDatasetKey: { type: ["string", "null"] },
+    suggestedScope: { type: "string", enum: ["session", "personal", "project", "agent", "global"] },
+    needsConfirmation: { type: "boolean" },
+    reason: { type: "string" }
+  }
+};
 export const ASSISTANT_ROUTE_V1_KEY = "assistant_route_v1";
 export const ASSISTANT_ROUTE_V1_SCHEMA: Record<string, unknown> = {
   $id: "projectplaner:llm-json-schema:assistant_route_v1",
@@ -480,6 +498,7 @@ export const THOUGHT_FINALIZE_V1_SCHEMA: Record<string, unknown> = {
 export const LLM_JSON_SCHEMA_PRESETS: LlmJsonSchemaPreset[] = [
   { key: AGENT_PROFILE_V1_KEY, title: "Agent Profile v1", description: "Structured role profile.", schema: AGENT_PROFILE_V1_SCHEMA },
   { key: AGENT_DECISION_V1_KEY, title: "Agent decision v1", description: "Structured specialist-agent decision.", schema: AGENT_DECISION_V1_SCHEMA },
+  { key: KNOWLEDGE_CLASSIFICATION_V1_KEY, title: "Knowledge classification v1", description: "Non-mutating proposal for classifying a source item before promotion.", schema: KNOWLEDGE_CLASSIFICATION_V1_SCHEMA },
   { key: ASSISTANT_ROUTE_V1_KEY, title: "Assistant route v1", description: "Structured Assistant route and request.", schema: ASSISTANT_ROUTE_V1_SCHEMA },
   {
     key: WORKFLOW_IR_V1_KEY,

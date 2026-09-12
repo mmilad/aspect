@@ -1,6 +1,7 @@
 export type {
   AssistantContext,
   AssistantContextPack,
+  AssistantPendingDelegation,
   AssistantMessage,
   AssistantMessageRole,
   AssistantPatch,
@@ -27,6 +28,7 @@ export {
   emptySession,
   parseContext,
   parseContextPack,
+  parseAssistantRoute,
   parseMessage,
   parsePatch,
   parseQuestion,
@@ -67,6 +69,7 @@ import {
   emptySession,
   parseContext,
   parseContextPack,
+  parseAssistantRoute,
   parsePatch,
   parseSession,
   parseTurnOutput,
@@ -91,6 +94,7 @@ import { getDataPath, pathIsNonempty, setDataPath } from "../json-path";
 
 const assistant = {
   emptySession,
+  parseAssistantRoute,
   parseSession,
   parsePatch,
   parseContext,

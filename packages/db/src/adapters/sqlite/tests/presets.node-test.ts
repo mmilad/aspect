@@ -39,7 +39,7 @@ describe("ensureWorkflowPresets", () => {
         await ensureWorkflowPresets(db, { projectKey: "PLAN", only: ["assistant_turn"], force });
         const flow = (await entities.list(db, { projectKey: "PLAN", type: "flow" })).find((item) => item.metadata.presetKey === "assistant_turn");
         assert.ok(flow);
-        assert.equal(flow.metadata.presetVersion, 4);
+        assert.equal(flow.metadata.presetVersion, 7);
         const graph = persist.loadGraph(db, flow.id);
         assert.ok(graph);
         assert.equal(graph.nodes.some((node) => String(node.type) === "assistant_window"), false);

@@ -41,6 +41,57 @@ export const THOUGHT_REFLECTION_V1_KEY = "thought_reflection_v1";
 export const THOUGHT_FINALIZE_V1_KEY = "thought_finalize_v1";
 export const AGENT_PROFILE_V1_KEY = "agent_profile_v1";
 export const AGENT_PROFILE_V1_SCHEMA: Record<string, unknown> = { $id: "projectplaner:llm-json-schema:agent_profile_v1", type: "object", properties: { role: { type: "string" }, responsibilities: { type: "array", items: { type: "string" } }, recurringActivities: { type: "array", items: { type: "string" } }, capabilities: { type: "array", items: { type: "string" } }, decisionAreas: { type: "array", items: { type: "string" } }, candidateWorkflows: { type: "array", items: { type: "string" } }, instructions: { type: "string" }, history: { type: "array", items: { type: "object" } } }, required: ["role", "responsibilities", "recurringActivities", "capabilities", "decisionAreas", "candidateWorkflows", "instructions", "history"], additionalProperties: false };
+export const AGENT_DECISION_V1_KEY = "agent_decision_v1";
+export const AGENT_DECISION_V1_SCHEMA: Record<string, unknown> = {
+  $id: "projectplaner:llm-json-schema:agent_decision_v1",
+  type: "object",
+  additionalProperties: false,
+  required: ["type", "result", "summary", "question", "workflowId", "bag", "name", "args"],
+  properties: {
+    type: { type: "string", enum: ["complete", "clarification", "workflow", "capability"] },
+    result: { type: ["string", "null"] },
+    summary: { type: ["string", "null"] },
+    question: { type: ["string", "null"] },
+    workflowId: { type: ["string", "null"] },
+    bag: { anyOf: [{ type: "object", additionalProperties: true }, { type: "null" }] },
+    name: { type: ["string", "null"] },
+    args: { anyOf: [{ type: "object", additionalProperties: true }, { type: "null" }] }
+  }
+};
+export const ASSISTANT_ROUTE_V1_KEY = "assistant_route_v1";
+export const ASSISTANT_ROUTE_V1_SCHEMA: Record<string, unknown> = {
+  $id: "projectplaner:llm-json-schema:assistant_route_v1",
+  type: "object",
+  additionalProperties: false,
+  required: ["route", "reason", "question", "lookup", "lookupKind", "lookupQuery", "lookupId", "agentId", "task", "runId", "message"],
+  properties: {
+    route: { type: "string", enum: ["reply", "clarify", "retrieve", "delegate", "resume"] },
+    reason: { type: "string" },
+    question: { type: ["string", "null"] },
+    lookup: {
+      anyOf: [
+        {
+          type: "object",
+          additionalProperties: false,
+          required: ["kind", "query", "id"],
+          properties: {
+            kind: { type: "string", enum: ["agents", "agent", "entities", "entity", "workflows", "neighborhood"] },
+            query: { type: ["string", "null"] },
+            id: { type: ["string", "null"] }
+          }
+        },
+        { type: "null" }
+      ]
+    },
+    lookupKind: { type: ["string", "null"], enum: ["agents", "agent", "entities", "entity", "workflows", "neighborhood", null] },
+    lookupQuery: { type: ["string", "null"] },
+    lookupId: { type: ["string", "null"] },
+    agentId: { type: ["string", "null"] },
+    task: { type: ["string", "null"] },
+    runId: { type: ["string", "null"] },
+    message: { type: ["string", "null"] }
+  }
+};
 
 export const WORKFLOW_IR_V1_SCHEMA: Record<string, unknown> = {
   $id: "projectplaner:llm-json-schema:workflow_ir_v1",
@@ -55,7 +106,7 @@ export const WORKFLOW_IR_V1_SCHEMA: Record<string, unknown> = {
         properties: {
           type: {
             type: "string",
-            enum: ["start", "end", "llm", "context", "transform", "write", "branch"]
+            enum: ["start", "end", "llm", "context", "transform", "write", "branch", "delegate"]
           },
           title: { type: "string", minLength: 1 },
           instructions: { type: "string" }
@@ -109,6 +160,7 @@ export const WORKFLOW_STEP_DRAFT_V1_SCHEMA: Record<string, unknown> = {
                   "switch",
                   "foreach",
                   "tool",
+                  "delegate",
                   "llm",
                   "context",
                   "transform",
@@ -182,6 +234,7 @@ export const WORKFLOW_NODE_PLAN_V1_SCHEMA: Record<string, unknown> = {
         "wait",
         "subworkflow",
         "tool",
+        "delegate",
         "llm",
         "context",
         "transform",
@@ -426,6 +479,8 @@ export const THOUGHT_FINALIZE_V1_SCHEMA: Record<string, unknown> = {
 
 export const LLM_JSON_SCHEMA_PRESETS: LlmJsonSchemaPreset[] = [
   { key: AGENT_PROFILE_V1_KEY, title: "Agent Profile v1", description: "Structured role profile.", schema: AGENT_PROFILE_V1_SCHEMA },
+  { key: AGENT_DECISION_V1_KEY, title: "Agent decision v1", description: "Structured specialist-agent decision.", schema: AGENT_DECISION_V1_SCHEMA },
+  { key: ASSISTANT_ROUTE_V1_KEY, title: "Assistant route v1", description: "Structured Assistant route and request.", schema: ASSISTANT_ROUTE_V1_SCHEMA },
   {
     key: WORKFLOW_IR_V1_KEY,
     title: "Workflow IR v1",

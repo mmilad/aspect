@@ -1,7 +1,9 @@
 import type { WorkflowNodeModel } from "./_shared/model";
 import type { WorkflowNodeType } from "./_shared/types";
 import { branchNode } from "./branch/model";
+import { breakNode } from "./break/model";
 import { contextNode } from "./context/model";
+import { delegateNode } from "./delegate/model";
 import { assembleFragmentNode } from "./assemble_fragment/model";
 import { assistantSessionNode } from "./assistant_session/model";
 import { createWorkflowNodeNode } from "./create_workflow_node/model";
@@ -34,6 +36,7 @@ export const workflowNodeModels: Record<WorkflowNodeType, WorkflowNodeModel> = {
   end: endNode,
   error_end: errorEndNode,
   branch: branchNode,
+  break: breakNode,
   switch: switchNode,
   fork: forkNode,
   join: joinNode,
@@ -42,6 +45,7 @@ export const workflowNodeModels: Record<WorkflowNodeType, WorkflowNodeModel> = {
   wait: waitNode,
   subworkflow: subworkflowNode,
   tool: toolNode,
+  delegate: delegateNode,
   llm: llmNode,
   create_workflow_node: createWorkflowNodeNode,
   assemble_fragment: assembleFragmentNode,

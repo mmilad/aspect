@@ -18,10 +18,12 @@ export const workflowControlNodeTypes = [
 
 export const workflowWorkNodeTypes = [
   "tool",
+  "delegate",
   "llm",
   "context",
   "transform",
   "map",
+  "break",
   "math",
   "query",
   "write",
@@ -121,6 +123,13 @@ export interface WorkflowAutoConfig {
 export interface WorkflowToolConfig {
   name: string;
   argsFromBag?: Record<string, string>;
+}
+
+export interface WorkflowDelegateConfig {
+  agentIdFrom?: string;
+  taskFrom?: string;
+  runIdFrom?: string;
+  messageFrom?: string;
 }
 /* web search configuration */
 export interface WorkflowWebSearchConfig {
@@ -305,6 +314,11 @@ export interface WorkflowMapConfig {
   fields: WorkflowMapField[];
 }
 
+export interface WorkflowBreakConfig {
+  from: string;
+  fields?: Record<string, string>;
+}
+
 export type WorkflowMathOperation = "add" | "subtract" | "multiply" | "divide";
 
 export interface WorkflowMathConfig {
@@ -384,6 +398,7 @@ export interface WorkflowNodeData {
   writeBindings?: Record<string, string>;
   auto?: WorkflowAutoConfig;
   tool?: WorkflowToolConfig;
+  delegate?: WorkflowDelegateConfig;
   webSearch?: WorkflowWebSearchConfig;
   llm?: WorkflowLlmConfig;
   query?: WorkflowQueryConfig;
@@ -394,6 +409,7 @@ export interface WorkflowNodeData {
   join?: WorkflowJoinConfig;
   foreach?: WorkflowForeachConfig;
   map?: WorkflowMapConfig;
+  break?: WorkflowBreakConfig;
   math?: WorkflowMathConfig;
   wait?: WorkflowWaitConfig;
   subworkflow?: WorkflowSubworkflowConfig;

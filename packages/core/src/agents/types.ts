@@ -1,5 +1,6 @@
 export type AgentRunStatus = "queued" | "running" | "waiting" | "completed" | "failed" | "canceled";
 export type AgentHistoryType = "observation" | "decision" | "result" | "error" | "workflow";
+export type AgentKind = "assistant" | "specialist";
 export interface AgentHistoryEntry {
     id: string;
     runId: string;
@@ -17,6 +18,13 @@ export interface AgentWorkspaceContext {
 }
 export interface AgentProfile {
     profileVersion: 1;
+    kind: AgentKind;
+    permissions?: {
+        readProject: boolean;
+        inspectAgents: boolean;
+        delegate: boolean;
+        writeProject: boolean;
+    };
     name: string;
     role: string;
     instructions: string;

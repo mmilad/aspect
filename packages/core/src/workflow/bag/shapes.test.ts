@@ -282,4 +282,29 @@ describe("workflow bag shapes", () => {
     });
     expect(parseShapeSlim("Entity")).toEqual({ kind: "ref", ref: "Entity" });
   });
+
+  it("uses an LLM JSON schema for downstream bag inference", () => {
+    const parsed = parseWorkflowGraph({
+      version: WORKFLOW_SCHEMA_VERSION,
+      nodes: [
+        { id: "start", type: "start", position: { x: 0, y: 0 }, data: { title: "Start" } },
+        { id: "llm", type: "llm", position: { x: 100, y: 0 }, data: {
+          title: "LLM", writes: ["contextPack"],
+          outputContracts: { contextPack: { required: true, shape: { kind: "any" } } },
+          llm: { schemaKey: "assistant_context_v2", outputSchema: ["contextPack"] }
+        } },
+        { id: "end", type: "end", position: { x: 200, y: 0 }, data: { title: "End" } }
+      ],
+      edges: [
+        { id: "e1", source: "start", target: "llm", kind: "next" },
+        { id: "e2", source: "llm", target: "end", kind: "next" }
+      ]
+    });
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    const shape = bagViewAtNode(parsed.graph, "end").contextPack;
+    expect(shape?.kind).toBe("object");
+    expect(shape?.kind === "object" ? shape.fields.topics.kind : undefined).toBe("array");
+    expect(shape?.kind === "object" && shape.fields.topics.kind === "array" ? shape.fields.topics.items.kind : undefined).toBe("object");
+  });
 });

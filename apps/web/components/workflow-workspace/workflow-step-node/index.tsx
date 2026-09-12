@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect } from "react";
 import { Handle, type NodeProps, Position, useUpdateNodeInternals } from "@xyflow/react";
 import { FlaskConical } from "lucide-react";
-import type { BagShape, WorkflowVariable } from "@projectplaner/core";
+import type { BagShape, WorkflowNodeType, WorkflowVariable } from "@projectplaner/core";
 import workflow from "@projectplaner/core/workflow";
 
 const { getNodeModel } = workflow.nodes;
@@ -14,6 +14,7 @@ import {
   encodeHandle,
   lookupPinShape,
   pinTooltip,
+  breakOutputPins,
   type FlowRfEdge,
   type FlowRfNode
 } from "../rf-adapters";
@@ -176,7 +177,9 @@ export function WorkflowStepNode({ data, selected }: NodeProps<FlowRfNode>) {
   const execOutputs =
     model.execOutputs?.(node) ?? (node.type === "get" || node.type === "end" || node.type === "error_end" ? [] : ["then"]);
   const dataInputs = model.dataInputs?.(node) ?? Object.keys(node.data.inputs ?? {});
-  const dataOutputs = model.dataOutputs?.(node) ?? Object.keys(node.data.outputContracts ?? {});
+  const dataOutputs = node.type === "break"
+    ? breakOutputPins(node, pinCtx)
+    : model.dataOutputs?.(node) ?? Object.keys(node.data.outputContracts ?? {});
   const updateNodeInternals = useUpdateNodeInternals();
   const portSignature = JSON.stringify([execInputs, execOutputs, dataInputs, dataOutputs]);
   useEffect(() => {
@@ -198,7 +201,7 @@ export function WorkflowStepNode({ data, selected }: NodeProps<FlowRfNode>) {
     <div
       className={cn(
         "overflow-visible min-w-[176px] rounded-md border-2 py-1.5 shadow-sm",
-        workflowStepToneByType[node.type],
+        workflowStepToneByType[node.type as WorkflowNodeType],
         selected && "ring-2 ring-offset-2 ring-zinc-900",
         node.type === "foreach" && "min-w-[190px] border-dashed",
         node.type === "switch" && "min-w-[190px]",

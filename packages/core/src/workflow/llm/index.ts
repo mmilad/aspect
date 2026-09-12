@@ -10,6 +10,10 @@ import {
   ASSISTANT_CONTEXT_V1_SCHEMA,
   ASSISTANT_CONTEXT_V2_KEY,
   ASSISTANT_CONTEXT_V2_SCHEMA,
+  AGENT_DECISION_V1_KEY,
+  AGENT_DECISION_V1_SCHEMA,
+  ASSISTANT_ROUTE_V1_KEY,
+  ASSISTANT_ROUTE_V1_SCHEMA,
   getLlmJsonSchemaPreset,
   LLM_JSON_SCHEMA_PRESETS,
   THOUGHT_ALTERNATIVES_V1_KEY,
@@ -38,11 +42,13 @@ import {
   WORKFLOW_STEP_LIST_V1_SCHEMA
 } from "./llm-json-schemas";
 import { resolveLlmOutputContracts } from "./llm-outputs";
+import { bagShapeFromLlmSchema } from "./schema-shape";
 
 const llm = {
   DEFAULT_WORKFLOW_LLM_SYSTEM_PROMPT,
   resolveWorkflowLlmSystemPrompt,
   resolveLlmOutputContracts,
+  bagShapeFromLlmSchema,
   resolveLlmNodeFormat,
   getLlmJsonSchemaPreset,
   LLM_JSON_SCHEMA_PRESETS,
@@ -50,6 +56,10 @@ const llm = {
   ASSISTANT_CONTEXT_V1_SCHEMA,
   ASSISTANT_CONTEXT_V2_KEY,
   ASSISTANT_CONTEXT_V2_SCHEMA,
+  AGENT_DECISION_V1_KEY,
+  AGENT_DECISION_V1_SCHEMA,
+  ASSISTANT_ROUTE_V1_KEY,
+  ASSISTANT_ROUTE_V1_SCHEMA,
   WORKFLOW_IR_V1_KEY,
   WORKFLOW_IR_V1_SCHEMA,
   WORKFLOW_NODE_PLAN_V1_KEY,

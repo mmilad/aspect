@@ -104,6 +104,16 @@ function readSourcePin(
     const body = typeof source.data.template === "string" ? source.data.template : "";
     return renderBagTemplate(body, { keys, allowedKeys: portIds }).text;
   }
+  if (source.type === "break") {
+    const raw = resolveDataInputFromFrame(graph, frame, source, "value", seen);
+    const object = raw && typeof raw === "object" && !Array.isArray(raw)
+      ? raw as Record<string, unknown>
+      : undefined;
+    if (!object) return undefined;
+    const aliases = source.data.break?.fields ?? {};
+    const field = Object.entries(aliases).find(([, output]) => output === sourcePin)?.[0] ?? sourcePin;
+    return object[field];
+  }
   return frame.pins[pinKey(source.id, sourcePin)];
 }
 

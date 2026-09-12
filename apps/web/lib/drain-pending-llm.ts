@@ -1,5 +1,5 @@
 import type { DatabaseController } from "@projectplaner/db";
-import type { WorkflowLlmPending } from "@projectplaner/core";
+import type { WorkflowAdapters, WorkflowLlmPending } from "@projectplaner/core";
 import generator from "@projectplaner/core/generator";
 import workflow from "@projectplaner/core/workflow";
 
@@ -23,7 +23,7 @@ export type DrainedWorkflowResult = RunWorkflowResult & {
 export async function drainPendingLlm(
   db: DatabaseController,
   started: RunWorkflowResult & { note?: string },
-  options?: { maxTurns?: number }
+  options?: { maxTurns?: number; adapters?: Pick<WorkflowAdapters, "runAgent" | "resumeAgent"> }
 ): Promise<DrainedWorkflowResult> {
   const maxTurns = options?.maxTurns ?? 24;
   const config = readLlmChatConfigFromEnv();
@@ -68,7 +68,8 @@ export async function drainPendingLlm(
     });
     current = await db.workflows.run({
       runId: current.run.id,
-      llmWrites: writes
+      llmWrites: writes,
+      adapters: options?.adapters
     });
   }
 

@@ -51,7 +51,28 @@ describe("assistant_turn persist", () => {
         llmWrites: { contextPack: pack }
       });
       assert.equal(afterA.step.kind, "pending_llm");
-      assert.equal(afterA.step.nodeId, "llm_reply");
+      assert.equal(afterA.step.nodeId, "llm_decide");
+
+      const afterDecision = await runWorkflow(db, {
+        runId: started.run.id,
+        llmWrites: {
+          decision: {
+            route: "reply",
+            reason: "The supplied context is enough.",
+            question: null,
+            lookup: null,
+            lookupKind: null,
+            lookupQuery: null,
+            lookupId: null,
+            agentId: null,
+            task: null,
+            runId: null,
+            message: null
+          }
+        }
+      });
+      assert.equal(afterDecision.step.kind, "pending_llm");
+      assert.equal(afterDecision.step.nodeId, "llm_reply");
 
       const done = await runWorkflow(db, {
         runId: started.run.id,

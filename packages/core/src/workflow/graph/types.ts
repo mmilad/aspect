@@ -56,6 +56,8 @@ export interface WorkflowContextBag {
   keys: Record<string, unknown>;
   runId?: string;
   status?: "running" | "pending_llm" | "pending_user" | "completed" | "failed" | "waiting";
+  /** Runtime principal used for policy enforcement. Persisted with the run snapshot. */
+  actor?: "assistant" | "agent" | "system";
   error?: string;
   /** Active frontier token ids when multi-token runtime is used. */
   frontier?: string[];

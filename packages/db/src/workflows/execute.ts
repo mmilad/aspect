@@ -377,6 +377,8 @@ export interface AdvanceWorkflowRunInput {
   /** Complete a pending user gate with a route label. */
   userRoute?: string;
   maxSteps?: number;
+  /** In-process runtime adapters, such as Assistant delegation. Never serialized in API payloads. */
+  adapters?: Pick<WorkflowAdapters, "runAgent" | "resumeAgent">;
 }
 
 export interface AdvanceWorkflowRunResult {
@@ -408,7 +410,10 @@ export async function advanceWorkflowRun(
 
   const graphEntities = await db.entities.list({ projectKey });
   const graphRelations = await db.relations.list({ projectKey });
-  const adapters = createWorkflowAdapters(db, projectKey);
+  const adapters: WorkflowAdapters = {
+    ...createWorkflowAdapters(db, projectKey),
+    ...(input.adapters ?? {})
+  };
 
   let step: WorkflowStepResult;
 
@@ -557,6 +562,9 @@ export interface RunWorkflowInput extends ResolveWorkflowFlowInput {
   llmWrites?: Record<string, unknown>;
   userRoute?: string;
   maxSteps?: number;
+  actor?: WorkflowContextBag["actor"];
+  /** In-process runtime adapters, such as Assistant delegation. Never serialized in API payloads. */
+  adapters?: Pick<WorkflowAdapters, "runAgent" | "resumeAgent">;
 }
 
 export interface RunWorkflowResult extends AdvanceWorkflowRunResult {
@@ -630,7 +638,8 @@ export async function runWorkflow(
       projectKey: input.projectKey,
       llmWrites: input.llmWrites,
       userRoute: input.userRoute,
-      maxSteps: input.maxSteps
+      maxSteps: input.maxSteps,
+      adapters: input.adapters
     });
     return { flow, ...advanced, note: pauseNote(advanced.step) };
   }
@@ -655,7 +664,8 @@ export async function runWorkflow(
     workflowId: flow.id,
     goal,
     startNodeId: start.id,
-    keys: input.bag
+    keys: input.bag,
+    actor: input.actor
   });
   const run = (await db.persist.createRun({
     workflowId: flow.id,
@@ -666,7 +676,8 @@ export async function runWorkflow(
   const advanced = await advanceWorkflowRun(db, {
     runId: run.id,
     projectKey: input.projectKey,
-    maxSteps: input.maxSteps
+    maxSteps: input.maxSteps,
+    adapters: input.adapters
   });
   return { flow, ...advanced, note: pauseNote(advanced.step) };
 }

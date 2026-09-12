@@ -20,6 +20,7 @@ import {
 import type { WorkflowContextBag, WorkflowGraph } from "../graph/types";
 import { resolveLlmOutputContracts } from "../llm/llm-outputs";
 import { getNodeModel } from "../nodes/registry";
+import { workflowNodeSideEffect } from "../nodes/_shared/model";
 import { isPureDataNodeType } from "../nodes/_shared/pure";
 import type { WorkflowNode } from "../nodes/_shared/types";
 import { mapPortValuesToBag } from "../bag/ports";
@@ -28,6 +29,7 @@ import type { WorkflowAdapters } from "./adapters";
 import { advanceCursor, fail } from "./helpers";
 import type { NodeExecuteContext, WorkflowStepResult } from "./types";
 import { resolveDataInput } from "../graph/frame";
+import { parseAssistantRoute } from "../../assistant/parse";
 
 function pinOutputPorts(node: WorkflowNode): string[] {
   const model = getNodeModel(node.type);
@@ -91,6 +93,28 @@ export class WorkflowRun {
       return policy.maxVisits;
     }
     return policy.maxVisits;
+  }
+
+  private assistantPolicyFailure(node: WorkflowNode, bag: WorkflowContextBag): WorkflowStepResult | null {
+    if (bag.actor !== "assistant") {
+      return null;
+    }
+    if (node.type === "subworkflow") {
+      return this.contractFailure(
+        bag,
+        node.id,
+        `Assistant policy rejects subworkflow '${node.id}' because its child graph cannot be proven read-only.`
+      );
+    }
+    const sideEffect = workflowNodeSideEffect(node);
+    if (sideEffect === "write" || sideEffect === "external") {
+      return this.contractFailure(
+        bag,
+        node.id,
+        `Assistant policy rejects ${sideEffect} node '${node.type}' (${node.id}); use a read-only query or delegation.`
+      );
+    }
+    return null;
   }
 
   private enterNode(bag: WorkflowContextBag, node: WorkflowNode): { ok: true; bag: WorkflowContextBag } | { ok: false; result: WorkflowStepResult } {
@@ -160,8 +184,14 @@ export class WorkflowRun {
       return result;
     }
 
+    const policyFailure = this.assistantPolicyFailure(node, bag);
+    if (policyFailure) {
+      this._bag = policyFailure.bag;
+      return policyFailure;
+    }
+
     if (isPureDataNodeType(node.type)) {
-      const label = node.type === "get" ? "Get" : node.type === "reroute" ? "Reroute" : "Template";
+      const label = node.type === "get" ? "Get" : node.type === "reroute" ? "Reroute" : node.type === "break" ? "Break" : "Template";
       const result = fail(bag, cursor, `${label} ${node.id} is not an executable step.`);
       this._bag = result.bag;
       return result;
@@ -217,6 +247,11 @@ export class WorkflowRun {
             node.id,
             `LLM write '${key}' failed shape check: ${check.error}`
           );
+          this._bag = result.bag;
+          return result;
+        }
+        if (node.data.llm?.schemaKey === "assistant_route_v1" && !parseAssistantRoute(opts.llmWrites[key])) {
+          const result = this.contractFailure(bag, node.id, "Assistant route failed semantic validation.");
           this._bag = result.bag;
           return result;
         }

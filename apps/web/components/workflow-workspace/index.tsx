@@ -192,6 +192,40 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
         kind === "route" ? "default" : kind === "data" ? "" : "then"
       );
       const targetPin = decodeHandle(connection.targetHandle, kind === "data" ? "" : "in");
+      if (dataWire && targetNode?.data.workflow.type === "break" && targetPin === "value") {
+        const sourceShape = lookupPinShape(sourceNode?.data.workflow, sourcePin, "out", {
+          variables,
+          nodes,
+          edges
+        });
+        if (sourceShape?.kind === "object") {
+          setNodes((current) => current.map((node) => {
+            if (node.id !== targetNode.id) return node;
+            const workflowNode = node.data.workflow;
+            const existingAliases = workflowNode.data.break?.fields ?? {};
+            const fields = Object.fromEntries(Object.keys(sourceShape.fields).map((field) => [field, existingAliases[field] ?? field]));
+            const outputContracts = Object.fromEntries(Object.entries(sourceShape.fields).map(([field, shape]) => [
+              fields[field], { required: false, shape }
+            ]));
+            return {
+              ...node,
+              data: {
+                ...node.data,
+                workflow: {
+                  ...workflowNode,
+                  data: {
+                    ...workflowNode.data,
+                    break: { from: sourcePin, fields },
+                    inputs: { ...(workflowNode.data.inputs ?? {}), value: { required: true, shape: sourceShape } },
+                    outputContracts,
+                    writes: Object.values(fields)
+                  }
+                }
+              }
+            };
+          }));
+        }
+      }
       const color = dataWire
         ? colorForBagShape(
             lookupPinShape(sourceNode?.data.workflow, sourcePin, "out", {
@@ -234,7 +268,7 @@ export function WorkflowWorkspace({ projectKey, flow }: WorkflowWorkspaceProps) 
         )
       );
     },
-    [connectKind, edges, nodes, setEdges, variables]
+    [connectKind, edges, nodes, setEdges, setNodes, variables]
   );
 
   const currentGraph = useCallback(

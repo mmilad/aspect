@@ -17,6 +17,7 @@ const WORK_NODE_TYPES = new Set<WorkflowNodeType>([
   "context",
   "transform",
   "map",
+  "break",
   "math",
   "push",
   "create_workflow_node",

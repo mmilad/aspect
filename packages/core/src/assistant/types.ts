@@ -60,12 +60,20 @@ export type AssistantContext = {
   entityId?: string;
 };
 
+export type AssistantPendingDelegation = {
+  runId: string;
+  agentId: string;
+  task: string;
+  question?: string;
+};
+
 export type AssistantSession = {
   messages: AssistantMessage[];
   summary?: AssistantSummary;
   topics: AssistantTopic[];
   questions: AssistantQuestion[];
   context: AssistantContext;
+  pendingDelegation?: AssistantPendingDelegation;
 };
 
 export type AssistantPatch = {
@@ -114,8 +122,21 @@ export type AssistantReply = string;
 
 /** Later, between A and B */
 export type AssistantRoute = {
-  route: "reply" | "clarify" | "load_entity";
-  reason?: string;
+  route: "reply" | "clarify" | "retrieve" | "delegate" | "resume";
+  reason: string;
+  question?: string;
+  lookup?: {
+    kind: "agents" | "agent" | "entities" | "entity" | "workflows" | "neighborhood";
+    query?: string;
+    id?: string;
+  };
+  lookupKind?: "agents" | "agent" | "entities" | "entity" | "workflows" | "neighborhood";
+  lookupQuery?: string;
+  lookupId?: string;
+  agentId?: string;
+  task?: string;
+  runId?: string;
+  message?: string;
 };
 
 export type AssistantSessionStatus = "active" | "archived";

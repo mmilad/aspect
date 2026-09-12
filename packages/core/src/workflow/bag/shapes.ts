@@ -3,6 +3,7 @@ import type { WorkflowGraph } from "../graph";
 import type { BagShape, BagShapeCatalogRef, WorkflowMapConfig, WorkflowNode } from "../nodes";
 
 import { derivedWrites, resolveWriteBindings, resolveInputBindings } from "./ports";
+import { bagShapeFromLlmSchema } from "../llm/schema-shape";
 
 function getNodeWrites(node: WorkflowNode): string[] {
   return derivedWrites(node);
@@ -334,10 +335,18 @@ export function inferNodeOutputShapes(node: WorkflowNode): Record<string, BagSha
   const inferred = getNodeModel(node.type).inferOutputs?.(node) ?? {};
   Object.assign(out, inferred);
 
+  if (node.type === "llm") {
+    const schemaShape = bagShapeFromLlmSchema(node.data.llm?.schemaKey);
+    if (schemaShape) for (const portId of Object.keys(node.data.outputContracts ?? {})) {
+      const bagKey = writeBindings[portId] ?? portId;
+      out[bagKey] = schemaShape;
+    }
+  }
+
   // Explicit contracts always win (keyed by port id, published under bag key).
   for (const [portId, bagKey] of Object.entries(writeBindings)) {
     const contract = node.data.outputContracts?.[portId];
-    if (contract?.shape) {
+    if (contract?.shape && !(node.type === "llm" && node.data.llm?.schemaKey)) {
       out[bagKey] = resolveBagShape(contract.shape);
     }
   }
@@ -408,6 +417,16 @@ export function bagViewAtNode(graph: WorkflowGraph, nodeId: string): Record<stri
       continue;
     }
     let outputs = inferNodeOutputShapes(node);
+    if (node.type === "break" && node.data.break) {
+      const source = resolveBagShape(view[node.data.break.from]);
+      if (source.kind === "object") {
+        const aliases = node.data.break.fields ?? {};
+        outputs = {};
+        for (const [field, shape] of Object.entries(source.fields)) {
+          outputs[aliases[field] ?? field] = shape;
+        }
+      }
+    }
     if (node.type === "map" && node.data.map) {
       const sourceShape = view[node.data.map.from];
       outputs = {

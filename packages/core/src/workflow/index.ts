@@ -21,6 +21,7 @@ export {
   type WorkflowStepResult,
   type WorkflowToolCall,
   type WorkflowToolResult,
+  type WorkflowAgentResult,
   type WorkflowWriteCall
 } from "./runtime";
 export * from "./presets";

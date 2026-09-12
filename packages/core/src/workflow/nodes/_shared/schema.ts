@@ -17,6 +17,7 @@ const WORKFLOW_RETRY_ON_SET = new Set<string>(workflowRetryOnValues);
 export const CONFIG_KEYS = [
   "auto",
   "tool",
+  "delegate",
   "llm",
   "query",
   "write",
@@ -26,6 +27,7 @@ export const CONFIG_KEYS = [
   "join",
   "foreach",
   "map",
+  "break",
   "math",
   "push",
   "createWorkflowNode",

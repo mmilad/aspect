@@ -10,6 +10,7 @@ export type {
   WorkflowControlNodeType,
   WorkflowAssembleFragmentConfig,
   WorkflowCreateWorkflowNodeConfig,
+  WorkflowDelegateConfig,
   WorkflowEdgeKind,
   WorkflowExecutionPolicy,
   WorkflowFilterAuto,
@@ -86,7 +87,8 @@ export {
 } from "./query/catalog";
 
 export type { QueryConstField, QueryOpSpec, QueryPin } from "./query/catalog";
-export type { NodeTopologyContext, WorkflowNodeModel } from "./_shared/model";
+export type { NodeTopologyContext, WorkflowNodeCategory, WorkflowNodeModel, WorkflowNodeSideEffect } from "./_shared/model";
+export { workflowNodeCategory, workflowNodeSideEffect } from "./_shared/model";
 export type { WorkflowInspectorField } from "./_shared/inspector";
 export { getDataPath, setDataPath } from "./_shared/inspector";
 

@@ -11,6 +11,7 @@ import {
   WORKFLOW_SCHEMA_VERSION,
   workflowEdgeKinds,
   type WorkflowEdgeKind,
+  type BagShape,
   type WorkflowNode,
   type WorkflowNodeType
 } from "../nodes/_shared/types";
@@ -19,6 +20,10 @@ import { isPureDataNodeType } from "../nodes/_shared/pure";
 import { applyQueryPorts } from "../nodes/query/catalog";
 import { derivedWrites, normalizeNodePorts } from "../bag/ports";
 import { parseVariables, syncVariablePorts, usesPinFrame } from "./variables";
+import { bagViewAtNode } from "../bag/shapes";
+import { bagShapeFromLlmSchema } from "../llm/schema-shape";
+import { resolveWriteBindings } from "../bag/ports";
+import { resolveBagShape } from "../bag/shapes";
 import type {
   WorkflowContextBag,
   WorkflowEdge,
@@ -358,6 +363,11 @@ export function validateTopology(graph: WorkflowGraph, errors: string[]): void {
     const nextIns = edges.filter((edge) => edge.kind === "next" && edge.targetPin !== "continue");
     const nonLoopbackNextIns = nextIns.filter((edge) => !canReach(targetId, edge.source));
     if (nonLoopbackNextIns.length > 1) {
+      // A fixed read-query fan-in into an LLM is deterministic: the lookup switch
+      // activates exactly one query arm before the decision node is revisited.
+      if (target.type === "llm" && nonLoopbackNextIns.every((edge) => nodeById.get(edge.source)?.type === "query")) {
+        continue;
+      }
       errors.push(
         `Node ${targetId} has multiple next in-edges; use a join with depends_on for fan-in.`
       );
@@ -387,6 +397,46 @@ export function rewriteLegacyBooleanSwitches(graph: WorkflowGraph): void {
     node.type = "branch";
     node.data.branch = { on: node.data.switch?.on };
     delete node.data.switch;
+  }
+}
+
+/** Materialize Break ports from the upstream object shape without copying a schema into config. */
+function inferBreakPorts(graph: WorkflowGraph): void {
+  const sourceShape = (target: WorkflowNode, seen = new Set<string>()): BagShape | undefined => {
+    if (seen.has(target.id)) return undefined;
+    seen.add(target.id);
+    const incoming = graph.edges.find((edge) => edge.kind === "data" && edge.target === target.id && (edge.targetPin ?? "") === "value");
+    if (!incoming) return undefined;
+    const source = graph.nodes.find((candidate) => candidate.id === incoming.source);
+    if (!source) return undefined;
+    if (source.type === "reroute") return sourceShape(source, seen);
+    if (source.type === "llm" && source.data.llm?.schemaKey) {
+      return bagShapeFromLlmSchema(source.data.llm.schemaKey);
+    }
+    const pin = incoming.sourcePin ?? "";
+    const bagKey = resolveWriteBindings(source)[pin] ?? pin;
+    const declared = source.data.outputContracts?.[pin]?.shape ?? source.data.outputContracts?.[bagKey]?.shape;
+    return declared ? resolveBagShape(declared) : undefined;
+  };
+  for (const node of graph.nodes) {
+    if (node.type !== "break" || !node.data.break?.from) continue;
+    const source = sourceShape(node) ?? bagViewAtNode(graph, node.id)[node.data.break.from];
+    if (!source || source.kind !== "object") continue;
+    const aliases = node.data.break.fields ?? {};
+    const fields = Object.fromEntries(Object.keys(source.fields).map((field) => [field, aliases[field] ?? field]));
+    const required = new Set(source.requiredFields ?? []);
+    node.data = {
+      ...node.data,
+      break: { ...node.data.break, fields },
+      inputs: { ...(node.data.inputs ?? {}), value: { required: true, shape: source } },
+      outputContracts: Object.fromEntries(
+        Object.entries(source.fields).map(([field, shape]) => [
+          fields[field],
+          { required: required.has(field), shape }
+        ])
+      ),
+      writes: Object.values(fields)
+    };
   }
 }
 
@@ -458,6 +508,8 @@ export function parseWorkflowGraph(raw: unknown): WorkflowParseOutcome {
     });
   }
 
+  inferBreakPorts(graph);
+
   validateTopology(graph, errors);
 
   if (errors.length > 0) {
@@ -490,6 +542,7 @@ export function createContextBag(input: {
   startNodeId: string;
   runId?: string;
   keys?: Record<string, unknown>;
+  actor?: WorkflowContextBag["actor"];
 }): WorkflowContextBag {
   return {
     workflowId: input.workflowId,
@@ -498,6 +551,7 @@ export function createContextBag(input: {
     keys: { ...(input.keys ?? {}), goal: input.goal },
     runId: input.runId,
     status: "running",
+    ...(input.actor ? { actor: input.actor } : {}),
     frontier: [input.startNodeId]
   };
 }
@@ -576,6 +630,10 @@ export function parseContextBag(raw: unknown): WorkflowContextBag | null {
       raw.status === "waiting"
         ? raw.status
         : undefined,
+    actor:
+      raw.actor === "assistant" || raw.actor === "agent" || raw.actor === "system"
+        ? raw.actor
+        : undefined,
     error: typeof raw.error === "string" ? raw.error : undefined,
     frontier: asStringArray(raw.frontier),
     ...(history ? { history } : {}),
@@ -598,6 +656,7 @@ export function writeContextBag(metadata: JsonRecord, bag: WorkflowContextBag): 
       keys: bag.keys,
       ...(bag.runId ? { runId: bag.runId } : {}),
       ...(bag.status ? { status: bag.status } : {}),
+      ...(bag.actor ? { actor: bag.actor } : {}),
       ...(bag.error ? { error: bag.error } : {}),
       ...(bag.frontier ? { frontier: bag.frontier } : {}),
       ...(bag.history ? { history: bag.history } : {}),

@@ -14,6 +14,7 @@ export {
   type WorkflowMatch,
   type WorkflowToolCall,
   type WorkflowToolResult,
+  type WorkflowAgentResult,
   type WorkflowWriteCall
 } from "./adapters";
 export { WorkflowRun, workflowGraphFromMetadata } from "./workflow";

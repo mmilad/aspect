@@ -1,201 +1,117 @@
 import { describe, expect, it } from "vitest";
-import type { AssistantContextPack, AssistantSession } from "../../../assistant/types";
-import { ASSISTANT_CONTEXT_V2_KEY } from "../../llm/llm-json-schemas";
+import type { AssistantSession } from "../../../assistant/types";
+import { ASSISTANT_CONTEXT_V2_KEY, ASSISTANT_ROUTE_V1_KEY } from "../../llm/llm-json-schemas";
 import { runWorkflowUntilPause, stepWorkflow } from "../../runtime";
 import { createContextBag, parseWorkflowGraph } from "../../graph";
 import { assistantTurnGraph } from "./graph";
 import { assistantTurnPreset } from "./preset";
 
-function msg(index: number) {
-  return {
-    id: `msg_${index}`,
-    role: index % 2 === 0 ? ("user" as const) : ("assistant" as const),
-    content: `turn-${index}`,
-    createdAt: "2026-08-30T00:00:00.000Z"
-  };
-}
-
 const session: AssistantSession = {
-  messages: Array.from({ length: 8 }, (_, index) => msg(index)),
+  messages: [],
   summary: { text: "Working on auth" },
   topics: [{ id: "t_auth", title: "Auth", status: "active", weight: 1 }],
   questions: [{ id: "q_scope", text: "What is in scope?", status: "open" }],
   context: { projectKey: "PLAN", entityId: "feature_abc" }
 };
 
-const fixturePack: AssistantContextPack = {
-  summary: { text: "User switched to graph inspect" },
-  topics: [
-    { id: "t_graph", title: "Graph inspect", status: "active", weight: 1 },
-    { id: "t_auth", title: "Auth", status: "parked", weight: 0.2 }
-  ],
-  questions: [
-    {
-      id: "q_scope",
-      text: "What is in scope?",
-      status: "answered",
-      answer: "inspect the graph"
+function initialBag(message = "Which agents exist?") {
+  return createContextBag({
+    workflowId: "flow_assistant_turn",
+    goal: "assistant turn",
+    startNodeId: "start",
+    keys: { projectKey: "PLAN", session, message }
+  });
+}
+
+async function reachDecision() {
+  const parsed = parseWorkflowGraph(assistantTurnGraph);
+  expect(parsed.ok, parsed.ok ? "" : parsed.errors.join("; ")).toBe(true);
+  if (!parsed.ok) throw new Error(parsed.errors.join("; "));
+
+  let result = await runWorkflowUntilPause({ graph: parsed.graph, bag: initialBag() });
+  expect(result.kind).toBe("pending_llm");
+  expect(result.nodeId).toBe("llm_context");
+  expect(result.llm?.schemaKey).toBe(ASSISTANT_CONTEXT_V2_KEY);
+
+  result = await stepWorkflow({
+    graph: parsed.graph,
+    bag: result.bag,
+    llmWrites: {
+      contextPack: {
+        summary: { text: "Working on auth" },
+        topics: [{ id: "t_auth", title: "Auth", status: "active", weight: 1 }],
+        questions: [{ id: "q_scope", text: "What is in scope?", status: "open" }],
+        context: { projectKey: "PLAN", entityId: "feature_abc" }
+      }
     }
-  ],
-  context: { projectKey: "PLAN", entityId: "feature_abc" }
-};
+  });
+  result = await runWorkflowUntilPause({ graph: parsed.graph, bag: result.bag });
+  expect(result.kind).toBe("pending_llm");
+  expect(result.nodeId).toBe("llm_decide");
+  expect(result.llm?.schemaKey).toBe(ASSISTANT_ROUTE_V1_KEY);
+  return { graph: parsed.graph, result };
+}
 
 describe("assistant_turn preset", () => {
-  it("parses as session → Turn A JSON → Turn B text", () => {
+  it("parses the visible context, decision, retrieval, delegation, and reply loop", () => {
     const parsed = parseWorkflowGraph(assistantTurnGraph);
     expect(parsed.ok, parsed.ok ? "" : parsed.errors.join("; ")).toBe(true);
     expect(assistantTurnPreset.presetKey).toBe("assistant_turn");
-    expect(assistantTurnPreset.kind).toBe("user");
-    expect(assistantTurnPreset.drainLlm).toBe(true);
-    expect(assistantTurnPreset.presetVersion).toBe(4);
+    expect(assistantTurnPreset.presetVersion).toBe(7);
 
     const ids = assistantTurnGraph.nodes.map((node) => `${node.id}:${node.type}`);
-    expect(ids).toEqual([
-      "start:start",
-      "r_session:reroute",
-      "r_message:reroute",
-      "r_pack:reroute",
-      "session_read:assistant_session",
-      "llm_context:llm",
-      "llm_reply:llm",
-      "end:end"
-    ]);
+    expect(ids).toEqual(expect.arrayContaining([
+      "session_read:assistant_session", "llm_context:llm", "llm_decide:llm", "break_decision:break",
+      "decision_switch:switch", "lookup_switch:switch", "list_agents:query", "delegate:delegate", "llm_reply:llm"
+    ]));
+    expect(assistantTurnGraph.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "e_context_agents", source: "llm_context", target: "list_agents", kind: "next" }),
+      expect.objectContaining({ id: "d_agents_decision", source: "list_agents", target: "llm_decide", targetPin: "agentFacts", kind: "data" })
+    ]));
 
-    const sessionRead = assistantTurnGraph.nodes.find((node) => node.id === "session_read");
-    expect(sessionRead?.data.inputs).toHaveProperty("windowSize");
-    expect(sessionRead?.data.outputContracts).toHaveProperty("allTurns");
-    expect(sessionRead?.data.outputContracts).toHaveProperty("recentTurns");
-
-    const turnA = assistantTurnGraph.nodes.find((node) => node.id === "llm_context");
-    expect(turnA?.data.llm?.schemaKey).toBe(ASSISTANT_CONTEXT_V2_KEY);
-    expect(turnA?.data.llm?.instructions).toContain("{{priorTopics}}");
-    expect(turnA?.data.llm?.instructions).toContain("{{priorQuestions}}");
-    expect(turnA?.data.llm?.instructions).toContain("{{recentTurns}}");
-    expect(turnA?.data.llm?.instructions).not.toContain("{{priorCurrentTopic}}");
-    expect(turnA?.data.llm?.systemPrompt).toContain("assistant_context_v2");
-    expect(turnA?.data.llm?.systemPrompt).toContain("Park topics");
-
-    const turnB = assistantTurnGraph.nodes.find((node) => node.id === "llm_reply");
-    expect(turnB?.data.llm?.format).toBe("text");
-    expect(turnB?.data.llm?.schemaKey).toBeUndefined();
-    expect(turnB?.data.llm?.instructions).toContain("{{contextPack}}");
-    expect(turnB?.data.llm?.instructions).toContain("{{message}}");
-    expect(turnB?.data.llm?.instructions).not.toContain("{{recentTurns}}");
-    expect(turnB?.data.llm?.instructions).not.toContain("{{priorCurrentTopic}}");
+    const decisionBreak = parsed.ok ? parsed.graph.nodes.find((node) => node.id === "break_decision") : undefined;
+    expect(decisionBreak?.data.outputContracts?.route?.shape).toEqual({ kind: "primitive", type: "string" });
+    expect(decisionBreak?.data.outputContracts?.lookupKind?.shape).toEqual({
+      kind: "union",
+      options: [{ kind: "primitive", type: "string" }, { kind: "primitive", type: "null" }]
+    });
   });
 
-  it("pauses Turn A with prior topics and questions, then Turn B with pack + message", async () => {
-    const parsed = parseWorkflowGraph(assistantTurnGraph);
-    expect(parsed.ok).toBe(true);
-    if (!parsed.ok) {
-      return;
-    }
-
-    const bag = createContextBag({
-      workflowId: "flow_assistant_turn",
-      goal: "assistant turn",
-      startNodeId: "start",
-      keys: {
-        session,
-        message: "Let's look at the graph instead",
-        windowSize: 5
+  it("uses a real read query and loops back to the decision node", async () => {
+    const { graph, result: decision } = await reachDecision();
+    let result = await stepWorkflow({
+      graph,
+      bag: decision.bag,
+      llmWrites: {
+        decision: {
+          route: "retrieve", reason: "Need the registered agents", question: null,
+          lookup: { kind: "agents", query: null, id: null }, lookupKind: "agents", lookupQuery: null, lookupId: null,
+          agentId: null, task: null, runId: null, message: null
+        }
       }
     });
-
-    const first = await runWorkflowUntilPause({ graph: parsed.graph, bag });
-    expect(first.kind).toBe("pending_llm");
-    expect(first.nodeId).toBe("llm_context");
-    expect(first.bag.frame?.pins["session_read::allTurns"]).toEqual(session.messages);
-    expect(first.llm?.schemaKey).toBe(ASSISTANT_CONTEXT_V2_KEY);
-    expect(first.llm?.format).toBe("json_schema");
-    expect(first.llm?.reads.priorTopics).toEqual([
-      { id: "t_auth", title: "Auth", status: "active", weight: 1 }
-    ]);
-    expect(first.llm?.reads.priorQuestions).toEqual([
-      { id: "q_scope", text: "What is in scope?", status: "open" }
-    ]);
-    expect(first.llm?.reads.priorSummary).toEqual({ text: "Working on auth" });
-    expect((first.llm?.reads.allTurns as { content: string }[] | undefined)).toBeUndefined();
-    expect((first.llm?.reads.recentTurns as { content: string }[]).map((item) => item.content)).toEqual([
-      "turn-3",
-      "turn-4",
-      "turn-5",
-      "turn-6",
-      "turn-7"
-    ]);
-    expect(first.llm?.instructions).toContain("Auth");
-    expect(first.llm?.instructions).toContain("What is in scope?");
-    expect(first.llm?.instructions).toContain("turn-7");
-    expect(first.llm?.instructions).not.toContain("turn-0");
-    expect(first.llm?.instructions).toContain("Let's look at the graph instead");
-
-    const afterA = await stepWorkflow({
-      graph: parsed.graph,
-      bag: first.bag,
-      llmWrites: { contextPack: fixturePack }
-    });
-    expect(afterA.kind).toBe("advanced");
-
-    const second = await runWorkflowUntilPause({
-      graph: parsed.graph,
-      bag: afterA.bag
-    });
-    expect(second.kind).toBe("pending_llm");
-    expect(second.nodeId).toBe("llm_reply");
-    expect(second.llm?.format).toBe("text");
-    expect(second.llm?.schemaKey).toBeUndefined();
-    expect(second.llm?.reads.contextPack).toEqual(fixturePack);
-    expect(second.llm?.reads.message).toBe("Let's look at the graph instead");
-    expect(second.llm?.reads.recentTurns).toBeUndefined();
-    expect(second.llm?.instructions).toContain("Graph inspect");
-    expect(second.llm?.instructions).toContain("\"status\":\"parked\"");
-    expect(second.llm?.instructions).toContain("Let's look at the graph instead");
-    expect(second.llm?.instructions).not.toContain("turn-0");
-    expect(second.llm?.instructions).not.toContain("turn-7");
-
-    const afterB = await stepWorkflow({
-      graph: parsed.graph,
-      bag: second.bag,
-      llmWrites: { reply: "Switching focus to the graph." }
-    });
-    expect(afterB.kind).toBe("advanced");
-
-    const done = await runWorkflowUntilPause({
-      graph: parsed.graph,
-      bag: afterB.bag
-    });
-    expect(done.kind).toBe("completed");
-    expect(done.bag.frame?.outputs.reply).toBe("Switching focus to the graph.");
-    expect(done.bag.frame?.outputs.contextPack).toEqual(fixturePack);
+    result = await runWorkflowUntilPause({ graph, bag: result.bag });
+    expect(result.kind).toBe("pending_llm");
+    expect(result.nodeId).toBe("llm_decide");
+    expect(result.bag.frame?.pins["list_agents::entities"]).toBeDefined();
   });
 
-  it("runs session_read with a missing summary", async () => {
-    const parsed = parseWorkflowGraph(assistantTurnGraph);
-    expect(parsed.ok).toBe(true);
-    if (!parsed.ok) {
-      return;
-    }
-
-    const bag = createContextBag({
-      workflowId: "flow_assistant_turn",
-      goal: "assistant turn",
-      startNodeId: "start",
-      keys: {
-        session: {
-          messages: [msg(0)],
-          topics: [],
-          questions: [],
-          context: { projectKey: "PLAN" }
-        },
-        message: "hello"
+  it("supports a grounded clarification branch", async () => {
+    const { graph, result: decision } = await reachDecision();
+    let result = await stepWorkflow({
+      graph,
+      bag: decision.bag,
+      llmWrites: {
+        decision: {
+          route: "clarify", reason: "The request is ambiguous", question: "Which project should I inspect?",
+          lookup: null, lookupKind: null, lookupQuery: null, lookupId: null,
+          agentId: null, task: null, runId: null, message: null
+        }
       }
     });
-
-    const first = await runWorkflowUntilPause({ graph: parsed.graph, bag });
-    expect(first.kind).toBe("pending_llm");
-    expect(first.llm?.reads.priorSummary).toBeUndefined();
-    expect(first.llm?.reads.priorTopics).toEqual([]);
-    expect(first.llm?.reads.priorQuestions).toEqual([]);
-    expect(first.llm?.instructions).toContain("Prior summary: (empty)");
+    result = await runWorkflowUntilPause({ graph, bag: result.bag });
+    expect(result.kind).toBe("pending_llm");
+    expect(result.nodeId).toBe("llm_reply");
+    expect(result.llm?.reads.question).toBe("Which project should I inspect?");
   });
 });

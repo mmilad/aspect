@@ -23,6 +23,15 @@ export interface WorkflowToolResult {
   values: Record<string, unknown>;
 }
 
+export interface WorkflowAgentResult {
+  runId: string;
+  agentId: string;
+  status: string;
+  result?: unknown;
+  question?: string;
+  error?: string;
+}
+
 export interface WorkflowWriteCall {
   action: "create_entity" | "update_entity" | "rollup_parent_status";
   args: Record<string, unknown>;
@@ -79,6 +88,8 @@ export interface WorkflowAdapters {
     | Promise<{ entities: unknown[]; relations: unknown[] }>
     | { entities: unknown[]; relations: unknown[] };
   runTool?: (call: WorkflowToolCall) => Promise<WorkflowToolResult> | WorkflowToolResult;
+  runAgent?: (input: { agentId: string; task: string; projectKey: string }) => Promise<WorkflowAgentResult> | WorkflowAgentResult;
+  resumeAgent?: (input: { runId: string; message: string; projectKey: string }) => Promise<WorkflowAgentResult> | WorkflowAgentResult;
   runWrite?: (call: WorkflowWriteCall) => Promise<WorkflowToolResult> | WorkflowToolResult;
   resolveInstruction?: (instructionRef: string) => Promise<string | null> | string | null;
   /** Resolve a nested workflow graph by id (subworkflow / foreach body). */

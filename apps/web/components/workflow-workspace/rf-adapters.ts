@@ -10,6 +10,7 @@ import workflow from "@projectplaner/core/workflow";
 
 const { emptyWorkflowGraph, parse: parseWorkflowGraph, parseWaypoints } = workflow.graph;
 const { isPureDataNodeType } = workflow.nodes;
+const { bagShapeFromLlmSchema } = workflow.llm;
 const { isShapeConnectable, serializeShapeSlim } = workflow.bag;
 import type { CSSProperties } from "react";
 import { MarkerType, type Connection, type Edge, type Node } from "@xyflow/react";
@@ -205,9 +206,48 @@ export function lookupPinShape(
     return lookup.variables?.find((variable) => variable.name === node.data.variable)?.shape;
   }
   if (channel === "out") {
+    if (node.type === "llm" && node.data.llm?.schemaKey) {
+      const schemaShape = bagShapeFromLlmSchema(node.data.llm.schemaKey);
+      if (schemaShape) return schemaShape;
+    }
+    if (node.type === "break") {
+      const sourceShape = inferBreakSourceShape(node, lookup);
+      if (sourceShape?.kind === "object") {
+        const sourceField = Object.entries(node.data.break?.fields ?? {}).find(([, target]) => target === pin)?.[0] ?? pin;
+        return sourceShape.fields[sourceField];
+      }
+    }
     return node.data.outputContracts?.[pin]?.shape;
   }
+  if (node.type === "break" && pin === "value") {
+    return inferBreakSourceShape(node, lookup);
+  }
   return node.data.inputs?.[pin]?.shape;
+}
+
+export function inferBreakSourceShape(node: WorkflowNode, ctx: PinLookupCtx): BagShape | undefined {
+  const incoming = (ctx.edges ?? [])
+    .map(dataLinkOf)
+    .find((link) => link && link.target === node.id && (link.targetPin === "value" || link.targetPin === ""));
+  const rawIncoming = incoming ?? (ctx.edges ?? [])
+    .filter((edge) => edge.target === node.id)
+    .map((edge) => ({ source: edge.source, sourcePin: decodeHandle(edge.sourceHandle, "") }))[0];
+  if (!rawIncoming) return undefined;
+  const source = ctx.nodes?.find((candidate) => candidate.id === rawIncoming.source);
+  if (!source) return undefined;
+  const sourceNode = workflowOf(source);
+  const direct = lookupPinShape(sourceNode, rawIncoming.sourcePin, "out", ctx);
+  if (direct) return direct;
+  const contracts = sourceNode?.data.outputContracts ?? {};
+  const only = Object.values(contracts);
+  return only.length === 1 ? only[0]?.shape : undefined;
+}
+
+export function breakOutputPins(node: WorkflowNode, ctx: PinLookupCtx): string[] {
+  const sourceShape = inferBreakSourceShape(node, ctx);
+  if (sourceShape?.kind !== "object") return Object.values(node.data.break?.fields ?? {});
+  const aliases = node.data.break?.fields ?? {};
+  return Object.keys(sourceShape.fields).map((field) => aliases[field] ?? field);
 }
 
 export function pinTooltip(input: {
@@ -348,6 +388,9 @@ export function isValidWorkflowConnection(
     const fromShape = lookupPinShape(sourceNode, sourcePin, "out", pinCtx);
     if (targetNode.type === "reroute") {
       return true;
+    }
+    if (targetNode.type === "break" && targetPin === "value") {
+      return fromShape?.kind === "object";
     }
     const toShape = lookupPinShape(targetNode, targetPin, "in", pinCtx);
     if (!isShapeConnectable(fromShape, toShape)) {

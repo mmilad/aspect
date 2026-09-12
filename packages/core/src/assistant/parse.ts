@@ -14,6 +14,7 @@ import type {
   AssistantPatch,
   AssistantQuestion,
   AssistantQuestionDraft,
+  AssistantRoute,
   AssistantSession,
   AssistantSummary,
   AssistantTopic,
@@ -33,6 +34,41 @@ function asStringArray(value: unknown): string[] | undefined {
     return undefined;
   }
   return value.filter((item): item is string => typeof item === "string");
+}
+
+export function parseAssistantRoute(value: unknown): AssistantRoute | null {
+  if (!isRecord(value) || typeof value.route !== "string" || typeof value.reason !== "string" || !value.reason.trim()) return null;
+  if (!["reply", "clarify", "retrieve", "delegate", "resume"].includes(value.route)) return null;
+  const route = value.route as AssistantRoute["route"];
+  const result: AssistantRoute = { route, reason: value.reason.trim() };
+  const optionalString = (key: string) => typeof value[key] === "string" && value[key].trim() ? value[key].trim() : undefined;
+  const question = optionalString("question");
+  const agentId = optionalString("agentId");
+  const task = optionalString("task");
+  const runId = optionalString("runId");
+  const message = optionalString("message");
+  const lookupKind = optionalString("lookupKind") as AssistantRoute["lookupKind"];
+  const lookupQuery = optionalString("lookupQuery");
+  const lookupId = optionalString("lookupId");
+  if (question) result.question = question;
+  if (agentId) result.agentId = agentId;
+  if (task) result.task = task;
+  if (runId) result.runId = runId;
+  if (message) result.message = message;
+  if (lookupKind) {
+    if (!["agents", "agent", "entities", "entity", "workflows", "neighborhood"].includes(lookupKind)) return null;
+    result.lookupKind = lookupKind;
+    if (lookupQuery) result.lookupQuery = lookupQuery;
+    if (lookupId) result.lookupId = lookupId;
+    result.lookup = { kind: lookupKind, ...(lookupQuery ? { query: lookupQuery } : {}), ...(lookupId ? { id: lookupId } : {}) };
+  }
+  if (route === "clarify" && !question) return null;
+  if (route === "retrieve" && !lookupKind) return null;
+  if (route === "retrieve" && lookupKind && ["agent", "entity", "neighborhood"].includes(lookupKind) && !lookupId) return null;
+  if (route === "retrieve" && lookupKind === "entities" && !lookupQuery) return null;
+  if (route === "delegate" && (!agentId || !task)) return null;
+  if (route === "resume" && (!runId || !message)) return null;
+  return result;
 }
 
 function isLegacyTopicRecord(value: Record<string, unknown>): boolean {
@@ -222,6 +258,21 @@ export function parseSession(value: unknown, fallbackProjectKey = ""): Assistant
     questions: questions as AssistantQuestion[],
     context
   };
+  if (
+    isRecord(value.pendingDelegation) &&
+    typeof value.pendingDelegation.runId === "string" &&
+    typeof value.pendingDelegation.agentId === "string" &&
+    typeof value.pendingDelegation.task === "string"
+  ) {
+    session.pendingDelegation = {
+      runId: value.pendingDelegation.runId,
+      agentId: value.pendingDelegation.agentId,
+      task: value.pendingDelegation.task,
+      ...(typeof value.pendingDelegation.question === "string"
+        ? { question: value.pendingDelegation.question }
+        : {})
+    };
+  }
   const summary = parseSummary(value.summary);
   if (summary) {
     session.summary = summary;

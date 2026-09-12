@@ -103,6 +103,7 @@ describe("deterministic Assistant evaluations", () => {
       id: "knowledge-retrieval",
       ...base("What is the release target?"),
       knowledgeDataset: "project-plan",
+      knowledgeAccess: { principalId: "user-1", projectKey: "PLAN", sessionId: "session-1", includeGlobal: true },
       adapters: { knowledgeSearch },
       llmWrites: {
         llm_context: assistantContextPackFixture(),
@@ -115,7 +116,12 @@ describe("deterministic Assistant evaluations", () => {
     });
 
     expect(run.result.kind, run.result.kind === "failed" ? run.result.message : "").toBe("completed");
-    expect(knowledgeSearch).toHaveBeenCalledWith({ datasetKey: "project-plan", query: "release target", topK: 10 });
+    expect(knowledgeSearch).toHaveBeenCalledWith({
+      datasetKey: "project-plan",
+      query: "release target",
+      topK: 10,
+      access: { principalId: "user-1", projectKey: "PLAN", sessionId: "session-1", includeGlobal: true }
+    });
     expect(run.result.bag.frame?.pins["search_knowledge::hits"]).toHaveLength(1);
     expect(run.result.bag.frame?.outputs.reply).toContain("September");
     expect(run.trace.steps.some((step) => step.nodeId === "search_knowledge")).toBe(true);

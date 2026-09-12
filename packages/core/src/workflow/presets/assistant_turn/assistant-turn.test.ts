@@ -75,7 +75,8 @@ describe("assistant_turn preset", () => {
     ]));
     expect(assistantTurnGraph.edges).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: "e_context_agents", source: "llm_context", target: "list_agents", kind: "next" }),
-      expect.objectContaining({ id: "d_agents_decision", source: "list_agents", target: "llm_decide", targetPin: "agentFacts", kind: "data" })
+      expect.objectContaining({ id: "d_agents_decision", source: "list_agents", target: "llm_decide", targetPin: "agentFacts", kind: "data" }),
+      expect.objectContaining({ id: "d_start_knowledge_access", source: "start", target: "search_knowledge", targetPin: "access", kind: "data" })
     ]));
 
     const decisionBreak = parsed.ok ? parsed.graph.nodes.find((node) => node.id === "break_decision") : undefined;

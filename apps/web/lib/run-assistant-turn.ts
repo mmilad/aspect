@@ -116,6 +116,7 @@ export async function runAssistantTurn(
   }
 
   const projectKey = existing.session.context.projectKey || "PLAN";
+  const principalId = process.env.PROJECTPLANER_PRINCIPAL_ID?.trim();
   const agentAdapters = await createAssistantAgentAdapters(db, projectKey);
   const started = await db.workflows.run({
     key: "assistant_turn",
@@ -129,6 +130,12 @@ export async function runAssistantTurn(
       windowSize: DEFAULT_ASSISTANT_WINDOW_SIZE,
       projectKey,
       knowledgeDataset: process.env.PROJECTPLANER_KNOWLEDGE_DATASET ?? `project-${projectKey.toLowerCase()}`,
+      knowledgeAccess: {
+        projectKey,
+        sessionId: existing.id,
+        includeGlobal: true,
+        ...(principalId ? { principalId } : {})
+      },
       pendingDelegation: existing.session.pendingDelegation
     },
     adapters: agentAdapters

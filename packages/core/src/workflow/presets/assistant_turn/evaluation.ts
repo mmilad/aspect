@@ -5,6 +5,7 @@ import type {
   AssistantSession,
   AssistantTurnTrace
 } from "../../../assistant/types";
+import type { KnowledgeAccess } from "../../../knowledge";
 import { emptySession } from "../../../assistant/parse";
 import { projectAssistantTrace } from "../../../assistant/trace";
 import { createContextBag, parseWorkflowGraph } from "../../graph";
@@ -22,6 +23,7 @@ export type AssistantEvaluationCase = {
   message: string;
   projectKey?: string;
   knowledgeDataset?: string;
+  knowledgeAccess?: KnowledgeAccess;
   session?: AssistantSession;
   pendingDelegation?: AssistantPendingDelegation;
   llmWrites: AssistantEvaluationLlmWrites;
@@ -148,6 +150,7 @@ export async function runAssistantEvaluation(input: AssistantEvaluationCase): Pr
     keys: {
       projectKey,
       knowledgeDataset: input.knowledgeDataset ?? `project-${projectKey.toLowerCase()}`,
+      ...(input.knowledgeAccess ? { knowledgeAccess: input.knowledgeAccess } : {}),
       session,
       message: input.message,
       ...(input.pendingDelegation ?? session.pendingDelegation

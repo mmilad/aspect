@@ -158,6 +158,7 @@ export function createWorkflowAdapters(
     getEntity: async (id) => (await db.entities.get(id)),
     listEntities: async (listQuery: EntityListQuery, options) =>
       (await db.query.execute(compileListQuery({ ...listQuery, projectKey: listQuery.projectKey ?? projectKey }, options))),
+    listRelations: async (query) => (await db.relations.list({ projectKey: query.projectKey ?? projectKey })),
     searchEntities: async (input) => {
       const parts: EntityFilter[] = [];
       if (input.types?.length === 1) {

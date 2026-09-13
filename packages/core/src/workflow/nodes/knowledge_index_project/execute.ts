@@ -1,3 +1,4 @@
+import type { Entity, EntityRelation } from "../../../domain/types";
 import type { KnowledgeScope } from "../../../knowledge";
 import type { NodeExecuteContext, WorkflowStepResult } from "../../runtime/types";
 
@@ -21,10 +22,45 @@ function optionalBoolean(value: unknown, label: string): boolean | undefined {
   throw new Error(`${label} must be a boolean.`);
 }
 
-function entityText(entity: { type: string; title: string; summary?: string; body?: string }): string {
+function entityText(
+  entity: { type: string; title: string; summary?: string; body?: string },
+  relationText?: string
+): string {
   const content = [entity.title, entity.summary, entity.body]
     .filter((part): part is string => !!part?.trim());
-  return content.length > 0 ? [entity.type, ...content].join("\n\n") : "";
+  if (content.length === 0) return "";
+  if (relationText) content.push(relationText);
+  return [entity.type, ...content].join("\n\n");
+}
+
+function relationProjection(
+  entity: Entity,
+  relations: EntityRelation[],
+  entitiesById: Map<string, Entity>
+): { text: string; metadata: Array<Record<string, unknown>> } {
+  const related = relations
+    .filter((relation) => relation.sourceEntityId === entity.id || relation.targetEntityId === entity.id)
+    .map((relation) => {
+      const outgoing = relation.sourceEntityId === entity.id;
+      const otherId = outgoing ? relation.targetEntityId : relation.sourceEntityId;
+      const other = entitiesById.get(otherId);
+      const otherLabel = other?.title?.trim() || otherId;
+      const direction = outgoing ? "to" : "from";
+      return {
+        text: `${relation.type} ${direction} ${otherLabel}${relation.label?.trim() ? ` (${relation.label.trim()})` : ""}`,
+        metadata: {
+          relationId: relation.id,
+          direction,
+          type: relation.type,
+          relatedEntityId: otherId,
+          ...(relation.label?.trim() ? { label: relation.label.trim() } : {})
+        }
+      };
+    });
+  return {
+    text: related.length > 0 ? `Relations:\n${related.map((item) => `- ${item.text}`).join("\n")}` : "",
+    metadata: related.map((item) => item.metadata)
+  };
 }
 
 export async function executeKnowledgeIndexProject(ctx: NodeExecuteContext): Promise<WorkflowStepResult> {
@@ -43,13 +79,16 @@ export async function executeKnowledgeIndexProject(ctx: NodeExecuteContext): Pro
     const limit = optionalInteger(ctx.read(config.limitFrom ?? "limit"), "limit", 1, 5000) ?? 500;
     const includeArchived = optionalBoolean(ctx.read(config.includeArchivedFrom ?? "includeArchived"), "includeArchived") ?? false;
     const entities = await listEntities({ projectKey, limit, includeArchived, select: "full" });
+    const entitiesById = new Map(entities.map((entity) => [entity.id, entity]));
+    const relations = ctx.adapters.listRelations ? await ctx.adapters.listRelations({ projectKey }) : [];
     const ids: string[] = [];
     let indexed = 0;
     let skipped = 0;
     let embeddingModel: string | null = null;
 
     for (const entity of entities) {
-      const text = entityText(entity);
+      const projection = relationProjection(entity, relations, entitiesById);
+      const text = entityText(entity, projection.text);
       if (!text) {
         skipped += 1;
         continue;
@@ -67,7 +106,9 @@ export async function executeKnowledgeIndexProject(ctx: NodeExecuteContext): Pro
           entityType: entity.type,
           entityStatus: entity.status,
           title: entity.title,
-          projectKey
+          projectKey,
+          relationCount: projection.metadata.length,
+          relations: projection.metadata
         },
         scope
       });

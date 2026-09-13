@@ -43,8 +43,10 @@ The split described above is now implemented across the two repositories:
   Assistant profile stays read-only and continues to use its workflow loop.
 - The seeded `knowledge_index_project` workflow can project bounded graph
   entities into CortexDB with stable `projectplaner:entity:<id>` ingestion IDs
-  and source metadata. It is classified as a write operation and cannot run as
-  the Assistant actor.
+  and source metadata. When the database adapter exposes relations, each entity
+  projection also includes relation text and relation metadata so retrieval can
+  explain graph connections without making CortexDB a second graph source. It
+  is classified as a write operation and cannot run as the Assistant actor.
 - CortexDB owns embedding-provider selection, vector storage, hybrid search,
   scope filtering, and its optional Postgres/pgvector backend. Projectplaner
   does not construct or store embedding vectors.

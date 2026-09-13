@@ -91,6 +91,10 @@ export interface WorkflowAdapters {
     query: EntityListQuery,
     options?: { type?: EntityType }
   ) => Promise<Entity[]> | Entity[];
+  /** Read the current project's graph relations for projection workflows. */
+  listRelations?: (query: {
+    projectKey: string;
+  }) => Promise<EntityRelation[]> | EntityRelation[];
   searchEntities?: (input: {
     q: string;
     types?: EntityType[];

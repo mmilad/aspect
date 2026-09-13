@@ -5,7 +5,7 @@ import { knowledgeCaptureGraph } from "./graph";
 
 describe("knowledge_capture preset", () => {
   it("ingests only through the typed workflow adapter and returns the confirmed result", async () => {
-    const knowledgeIngest = vi.fn().mockResolvedValue({ ingested: 1, ids: ["memory-1"], embeddingModel: "fixture-embed" });
+    const knowledgeIngestText = vi.fn().mockResolvedValue({ ingested: 1, ids: ["memory-1"], embeddingModel: "fixture-embed" });
     const parsed = parseWorkflowGraph(knowledgeCaptureGraph);
     expect(parsed.ok, parsed.ok ? "" : parsed.errors.join("; ")).toBe(true);
     if (!parsed.ok) return;
@@ -20,21 +20,21 @@ describe("knowledge_capture preset", () => {
         keys: {
           datasetKey: "project-plan",
           rawText: "The release target is September.",
+          itemId: "note-1",
           metadata: { source: "project-note" },
           scope: { kind: "project", projectKey: "PLAN" }
         }
       }),
-      adapters: { knowledgeIngest }
+      adapters: { knowledgeIngestText }
     });
 
     expect(result.kind, result.message ?? result.bag.error ?? "").toBe("completed");
-    expect(knowledgeIngest).toHaveBeenCalledWith({
+    expect(knowledgeIngestText).toHaveBeenCalledWith({
       datasetKey: "project-plan",
-      items: [{
-        rawText: "The release target is September.",
-        metadata: { source: "project-note" },
-        scope: { kind: "project", projectKey: "PLAN" }
-      }]
+      text: "The release target is September.",
+      ingestionId: "note-1",
+      metadata: { source: "project-note" },
+      scope: { kind: "project", projectKey: "PLAN" }
     });
     expect(result.bag.frame?.outputs.ingested).toBe(1);
     expect(result.bag.frame?.outputs.ids).toEqual(["memory-1"]);

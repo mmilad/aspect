@@ -12,14 +12,14 @@ const inputKeys = ["datasetKey", "rawText", "itemId", "metadata", "scope"];
 function ingestNode(): WorkflowNode {
   return {
     id: "ingest",
-    type: "knowledge_ingest",
+    type: "knowledge_ingest_text",
     position: { x: 300, y: 160 },
     data: {
       title: "Ingest knowledge",
       inputs: {
         datasetKey: { required: true, shape: STRING },
-        rawText: { required: true, shape: STRING },
-        itemId: { required: false, shape: STRING },
+        text: { required: true, shape: STRING },
+        ingestionId: { required: false, shape: STRING },
         metadata: { required: false, shape: ANY },
         scope: { required: false, shape: ANY }
       },
@@ -28,7 +28,7 @@ function ingestNode(): WorkflowNode {
         ids: { required: true, shape: STRING_ARRAY },
         embeddingModel: { required: true, shape: NULLABLE_STRING }
       },
-      knowledgeIngest: {}
+      knowledgeIngestText: {}
     }
   };
 }
@@ -70,8 +70,8 @@ export const knowledgeCaptureGraph: WorkflowGraph = {
     { id: "e_start_ingest", source: "start", target: "ingest", kind: "next" },
     { id: "e_ingest_end", source: "ingest", target: "end", kind: "next" },
     { id: "d_dataset_key", source: "start", target: "ingest", kind: "data", sourcePin: "datasetKey", targetPin: "datasetKey" },
-    { id: "d_raw_text", source: "start", target: "ingest", kind: "data", sourcePin: "rawText", targetPin: "rawText" },
-    { id: "d_item_id", source: "start", target: "ingest", kind: "data", sourcePin: "itemId", targetPin: "itemId" },
+    { id: "d_raw_text", source: "start", target: "ingest", kind: "data", sourcePin: "rawText", targetPin: "text" },
+    { id: "d_item_id", source: "start", target: "ingest", kind: "data", sourcePin: "itemId", targetPin: "ingestionId" },
     { id: "d_metadata", source: "start", target: "ingest", kind: "data", sourcePin: "metadata", targetPin: "metadata" },
     { id: "d_scope", source: "start", target: "ingest", kind: "data", sourcePin: "scope", targetPin: "scope" },
     { id: "d_ingested_end", source: "ingest", target: "end", kind: "data", sourcePin: "ingested", targetPin: "ingested" },

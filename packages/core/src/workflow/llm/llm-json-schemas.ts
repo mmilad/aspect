@@ -40,7 +40,42 @@ export const THOUGHT_VALIDATION_V1_KEY = "thought_validation_v1";
 export const THOUGHT_REFLECTION_V1_KEY = "thought_reflection_v1";
 export const THOUGHT_FINALIZE_V1_KEY = "thought_finalize_v1";
 export const AGENT_PROFILE_V1_KEY = "agent_profile_v1";
-export const AGENT_PROFILE_V1_SCHEMA: Record<string, unknown> = { $id: "projectplaner:llm-json-schema:agent_profile_v1", type: "object", properties: { role: { type: "string" }, responsibilities: { type: "array", items: { type: "string" } }, recurringActivities: { type: "array", items: { type: "string" } }, capabilities: { type: "array", items: { type: "string" } }, decisionAreas: { type: "array", items: { type: "string" } }, candidateWorkflows: { type: "array", items: { type: "string" } }, instructions: { type: "string" }, history: { type: "array", items: { type: "object" } } }, required: ["role", "responsibilities", "recurringActivities", "capabilities", "decisionAreas", "candidateWorkflows", "instructions", "history"], additionalProperties: false };
+export const AGENT_PROFILE_V1_SCHEMA: Record<string, unknown> = {
+  $id: "projectplaner:llm-json-schema:agent_profile_v1",
+  type: "object",
+  properties: {
+    kind: { type: "string", enum: ["assistant", "specialist"] },
+    role: { type: "string" },
+    responsibilities: { type: "array", items: { type: "string" } },
+    recurringActivities: { type: "array", items: { type: "string" } },
+    capabilities: { type: "array", items: { type: "string" } },
+    decisionAreas: { type: "array", items: { type: "string" } },
+    candidateWorkflows: { type: "array", items: { type: "string" } },
+    assignedWorkflowIds: { type: "array", items: { type: "string" } },
+    contextPolicy: {
+      type: "object",
+      properties: {
+        graphEnabled: { type: "boolean" },
+        memoryEnabled: { type: "boolean" },
+        maxResults: { type: "integer", minimum: 1 },
+        maxContextTokens: { type: "integer", minimum: 1 }
+      },
+      additionalProperties: false
+    },
+    memoryPolicy: {
+      type: "object",
+      properties: {
+        enabled: { type: "boolean" },
+        scope: { type: "string", enum: ["global", "personal", "project", "agent", "session"] }
+      },
+      additionalProperties: false
+    },
+    instructions: { type: "string" },
+    history: { type: "array", items: { type: "object" } }
+  },
+  required: ["role", "responsibilities", "recurringActivities", "capabilities", "decisionAreas", "candidateWorkflows", "instructions", "history"],
+  additionalProperties: false
+};
 export const AGENT_DECISION_V1_KEY = "agent_decision_v1";
 export const AGENT_DECISION_V1_SCHEMA: Record<string, unknown> = {
   $id: "projectplaner:llm-json-schema:agent_decision_v1",

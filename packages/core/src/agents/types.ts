@@ -1,6 +1,7 @@
 export type AgentRunStatus = "queued" | "running" | "waiting" | "completed" | "failed" | "canceled";
 export type AgentHistoryType = "observation" | "decision" | "result" | "error" | "workflow";
 export type AgentKind = "assistant" | "specialist";
+export type AgentMemoryScope = "global" | "personal" | "project" | "agent" | "session";
 export interface AgentHistoryEntry {
     id: string;
     runId: string;
@@ -40,7 +41,7 @@ export interface AgentProfile {
     };
     contextPolicy: {
         graphEnabled: boolean;
-        memoryEnabled: false;
+        memoryEnabled: boolean;
         maxResults: number;
         maxContextTokens?: number;
     };
@@ -51,8 +52,8 @@ export interface AgentProfile {
         humanConfirmationDefault: boolean;
     };
     memoryPolicy: {
-        enabled: false;
-        scope: "project";
+        enabled: boolean;
+        scope: AgentMemoryScope;
     };
     history: AgentHistoryEntry[];
 }

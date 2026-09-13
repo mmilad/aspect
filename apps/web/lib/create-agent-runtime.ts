@@ -1,6 +1,6 @@
 import { DIRECT_AGENT_CAPABILITIES, DefaultAgentRuntime, parseAgentCompletion, type AgentProfile } from "@projectplaner/core";
 import { AGENT_DECISION_V1_SCHEMA } from "@projectplaner/core/workflow";
-import type { DatabaseController } from "@projectplaner/db";
+import { createConfiguredKnowledgeSearchProvider, type DatabaseController } from "@projectplaner/db";
 import generator from "@projectplaner/core/generator";
 
 const { chatCompletions } = generator.author;
@@ -9,6 +9,8 @@ export function createAgentRuntime(
   profile: AgentProfile, config: Parameters<typeof chatCompletions>[0],
   history: Array<{ role: "user" | "assistant"; content: string }> = []
 ) {
+  const knowledgeSearch = createConfiguredKnowledgeSearchProvider(projectKey);
+  const principalId = process.env.PROJECTPLANER_PRINCIPAL_ID?.trim();
   return new DefaultAgentRuntime(
     { get: async id => id === agentId ? profile : null, saveHistory: async () => undefined },
     {
@@ -22,16 +24,39 @@ export function createAgentRuntime(
       }
     },
     {
-      async getContext() {
+      async getContext(input) {
+        const memoryEnabled = profile.contextPolicy.memoryEnabled && profile.memoryPolicy.enabled && !!knowledgeSearch;
+        const limit = Math.min(profile.contextPolicy.maxResults, 20);
+        const graphLimit = memoryEnabled ? Math.ceil(limit / 2) : limit;
         const entities = profile.contextPolicy.graphEnabled
           ? await db.entities.list({ projectKey }) : [];
-        const sources = entities.slice(0, profile.contextPolicy.maxResults).map(item => ({
+        const graphSources = entities.slice(0, graphLimit).map(item => ({
           id: item.id, type: item.type, title: item.title, summary: item.summary
         }));
+        const memorySources = memoryEnabled && knowledgeSearch
+          ? (await knowledgeSearch({
+              datasetKey: process.env.PROJECTPLANER_KNOWLEDGE_DATASET ?? `project-${projectKey.toLowerCase()}`,
+              query: input.task,
+              topK: Math.max(1, limit - graphSources.length),
+              access: {
+                projectKey,
+                includeGlobal: true,
+                ...(principalId ? { principalId } : {}),
+                ...(profile.memoryPolicy.scope === "agent" ? { agentId } : {})
+              }
+            })).hits.map(hit => ({
+              id: `memory:${hit.id}`,
+              type: `memory:${hit.scope.kind}`,
+              title: hit.rawText.slice(0, 120),
+              summary: hit.rawText,
+              relevance: hit.score
+            }))
+          : [];
+        const sources = [...graphSources, ...memorySources].slice(0, limit);
         return {
           sources,
           text: sources.map(source => source.type + ': ' + source.title + ' - ' + (source.summary ?? '')).join('\n'),
-          truncated: entities.length > sources.length
+          truncated: entities.length > graphSources.length || memorySources.length >= Math.max(1, limit - graphSources.length)
         };
       }
     },

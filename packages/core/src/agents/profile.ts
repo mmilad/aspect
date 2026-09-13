@@ -1,5 +1,5 @@
 import type { JsonRecord } from "../domain/types";
-import type { AgentProfile } from "./types";
+import type { AgentMemoryScope, AgentProfile } from "./types";
 
 const object = (value: unknown): JsonRecord =>
   value && typeof value === "object" && !Array.isArray(value) ? value as JsonRecord : {};
@@ -9,6 +9,7 @@ const list = (value: unknown): string[] => Array.isArray(value)
 const bool = (value: unknown, fallback: boolean) => typeof value === "boolean" ? value : fallback;
 const integer = (value: unknown, fallback: number, minimum = 1) =>
   typeof value === "number" && Number.isSafeInteger(value) && value >= minimum ? value : fallback;
+const memoryScopes = new Set<AgentMemoryScope>(["global", "personal", "project", "agent", "session"]);
 
 export function parseAgentProfile(metadata: JsonRecord): AgentProfile {
   const raw = metadata.document === undefined ? metadata : object(metadata.document);
@@ -27,7 +28,7 @@ export function parseAgentProfile(metadata: JsonRecord): AgentProfile {
       workspaceId: typeof scope.workspaceId === "string" ? scope.workspaceId : undefined
     },
     contextPolicy: {
-      graphEnabled: bool(context.graphEnabled, true), memoryEnabled: false,
+      graphEnabled: bool(context.graphEnabled, true), memoryEnabled: bool(context.memoryEnabled, false),
       maxResults: integer(context.maxResults, 12),
       ...(context.maxContextTokens === undefined ? {} : { maxContextTokens: integer(context.maxContextTokens, 4096) })
     },
@@ -36,7 +37,12 @@ export function parseAgentProfile(metadata: JsonRecord): AgentProfile {
       canAskClarification: bool(runtime.canAskClarification, true),
       humanConfirmationDefault: bool(runtime.humanConfirmationDefault, false)
     },
-    memoryPolicy: { enabled: false, scope: "project" },
+    memoryPolicy: {
+      enabled: bool(object(raw.memoryPolicy).enabled, false),
+      scope: memoryScopes.has(object(raw.memoryPolicy).scope as AgentMemoryScope)
+        ? object(raw.memoryPolicy).scope as AgentMemoryScope
+        : "project"
+    },
     history: Array.isArray(raw.history) ? raw.history as AgentProfile["history"] : []
   };
 }

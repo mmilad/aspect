@@ -26,3 +26,16 @@ export type WorkflowFileReadResult = {
   truncated: boolean;
   encoding: "utf8";
 };
+
+export type WorkflowFileWriteInput = {
+  path: string;
+  content: string;
+  overwrite?: boolean;
+};
+
+export type WorkflowFileWriteResult = {
+  path: string;
+  bytes: number;
+  created: boolean;
+  overwritten: boolean;
+};

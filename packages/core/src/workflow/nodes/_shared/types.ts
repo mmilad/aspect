@@ -39,7 +39,8 @@ export const workflowWorkNodeTypes = [
   "knowledge_promote",
   "knowledge_index_project",
   "file_list",
-  "file_read"
+  "file_read",
+  "file_write"
 ] as const;
 
 export const workflowVariableNodeTypes = ["get", "set", "template"] as const;
@@ -217,6 +218,12 @@ export interface WorkflowFileListConfig {
 export interface WorkflowFileReadConfig {
   pathFrom?: string;
   maxBytesFrom?: string;
+}
+
+export interface WorkflowFileWriteConfig {
+  pathFrom?: string;
+  contentFrom?: string;
+  overwriteFrom?: string;
 }
 
 export const workflowLlmFormats = ["text", "json", "json_schema"] as const;
@@ -490,6 +497,7 @@ export interface WorkflowNodeData {
   knowledgeIndexProject?: WorkflowKnowledgeIndexProjectConfig;
   fileList?: WorkflowFileListConfig;
   fileRead?: WorkflowFileReadConfig;
+  fileWrite?: WorkflowFileWriteConfig;
   llm?: WorkflowLlmConfig;
   query?: WorkflowQueryConfig;
   write?: WorkflowWriteConfig;

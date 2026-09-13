@@ -44,6 +44,7 @@ describe("Assistant workflow policy", () => {
     await rejects({ type: "knowledge_ingest_text", data: { knowledgeIngestText: {} } }, "rejects write node 'knowledge_ingest_text'");
     await rejects({ type: "knowledge_promote", data: { knowledgePromote: {} } }, "rejects write node 'knowledge_promote'");
     await rejects({ type: "knowledge_index_project", data: { knowledgeIndexProject: {} } }, "rejects write node 'knowledge_index_project'");
+    await rejects({ type: "file_write", data: { fileWrite: {} } }, "rejects write node 'file_write'");
   });
 
   it("rejects generic external Tool nodes", async () => {

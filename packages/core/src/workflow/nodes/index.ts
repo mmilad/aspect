@@ -59,7 +59,8 @@ export type {
   WorkflowKnowledgeIngestConfig,
   WorkflowKnowledgePromoteConfig,
   WorkflowFileListConfig,
-  WorkflowFileReadConfig
+  WorkflowFileReadConfig,
+  WorkflowFileWriteConfig
 } from "./_shared/types";
 
 export {

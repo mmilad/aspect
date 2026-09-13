@@ -18,7 +18,7 @@ import planApi from "@projectplaner/core/plan-api";
 import query from "@projectplaner/core/query";
 import workflow from "@projectplaner/core/workflow";
 import type { Storage } from "../contracts/storage";
-import { listWorkspaceFiles, readWorkspaceFile } from "@projectplaner/workspace";
+import { listWorkspaceFiles, readWorkspaceFile, writeWorkspaceFile } from "@projectplaner/workspace";
 import { findSeededWorkflowPreset } from "../presets";
 import { rollupParentStatus } from "../rollup";
 import { entityStore } from "../contracts/storage";
@@ -155,6 +155,7 @@ export function createWorkflowAdapters(
     knowledgeIngestText,
     fileList: async (input) => listWorkspaceFiles(await resolveWorkspaceRoot(), input),
     fileRead: async (input) => readWorkspaceFile(await resolveWorkspaceRoot(), input),
+    fileWrite: async (input) => writeWorkspaceFile(await resolveWorkspaceRoot(), input),
     getEntity: async (id) => (await db.entities.get(id)),
     listEntities: async (listQuery: EntityListQuery, options) =>
       (await db.query.execute(compileListQuery({ ...listQuery, projectKey: listQuery.projectKey ?? projectKey }, options))),

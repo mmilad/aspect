@@ -41,7 +41,8 @@ export const CONFIG_KEYS = [
   "knowledgePromote",
   "knowledgeIndexProject",
   "fileList",
-  "fileRead"
+  "fileRead",
+  "fileWrite"
 ] as const;
 
 export type WorkflowConfigKey = (typeof CONFIG_KEYS)[number];

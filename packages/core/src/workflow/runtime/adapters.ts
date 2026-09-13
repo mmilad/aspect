@@ -16,7 +16,9 @@ import type {
   WorkflowFileListInput,
   WorkflowFileListResult,
   WorkflowFileReadInput,
-  WorkflowFileReadResult
+  WorkflowFileReadResult,
+  WorkflowFileWriteInput,
+  WorkflowFileWriteResult
 } from "../../files";
 
 export interface WorkflowMatch {
@@ -80,6 +82,8 @@ export interface WorkflowAdapters {
   /** Bounded read-only access to the current project's managed workspace. */
   fileList?: (input: WorkflowFileListInput) => Promise<WorkflowFileListResult> | WorkflowFileListResult;
   fileRead?: (input: WorkflowFileReadInput) => Promise<WorkflowFileReadResult> | WorkflowFileReadResult;
+  /** Explicitly authorized bounded write access to the current managed workspace. */
+  fileWrite?: (input: WorkflowFileWriteInput) => Promise<WorkflowFileWriteResult> | WorkflowFileWriteResult;
   loadContext?: (input: {
     query: string;
     types?: EntityType[];

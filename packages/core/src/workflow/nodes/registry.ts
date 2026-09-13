@@ -38,6 +38,7 @@ import { knowledgePromoteNode } from "./knowledge_promote/model";
 import { knowledgeIndexProjectNode } from "./knowledge_index_project/model";
 import { fileListNode } from "./file_list/model";
 import { fileReadNode } from "./file_read/model";
+import { fileWriteNode } from "./file_write/model";
 
 export const workflowNodeModels: Record<WorkflowNodeType, WorkflowNodeModel> = {
   start: startNode,
@@ -77,7 +78,8 @@ export const workflowNodeModels: Record<WorkflowNodeType, WorkflowNodeModel> = {
   knowledge_promote: knowledgePromoteNode,
   knowledge_index_project: knowledgeIndexProjectNode,
   file_list: fileListNode,
-  file_read: fileReadNode
+  file_read: fileReadNode,
+  file_write: fileWriteNode
 };
 
 export function getNodeModel(type: WorkflowNodeType): WorkflowNodeModel {

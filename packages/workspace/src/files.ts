@@ -1,11 +1,14 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import type {
   WorkflowFileEntry,
   WorkflowFileListInput,
   WorkflowFileListResult,
   WorkflowFileReadInput,
-  WorkflowFileReadResult
+  WorkflowFileReadResult,
+  WorkflowFileWriteInput,
+  WorkflowFileWriteResult
 } from "@projectplaner/core";
 import { WorkspaceError } from "./errors";
 
@@ -49,6 +52,39 @@ async function resolveExisting(root: string, requested: string): Promise<{ root:
     throw new WorkspaceError("invalid_input", "File path escapes the managed workspace.");
   }
   return { root: safeRoot, target: realTarget };
+}
+
+async function resolveWritable(root: string, requested: string): Promise<{ root: string; target: string; parent: string; exists: boolean }> {
+  if (requested.includes("\0") || path.isAbsolute(requested)) {
+    throw new WorkspaceError("invalid_input", "File paths must be relative to the managed workspace.");
+  }
+  const safeRoot = await realRoot(root);
+  const target = path.resolve(safeRoot, requested);
+  const lexical = path.relative(safeRoot, target);
+  if (!lexical || lexical === ".." || lexical.startsWith(`..${path.sep}`) || path.isAbsolute(lexical)) {
+    throw new WorkspaceError("invalid_input", "File path must point inside the managed workspace.");
+  }
+  const parent = path.dirname(target);
+  let realParent: string;
+  try {
+    realParent = await fs.realpath(parent);
+  } catch {
+    throw new WorkspaceError("not_found", `Workspace directory '${path.dirname(requested)}' was not found.`);
+  }
+  const realRelative = path.relative(safeRoot, realParent);
+  if (realRelative === ".." || realRelative.startsWith(`..${path.sep}`) || path.isAbsolute(realRelative)) {
+    throw new WorkspaceError("invalid_input", "File path escapes the managed workspace.");
+  }
+  try {
+    const stat = await fs.lstat(target);
+    if (stat.isSymbolicLink()) throw new WorkspaceError("invalid_input", "Writing through symbolic links is not allowed.");
+    if (stat.isDirectory()) throw new WorkspaceError("invalid_input", "File path points to a directory.");
+    return { root: safeRoot, target, parent, exists: true };
+  } catch (error) {
+    if (error instanceof WorkspaceError) throw error;
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return { root: safeRoot, target, parent, exists: false };
+    throw new WorkspaceError("inaccessible", "The target file could not be inspected.");
+  }
 }
 
 function boundedMax(value: unknown, fallback: number, maximum: number): number {
@@ -100,4 +136,27 @@ export async function readWorkspaceFile(root: string, input: WorkflowFileReadInp
     truncated,
     encoding: "utf8"
   };
+}
+
+export async function writeWorkspaceFile(root: string, input: WorkflowFileWriteInput): Promise<WorkflowFileWriteResult> {
+  const resolved = await resolveWritable(root, input.path);
+  if (resolved.exists && input.overwrite !== true) {
+    throw new WorkspaceError("conflict", `Workspace file '${input.path}' already exists; set overwrite=true to replace it.`);
+  }
+  const temporary = path.join(resolved.parent, `.${path.basename(resolved.target)}.projectplaner-${randomUUID()}.tmp`);
+  try {
+    await fs.writeFile(temporary, input.content, { encoding: "utf8", flag: "wx" });
+    if (resolved.exists) await fs.rm(resolved.target);
+    await fs.rename(temporary, resolved.target);
+    return {
+      path: relativePath(resolved.root, resolved.target),
+      bytes: Buffer.byteLength(input.content, "utf8"),
+      created: !resolved.exists,
+      overwritten: resolved.exists
+    };
+  } catch (error) {
+    await fs.rm(temporary, { force: true }).catch(() => undefined);
+    if (error instanceof WorkspaceError) throw error;
+    throw new WorkspaceError("inaccessible", "The workspace file could not be written.");
+  }
 }

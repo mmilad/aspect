@@ -125,8 +125,10 @@ adding a generic unrestricted tool:
 4. `knowledge_promote` — apply an explicit, create-only promotion decision
    (`candidate`, `durable`, or `ignore`) with provenance; it requires caller
    confirmation and never silently overwrites or supersedes facts.
-5. `file_list`, `file_read`, and later `file_write` — explicit filesystem
-   operations with a configured workspace root and policy checks.
+5. `file_list`, `file_read`, and `file_write` — explicit filesystem operations
+   with a configured workspace root and policy checks. `file_write` is
+   specialist-only, requires an explicit overwrite flag for replacement, and
+   is rejected by the read-only Assistant policy.
 
 The Assistant can use the read-only operations and can delegate ingestion,
 promotion, or file mutation to a registered specialist. It never writes the
@@ -221,7 +223,9 @@ can explain the source and confidence of retrieved facts.
 - Add a “remember this” path that asks for clarification or delegates promotion
   rather than silently persisting every statement.
 - Add file discovery/read workflows under a configured workspace root.
-- Add file writes only after explicit authorization and specialist delegation.
+- Keep file writes behind explicit authorization and specialist delegation;
+  the generic `file_write` node now enforces the bounded workspace adapter
+  contract, while Assistant turns remain unable to execute it directly.
 - Extend Assistant evaluations for grounding, scope isolation, provenance, and
   confirmed filesystem outcomes.
 

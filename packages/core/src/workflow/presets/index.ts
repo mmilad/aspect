@@ -35,6 +35,8 @@ import { knowledgeRegisterDatasetGraph } from "./knowledge_register_dataset/grap
 import { knowledgeRegisterDatasetPreset } from "./knowledge_register_dataset/preset";
 import { knowledgeRememberGraph } from "./knowledge_remember/graph";
 import { knowledgeRememberPreset } from "./knowledge_remember/preset";
+import { fileListGraph, fileReadGraph, fileWriteGraph } from "./file_operations/graphs";
+import { fileListPreset, fileReadPreset, fileWritePreset } from "./file_operations/presets";
 import {
   workflowPresetKinds,
   type WorkflowPreset,
@@ -98,6 +100,8 @@ export { knowledgeRegisterDatasetGraph } from "./knowledge_register_dataset/grap
 export { knowledgeRegisterDatasetPreset } from "./knowledge_register_dataset/preset";
 export { knowledgeRememberGraph } from "./knowledge_remember/graph";
 export { knowledgeRememberPreset } from "./knowledge_remember/preset";
+export { fileListGraph, fileReadGraph, fileWriteGraph } from "./file_operations/graphs";
+export { fileListPreset, fileReadPreset, fileWritePreset } from "./file_operations/presets";
 
 /** Seeded packs: mutation/rollup plus the pin-variable proof graph. */
 export function listWorkflowPresets(): WorkflowPreset[] {
@@ -117,7 +121,10 @@ export function listWorkflowPresets(): WorkflowPreset[] {
     knowledgeIndexProjectPreset,
     knowledgePromotePreset,
     knowledgeRegisterDatasetPreset,
-    knowledgeRememberPreset
+    knowledgeRememberPreset,
+    fileListPreset,
+    fileReadPreset,
+    fileWritePreset
   ];
 }
 
@@ -203,6 +210,9 @@ const presets = {
   knowledgeIndexProjectGraph,
   knowledgePromoteGraph,
   knowledgeRememberGraph,
+  fileListGraph,
+  fileReadGraph,
+  fileWriteGraph,
   authorWorkflowPreset,
   createStepPreset,
   createWorkflowPreset,
@@ -220,7 +230,10 @@ const presets = {
   knowledgeRetrievePreset,
   knowledgeIndexProjectPreset,
   knowledgePromotePreset,
-  knowledgeRememberPreset
+  knowledgeRememberPreset,
+  fileListPreset,
+  fileReadPreset,
+  fileWritePreset
 };
 
 export default presets;

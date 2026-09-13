@@ -56,7 +56,7 @@ export function parseAssistantRoute(value: unknown): AssistantRoute | null {
   if (runId) result.runId = runId;
   if (message) result.message = message;
   if (lookupKind) {
-    if (!["agents", "agent", "entities", "entity", "workflows", "neighborhood", "knowledge"].includes(lookupKind)) return null;
+    if (!["agents", "agent", "entities", "entity", "workflows", "neighborhood", "knowledge", "files", "file"].includes(lookupKind)) return null;
     result.lookupKind = lookupKind;
     if (lookupQuery) result.lookupQuery = lookupQuery;
     if (lookupId) result.lookupId = lookupId;
@@ -67,6 +67,7 @@ export function parseAssistantRoute(value: unknown): AssistantRoute | null {
   if (route === "retrieve" && lookupKind && ["agent", "entity", "neighborhood"].includes(lookupKind) && !lookupId) return null;
   if (route === "retrieve" && lookupKind === "entities" && !lookupQuery) return null;
   if (route === "retrieve" && lookupKind === "knowledge" && !lookupQuery) return null;
+  if (route === "retrieve" && lookupKind === "file" && !lookupId) return null;
   if (route === "delegate" && (!agentId || !task)) return null;
   if (route === "resume" && (!runId || !message)) return null;
   return result;

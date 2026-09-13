@@ -10,6 +10,7 @@ describe("Assistant role manifest", () => {
     });
     expect(ASSISTANT_ROLE_MANIFEST.capabilities).toEqual(expect.arrayContaining([
       "read_project_context",
+      "read_managed_workspace_files",
       "inspect_active_agents",
       "ask_focused_questions",
       "delegate_to_registered_specialists",

@@ -58,7 +58,7 @@ describe("assistant_turn preset", () => {
     const parsed = parseWorkflowGraph(assistantTurnGraph);
     expect(parsed.ok, parsed.ok ? "" : parsed.errors.join("; ")).toBe(true);
     expect(assistantTurnPreset.presetKey).toBe("assistant_turn");
-    expect(assistantTurnPreset.presetVersion).toBe(9);
+    expect(assistantTurnPreset.presetVersion).toBe(10);
 
     const decisionPrompt = String(assistantTurnGraph.nodes.find((node) => node.id === "llm_decide")?.data.llm?.systemPrompt);
     const replyPrompt = String(assistantTurnGraph.nodes.find((node) => node.id === "llm_reply")?.data.llm?.systemPrompt);
@@ -71,7 +71,7 @@ describe("assistant_turn preset", () => {
     const ids = assistantTurnGraph.nodes.map((node) => `${node.id}:${node.type}`);
     expect(ids).toEqual(expect.arrayContaining([
       "session_read:assistant_session", "llm_context:llm", "llm_decide:llm", "break_decision:break",
-      "decision_switch:switch", "lookup_switch:switch", "list_agents:query", "delegate:delegate", "llm_reply:llm"
+      "decision_switch:switch", "lookup_switch:switch", "list_agents:query", "list_files:file_list", "read_file:file_read", "delegate:delegate", "llm_reply:llm"
     ]));
     expect(assistantTurnGraph.edges).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: "e_context_agents", source: "llm_context", target: "list_agents", kind: "next" }),
@@ -104,6 +104,30 @@ describe("assistant_turn preset", () => {
     expect(result.kind).toBe("pending_llm");
     expect(result.nodeId).toBe("llm_decide");
     expect(result.bag.frame?.pins["list_agents::entities"]).toBeDefined();
+  });
+
+  it("routes bounded workspace file lookups through read-only file nodes", async () => {
+    const { graph, result: decision } = await reachDecision();
+    const fileList = async (input: { path?: string }) => {
+      expect(input).toEqual({ path: "src" });
+      return { entries: [{ path: "src/app.ts", kind: "file" as const, bytes: 12 }] };
+    };
+    let result = await stepWorkflow({
+      graph,
+      bag: decision.bag,
+      llmWrites: {
+        decision: {
+          route: "retrieve", reason: "Need the workspace files", question: null,
+          lookup: { kind: "files", query: "src", id: null }, lookupKind: "files", lookupQuery: "src", lookupId: null,
+          agentId: null, task: null, runId: null, message: null
+        }
+      },
+      adapters: { fileList }
+    });
+    result = await runWorkflowUntilPause({ graph, bag: result.bag, adapters: { fileList } });
+    expect(result.kind).toBe("pending_llm");
+    expect(result.nodeId).toBe("llm_decide");
+    expect(result.bag.frame?.pins["list_files::entries"]).toEqual([{ path: "src/app.ts", kind: "file", bytes: 12 }]);
   });
 
   it("supports a grounded clarification branch", async () => {

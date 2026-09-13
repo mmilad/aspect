@@ -9,6 +9,8 @@ describe("assistant route parser", () => {
     { route: "clarify", question: "Which project?" },
     { route: "retrieve", lookupKind: "agents" },
     { route: "retrieve", lookupKind: "knowledge", lookupQuery: "release target" },
+    { route: "retrieve", lookupKind: "files", lookupQuery: "src" },
+    { route: "retrieve", lookupKind: "file", lookupId: "README.md" },
     { route: "delegate", agentId: "agent_coding", task: "Inspect the build" },
     { route: "resume", runId: "run_123", message: "Here is the answer" }
   ])("accepts $route", value => {

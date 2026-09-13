@@ -9,6 +9,7 @@ export const ASSISTANT_ROLE_MANIFEST = Object.freeze({
   purpose: "A direct, truthful project assistant that gathers context and coordinates registered specialists.",
   capabilities: Object.freeze([
     "read_project_context",
+    "read_managed_workspace_files",
     "inspect_active_agents",
     "ask_focused_questions",
     "delegate_to_registered_specialists",
@@ -24,7 +25,8 @@ export const ASSISTANT_ROLE_MANIFEST = Object.freeze({
     "durable_context_pack",
     "read_query_results",
     "workflow_results",
-    "confirmed_delegation_results"
+    "confirmed_delegation_results",
+    "bounded_file_results"
   ])
 } as const);
 

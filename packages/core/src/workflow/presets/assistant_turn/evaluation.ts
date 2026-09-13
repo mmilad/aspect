@@ -63,7 +63,7 @@ export function assistantDecisionFixture(input: {
   route: "reply" | "clarify" | "retrieve" | "delegate" | "resume";
   reason: string;
   question?: string;
-  lookupKind?: "agents" | "agent" | "entities" | "entity" | "workflows" | "neighborhood" | "knowledge";
+  lookupKind?: "agents" | "agent" | "entities" | "entity" | "workflows" | "neighborhood" | "knowledge" | "files" | "file";
   lookupQuery?: string;
   lookupId?: string;
   agentId?: string;

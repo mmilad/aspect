@@ -81,6 +81,7 @@ describe("assistant_turn preset", () => {
     expect(assistantTurnGraph.edges).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: "d_break_dataset_knowledge", source: "break_decision", target: "search_knowledge", targetPin: "datasetKey", kind: "data" })
     ]));
+    expect(assistantTurnGraph.nodes.find((node) => node.id === "search_knowledge")?.data.inputs?.access).toEqual({ required: false, shape: { kind: "any" } });
 
     const decisionBreak = parsed.ok ? parsed.graph.nodes.find((node) => node.id === "break_decision") : undefined;
     expect(decisionBreak?.data.outputContracts?.route?.shape).toEqual({ kind: "primitive", type: "string" });

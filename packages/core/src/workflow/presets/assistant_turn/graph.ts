@@ -54,7 +54,8 @@ function knowledgeNode(): WorkflowNode {
       title: "Search project knowledge",
       inputs: {
         datasetKey: { required: false, shape: STRING },
-        query: { required: true, shape: STRING }
+        query: { required: true, shape: STRING },
+        access: { required: false, shape: ANY }
       },
       outputContracts: {
         hits: { required: true, shape: arrayOf(ANY) },

@@ -30,9 +30,12 @@ The split described above is now implemented across the two repositories:
 - `pnpm db:migrate-postgres` copies SQLite projects, entities, relations,
   sessions, agent runs, workflow definitions/runs, schemas, tags, and workspace
   records while preserving IDs and timestamps.
-- Projectplaner exposes typed `knowledge_search`, `knowledge_get`, and
-  `knowledge_ingest` workflow nodes. These call CortexDB through a small HTTP
-  adapter; the Assistant receives only scoped read results through workflows.
+- Projectplaner exposes typed `knowledge_search`, `knowledge_get`,
+  `knowledge_ingest`, and `knowledge_ingest_text` workflow nodes. The seeded
+  `knowledge_retrieve` preset provides a reusable read-only search graph, while
+  `knowledge_capture` provides the corresponding text-ingest graph. These call
+  CortexDB through a small HTTP adapter; the Assistant receives only scoped
+  read results through workflows.
 - CortexDB owns embedding-provider selection, vector storage, hybrid search,
   scope filtering, and its optional Postgres/pgvector backend. Projectplaner
   does not construct or store embedding vectors.

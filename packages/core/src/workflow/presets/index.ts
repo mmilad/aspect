@@ -23,6 +23,8 @@ import { knowledgeCaptureGraph } from "./knowledge_capture/graph";
 import { knowledgeCapturePreset } from "./knowledge_capture/preset";
 import { knowledgeClassifyGraph } from "./knowledge_classify/graph";
 import { knowledgeClassifyPreset } from "./knowledge_classify/preset";
+import { knowledgeRetrieveGraph } from "./knowledge_retrieve/graph";
+import { knowledgeRetrievePreset } from "./knowledge_retrieve/preset";
 import {
   workflowPresetKinds,
   type WorkflowPreset,
@@ -74,6 +76,8 @@ export { knowledgeCaptureGraph } from "./knowledge_capture/graph";
 export { knowledgeCapturePreset } from "./knowledge_capture/preset";
 export { knowledgeClassifyGraph } from "./knowledge_classify/graph";
 export { knowledgeClassifyPreset } from "./knowledge_classify/preset";
+export { knowledgeRetrieveGraph } from "./knowledge_retrieve/graph";
+export { knowledgeRetrievePreset } from "./knowledge_retrieve/preset";
 
 /** Seeded packs: mutation/rollup plus the pin-variable proof graph. */
 export function listWorkflowPresets(): WorkflowPreset[] {
@@ -87,7 +91,8 @@ export function listWorkflowPresets(): WorkflowPreset[] {
     assistantTurnPreset,
     recruitAgentPreset,
     knowledgeCapturePreset,
-    knowledgeClassifyPreset
+    knowledgeClassifyPreset,
+    knowledgeRetrievePreset
   ];
 }
 
@@ -168,6 +173,7 @@ const presets = {
   recruitAgentGraph,
   knowledgeCaptureGraph,
   knowledgeClassifyGraph,
+  knowledgeRetrieveGraph,
   authorWorkflowPreset,
   createStepPreset,
   createWorkflowPreset,
@@ -180,7 +186,8 @@ const presets = {
   assistantTurnPreset,
   recruitAgentPreset,
   knowledgeCapturePreset,
-  knowledgeClassifyPreset
+  knowledgeClassifyPreset,
+  knowledgeRetrievePreset
 };
 
 export default presets;

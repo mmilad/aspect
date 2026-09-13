@@ -1,12 +1,12 @@
 import { WORKFLOW_SCHEMA_VERSION, type BagShape } from "../../nodes";
 import type { WorkflowGraph } from "../../graph";
 import { identityBindings } from "../bindings";
+import { KNOWLEDGE_HITS_SHAPE } from "../../nodes/knowledge_search/shapes";
 
 const STRING: BagShape = { kind: "primitive", type: "string" };
 const NUMBER: BagShape = { kind: "primitive", type: "number" };
 const ANY: BagShape = { kind: "any" };
 const NULLABLE_STRING: BagShape = { kind: "union", options: [STRING, { kind: "primitive", type: "null" }] };
-const HITS: BagShape = { kind: "array", items: ANY };
 const inputKeys = ["datasetKey", "query", "topK", "keywordQuery", "metadataFilters", "vectorWeight", "access"];
 
 export const knowledgeRetrieveGraph: WorkflowGraph = {
@@ -19,7 +19,7 @@ export const knowledgeRetrieveGraph: WorkflowGraph = {
     { name: "metadataFilters", role: "input", shape: ANY, required: false },
     { name: "vectorWeight", role: "input", shape: NUMBER, required: false },
     { name: "access", role: "input", shape: ANY, required: false },
-    { name: "hits", role: "output", shape: HITS, required: true },
+    { name: "hits", role: "output", shape: KNOWLEDGE_HITS_SHAPE, required: true },
     { name: "searchQuery", role: "output", shape: STRING, required: true },
     { name: "embeddingModel", role: "output", shape: NULLABLE_STRING, required: true },
     { name: "totalSearched", role: "output", shape: NUMBER, required: true },
@@ -61,7 +61,7 @@ export const knowledgeRetrieveGraph: WorkflowGraph = {
           access: { required: false, shape: ANY }
         },
         outputContracts: {
-          hits: { required: true, shape: HITS },
+          hits: { required: true, shape: KNOWLEDGE_HITS_SHAPE },
           query: { required: true, shape: STRING },
           embeddingModel: { required: true, shape: NULLABLE_STRING },
           totalSearched: { required: true, shape: NUMBER },

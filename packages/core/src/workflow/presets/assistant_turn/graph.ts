@@ -2,6 +2,7 @@ import { ASSISTANT_CONTEXT_V2_KEY, ASSISTANT_ROUTE_V1_KEY } from "../../llm/llm-
 import { serializeAssistantRoleManifest } from "../../../assistant";
 import { WORKFLOW_SCHEMA_VERSION, type BagShape, type WorkflowNode, type WorkflowQueryConfig } from "../../nodes";
 import { KNOWLEDGE_CATALOG_DATASETS_SHAPE, KNOWLEDGE_CATALOG_TOOLS_SHAPE } from "../../nodes/knowledge_context_index/shapes";
+import { KNOWLEDGE_HITS_SHAPE } from "../../nodes/knowledge_search/shapes";
 import type { WorkflowEdge, WorkflowGraph } from "../../graph";
 
 const STRING: BagShape = { kind: "primitive", type: "string" };
@@ -58,7 +59,7 @@ function knowledgeNode(): WorkflowNode {
         access: { required: false, shape: ANY }
       },
       outputContracts: {
-        hits: { required: true, shape: arrayOf(ANY) },
+        hits: { required: true, shape: KNOWLEDGE_HITS_SHAPE },
         query: { required: true, shape: STRING },
         embeddingModel: { required: true, shape: nullable(STRING) },
         totalSearched: { required: true, shape: NUMBER },
@@ -209,7 +210,7 @@ export const assistantTurnGraph: WorkflowGraph = {
       title: "Assistant decision", executionPolicy: { maxVisits: 5, onExhausted: "fail_run" },
       inputs: {
         contextPack: { required: true, shape: CONTEXT_PACK }, message: { required: true, shape: STRING }, pendingDelegation: { required: false, shape: ANY }, knowledgeDataset: { required: false, shape: STRING },
-        agentFacts: { required: false, shape: ANY }, agentFact: { required: false, shape: ANY }, entityMatches: { required: false, shape: ANY }, entityFact: { required: false, shape: ANY }, workflowFacts: { required: false, shape: ANY }, neighborhoodEntities: { required: false, shape: ANY }, neighborhoodRelations: { required: false, shape: ANY }, fileEntries: { required: false, shape: FILE_ENTRIES }, filePath: { required: false, shape: STRING }, fileContent: { required: false, shape: STRING }, knowledgeCatalog: { required: false, shape: KNOWLEDGE_CATALOG_DATASETS_SHAPE }, knowledgeTools: { required: false, shape: KNOWLEDGE_CATALOG_TOOLS_SHAPE }, knowledgeUsageHint: { required: false, shape: STRING }, knowledgeHits: { required: false, shape: arrayOf(ANY) }, delegation: { required: false, shape: ANY }
+        agentFacts: { required: false, shape: ANY }, agentFact: { required: false, shape: ANY }, entityMatches: { required: false, shape: ANY }, entityFact: { required: false, shape: ANY }, workflowFacts: { required: false, shape: ANY }, neighborhoodEntities: { required: false, shape: ANY }, neighborhoodRelations: { required: false, shape: ANY }, fileEntries: { required: false, shape: FILE_ENTRIES }, filePath: { required: false, shape: STRING }, fileContent: { required: false, shape: STRING }, knowledgeCatalog: { required: false, shape: KNOWLEDGE_CATALOG_DATASETS_SHAPE }, knowledgeTools: { required: false, shape: KNOWLEDGE_CATALOG_TOOLS_SHAPE }, knowledgeUsageHint: { required: false, shape: STRING }, knowledgeHits: { required: false, shape: KNOWLEDGE_HITS_SHAPE }, delegation: { required: false, shape: ANY }
       },
       outputContracts: { decision: { required: true, shape: ROUTE } },
       llm: { schemaKey: ASSISTANT_ROUTE_V1_KEY, outputSchema: ["decision"], systemPrompt: DECISION_SYSTEM, instructions: DECISION_INSTRUCTIONS }
@@ -223,7 +224,7 @@ export const assistantTurnGraph: WorkflowGraph = {
       title: "Generate grounded answer",
       inputs: {
         route: { required: true, shape: STRING }, reason: { required: true, shape: STRING }, question: { required: false, shape: nullable(STRING) }, contextPack: { required: true, shape: CONTEXT_PACK }, message: { required: true, shape: STRING },
-        agentFacts: { required: false, shape: ANY }, agentFact: { required: false, shape: ANY }, entityMatches: { required: false, shape: ANY }, entityFact: { required: false, shape: ANY }, workflowFacts: { required: false, shape: ANY }, neighborhoodEntities: { required: false, shape: ANY }, neighborhoodRelations: { required: false, shape: ANY }, fileEntries: { required: false, shape: FILE_ENTRIES }, filePath: { required: false, shape: STRING }, fileContent: { required: false, shape: STRING }, knowledgeCatalog: { required: false, shape: KNOWLEDGE_CATALOG_DATASETS_SHAPE }, knowledgeTools: { required: false, shape: KNOWLEDGE_CATALOG_TOOLS_SHAPE }, knowledgeUsageHint: { required: false, shape: STRING }, knowledgeHits: { required: false, shape: arrayOf(ANY) }, delegation: { required: false, shape: ANY }, delegationStatus: { required: false, shape: STRING }, delegationQuestion: { required: false, shape: ANY }, delegationError: { required: false, shape: ANY }
+        agentFacts: { required: false, shape: ANY }, agentFact: { required: false, shape: ANY }, entityMatches: { required: false, shape: ANY }, entityFact: { required: false, shape: ANY }, workflowFacts: { required: false, shape: ANY }, neighborhoodEntities: { required: false, shape: ANY }, neighborhoodRelations: { required: false, shape: ANY }, fileEntries: { required: false, shape: FILE_ENTRIES }, filePath: { required: false, shape: STRING }, fileContent: { required: false, shape: STRING }, knowledgeCatalog: { required: false, shape: KNOWLEDGE_CATALOG_DATASETS_SHAPE }, knowledgeTools: { required: false, shape: KNOWLEDGE_CATALOG_TOOLS_SHAPE }, knowledgeUsageHint: { required: false, shape: STRING }, knowledgeHits: { required: false, shape: KNOWLEDGE_HITS_SHAPE }, delegation: { required: false, shape: ANY }, delegationStatus: { required: false, shape: STRING }, delegationQuestion: { required: false, shape: ANY }, delegationError: { required: false, shape: ANY }
       },
       outputContracts: { reply: { required: true, shape: STRING } }, llm: { format: "text", outputSchema: ["reply"], systemPrompt: REPLY_SYSTEM, instructions: REPLY_INSTRUCTIONS }
     } },

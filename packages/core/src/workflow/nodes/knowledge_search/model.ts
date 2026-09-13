@@ -2,12 +2,12 @@ import type { WorkflowNodeModel } from "../_shared/model";
 import type { BagShape } from "../_shared/types";
 import { executeKnowledgeSearch } from "./execute";
 import { parseKnowledgeSearchNodeConfig } from "./schema";
+import { KNOWLEDGE_HITS_SHAPE } from "./shapes";
 
 const STRING: BagShape = { kind: "primitive", type: "string" };
 const NUMBER: BagShape = { kind: "primitive", type: "number" };
 const NULLABLE_STRING: BagShape = { kind: "union", options: [STRING, { kind: "primitive", type: "null" }] };
 const ANY: BagShape = { kind: "any" };
-const HITS: BagShape = { kind: "array", items: { kind: "ref", ref: "Json" } };
 
 export const knowledgeSearchNode: WorkflowNodeModel = {
   type: "knowledge_search",
@@ -27,7 +27,7 @@ export const knowledgeSearchNode: WorkflowNodeModel = {
       access: { required: false, shape: ANY }
     },
     outputContracts: {
-      hits: { required: true, shape: HITS },
+      hits: { required: true, shape: KNOWLEDGE_HITS_SHAPE },
       query: { required: true, shape: STRING },
       embeddingModel: { required: true, shape: NULLABLE_STRING },
       totalSearched: { required: true, shape: NUMBER },

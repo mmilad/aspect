@@ -21,7 +21,7 @@ function ingestNode(): WorkflowNode {
         text: { required: true, shape: STRING },
         ingestionId: { required: false, shape: STRING },
         metadata: { required: false, shape: ANY },
-        scope: { required: false, shape: ANY }
+        scope: { required: true, shape: ANY }
       },
       outputContracts: {
         ingested: { required: true, shape: NUMBER },
@@ -40,7 +40,7 @@ export const knowledgeCaptureGraph: WorkflowGraph = {
     { name: "rawText", role: "input", shape: STRING, required: true },
     { name: "itemId", role: "input", shape: STRING, required: false },
     { name: "metadata", role: "input", shape: ANY, required: false },
-    { name: "scope", role: "input", shape: ANY, required: false },
+    { name: "scope", role: "input", shape: ANY, required: true },
     { name: "ingested", role: "output", shape: NUMBER, required: true },
     { name: "ids", role: "output", shape: STRING_ARRAY, required: true },
     { name: "embeddingModel", role: "output", shape: NULLABLE_STRING, required: true }
@@ -59,7 +59,7 @@ export const knowledgeCaptureGraph: WorkflowGraph = {
           rawText: { required: true, shape: STRING },
           itemId: { required: false, shape: STRING },
           metadata: { required: false, shape: ANY },
-          scope: { required: false, shape: ANY }
+          scope: { required: true, shape: ANY }
         }
       }
     },

@@ -21,7 +21,7 @@ export const knowledgeIngestNode: WorkflowNodeModel = {
       rawText: { required: true, shape: STRING },
       itemId: { required: false, shape: STRING },
       metadata: { required: false, shape: { kind: "any" } },
-      scope: { required: false, shape: { kind: "any" } }
+      scope: { required: true, shape: { kind: "any" } }
     },
     outputContracts: {
       ingested: { required: true, shape: NUMBER },

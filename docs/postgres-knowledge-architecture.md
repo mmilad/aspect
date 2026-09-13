@@ -155,8 +155,9 @@ adding a generic unrestricted tool:
    before ingest or retrieval can use a new dataset.
 2. `knowledge_search` — read-only, scoped hybrid retrieval.
 3. `knowledge_get` — read-only retrieval of a selected item and provenance.
-4. `knowledge_ingest` — write a raw source/chunk, allowed only to specialist
-   workflows or an explicit user-authorized file/session flow.
+4. `knowledge_ingest` — write a raw source/chunk with an explicit ownership
+   scope (`global`, `personal`, `project`, `agent`, or `session`), allowed only
+   to specialist workflows or an explicit user-authorized file/session flow.
 5. `knowledge_promote` — apply an explicit, create-only promotion decision
    (`candidate`, `durable`, or `ignore`) with provenance; it requires caller
    confirmation and never silently overwrites or supersedes facts.

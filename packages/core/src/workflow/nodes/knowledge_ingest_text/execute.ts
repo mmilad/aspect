@@ -1,4 +1,4 @@
-import type { KnowledgeIngestTextInput, KnowledgeScope } from "../../../knowledge";
+import { knowledgeScopeError, type KnowledgeIngestTextInput, type KnowledgeScope } from "../../../knowledge";
 import type { NodeExecuteContext, WorkflowStepResult } from "../../runtime/types";
 
 function requiredString(value: unknown): string | undefined {
@@ -33,8 +33,10 @@ export async function executeKnowledgeIngestText(ctx: NodeExecuteContext): Promi
   const metadata = rawMetadata === undefined || rawMetadata === null ? undefined : recordValue(rawMetadata);
   if (rawMetadata !== undefined && rawMetadata !== null && !metadata) return ctx.fail(`Knowledge text ingest ${ctx.node.id}: metadata must be an object.`);
   const rawScope = ctx.read(config.scopeFrom ?? "scope");
+  if (rawScope === undefined || rawScope === null) return ctx.fail(`Knowledge text ingest ${ctx.node.id}: an explicit scope is required.`);
   const scope = rawScope === undefined || rawScope === null ? undefined : recordValue(rawScope) as KnowledgeScope | undefined;
-  if (rawScope !== undefined && rawScope !== null && !scope) return ctx.fail(`Knowledge text ingest ${ctx.node.id}: scope must be an object.`);
+  const scopeError = knowledgeScopeError(scope);
+  if (scopeError) return ctx.fail(`Knowledge text ingest ${ctx.node.id}: ${scopeError}`);
 
   try {
     const ingestionId = requiredString(ctx.read(config.ingestionIdFrom ?? "ingestionId"));
@@ -54,7 +56,7 @@ export async function executeKnowledgeIngestText(ctx: NodeExecuteContext): Promi
       datasetKey,
       text,
       ...(metadata ? { metadata } : {}),
-      ...(scope ? { scope } : {}),
+      scope,
       ...(ingestionId ? { ingestionId } : {}),
       ...(processorStrategy ? { processorStrategy } : {}),
       ...(extractPrimitives === undefined ? {} : { extractPrimitives }),

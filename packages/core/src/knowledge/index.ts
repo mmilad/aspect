@@ -18,3 +18,5 @@ export type {
   KnowledgeSearchInput,
   KnowledgeSearchResult
 } from "./types";
+
+export { knowledgeScopeError, parseKnowledgeScope } from "./scope";

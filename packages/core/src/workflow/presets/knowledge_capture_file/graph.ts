@@ -46,7 +46,7 @@ function ingestNode(): WorkflowNode {
         text: { required: true, shape: STRING },
         ingestionId: { required: false, shape: STRING },
         metadata: { required: false, shape: ANY },
-        scope: { required: false, shape: ANY }
+        scope: { required: true, shape: ANY }
       },
       outputContracts: {
         ingested: { required: true, shape: NUMBER },
@@ -65,7 +65,7 @@ export const knowledgeCaptureFileGraph: WorkflowGraph = {
     { name: "filePath", role: "input", shape: STRING, required: true },
     { name: "ingestionId", role: "input", shape: STRING, required: false },
     { name: "metadata", role: "input", shape: ANY, required: false },
-    { name: "scope", role: "input", shape: ANY, required: false },
+    { name: "scope", role: "input", shape: ANY, required: true },
     { name: "maxBytes", role: "input", shape: NUMBER, required: false },
     { name: "sourcePath", role: "output", shape: STRING, required: true },
     { name: "sourceBytes", role: "output", shape: NUMBER, required: true },
@@ -88,7 +88,7 @@ export const knowledgeCaptureFileGraph: WorkflowGraph = {
           filePath: { required: true, shape: STRING },
           ingestionId: { required: false, shape: STRING },
           metadata: { required: false, shape: ANY },
-          scope: { required: false, shape: ANY },
+          scope: { required: true, shape: ANY },
           maxBytes: { required: false, shape: NUMBER }
         }
       }

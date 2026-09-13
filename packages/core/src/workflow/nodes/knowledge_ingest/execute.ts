@@ -1,4 +1,4 @@
-import type { KnowledgeIngestInput, KnowledgeScope } from "../../../knowledge";
+import { knowledgeScopeError, type KnowledgeIngestInput, type KnowledgeScope } from "../../../knowledge";
 import type { NodeExecuteContext, WorkflowStepResult } from "../../runtime/types";
 
 function requiredString(value: unknown): string | undefined {
@@ -26,10 +26,12 @@ export async function executeKnowledgeIngest(ctx: NodeExecuteContext): Promise<W
     return ctx.fail(`Knowledge ingest ${ctx.node.id}: metadata must be an object when provided.`);
   }
   const rawScope = ctx.read(config.scopeFrom ?? "scope");
-  const scope = rawScope === undefined || rawScope === null ? undefined : recordValue(rawScope) as KnowledgeScope | undefined;
-  if (rawScope !== undefined && rawScope !== null && !scope) {
-    return ctx.fail(`Knowledge ingest ${ctx.node.id}: scope must be an object when provided.`);
+  if (rawScope === undefined || rawScope === null) {
+    return ctx.fail(`Knowledge ingest ${ctx.node.id}: an explicit scope is required.`);
   }
+  const scope = rawScope === undefined || rawScope === null ? undefined : recordValue(rawScope) as KnowledgeScope | undefined;
+  const scopeError = knowledgeScopeError(scope);
+  if (scopeError) return ctx.fail(`Knowledge ingest ${ctx.node.id}: ${scopeError}`);
   const itemId = requiredString(ctx.read(config.itemIdFrom ?? "itemId"));
   const input: KnowledgeIngestInput = {
     datasetKey,
@@ -37,7 +39,7 @@ export async function executeKnowledgeIngest(ctx: NodeExecuteContext): Promise<W
       ...(itemId ? { id: itemId } : {}),
       rawText,
       ...(metadata ? { metadata } : {}),
-      ...(scope ? { scope } : {})
+      scope
     }]
   };
   try {

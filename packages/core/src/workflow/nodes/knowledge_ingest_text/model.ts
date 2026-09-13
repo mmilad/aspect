@@ -21,7 +21,7 @@ export const knowledgeIngestTextNode: WorkflowNodeModel = {
       datasetKey: { required: true, shape: STRING },
       text: { required: true, shape: STRING },
       metadata: { required: false, shape: { kind: "any" } },
-      scope: { required: false, shape: { kind: "any" } },
+      scope: { required: true, shape: { kind: "any" } },
       maxChars: { required: false, shape: NUMBER },
       overlapChars: { required: false, shape: NUMBER },
       ingestionId: { required: false, shape: STRING },

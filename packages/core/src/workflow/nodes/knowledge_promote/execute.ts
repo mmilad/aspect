@@ -1,4 +1,4 @@
-import type { KnowledgeIngestTextInput, KnowledgeScope } from "../../../knowledge";
+import { knowledgeScopeError, type KnowledgeIngestTextInput, type KnowledgeScope } from "../../../knowledge";
 import type { NodeExecuteContext, WorkflowStepResult } from "../../runtime/types";
 
 function requiredString(value: unknown): string | undefined {
@@ -9,31 +9,6 @@ function recordValue(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown>
     : undefined;
-}
-
-function validateScope(scope: KnowledgeScope): string | undefined {
-  if (scope.kind === "global") return undefined;
-  const ownerKey = scope.kind === "personal"
-    ? "ownerId"
-    : scope.kind === "project"
-      ? "projectKey"
-      : scope.kind === "agent"
-        ? "agentId"
-        : scope.kind === "session"
-          ? "sessionId"
-          : undefined;
-  const ownerValue = scope.kind === "personal"
-    ? scope.ownerId
-    : scope.kind === "project"
-      ? scope.projectKey
-      : scope.kind === "agent"
-        ? scope.agentId
-        : scope.kind === "session"
-          ? scope.sessionId
-          : undefined;
-  if (!ownerKey) return "scope.kind must be global, personal, project, agent, or session.";
-  if (!requiredString(ownerValue)) return `scope.${ownerKey} is required for a ${scope.kind} scope.`;
-  return undefined;
 }
 
 async function output(ctx: NodeExecuteContext, values: Record<string, unknown>): Promise<WorkflowStepResult> {
@@ -80,7 +55,7 @@ export async function executeKnowledgePromote(ctx: NodeExecuteContext): Promise<
   if (!datasetKey) return ctx.fail(`Knowledge promotion ${ctx.node.id}: datasetKey must be a non-empty string.`);
   if (!text) return ctx.fail(`Knowledge promotion ${ctx.node.id}: canonicalText must be a non-empty string.`);
   if (!scope || !requiredString(scope.kind)) return ctx.fail(`Knowledge promotion ${ctx.node.id}: an explicit scope is required.`);
-  const scopeError = validateScope(scope);
+  const scopeError = knowledgeScopeError(scope);
   if (scopeError) return ctx.fail(`Knowledge promotion ${ctx.node.id}: ${scopeError}`);
   if (rawMetadata !== undefined && rawMetadata !== null && !metadata) return ctx.fail(`Knowledge promotion ${ctx.node.id}: metadata must be an object.`);
   if (!ingestionId) return ctx.fail(`Knowledge promotion ${ctx.node.id}: ingestionId or sourceId is required for idempotent storage.`);

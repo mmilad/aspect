@@ -71,6 +71,25 @@ unset to keep using SQLite for fast tests and backwards-compatible local work.
 Set `PROJECTPLANER_KNOWLEDGE_URL` to the running CortexDB API and
 `PROJECTPLANER_KNOWLEDGE_DATASET` to the dataset used by the knowledge nodes.
 
+Legacy CortexDB session-memory imports are global by default because the older
+ingest path did not carry ownership. Review them first with:
+
+```text
+node scripts/migrate-legacy-knowledge-scope.mjs
+```
+
+When the review is correct, apply the stable-ID re-ingest explicitly:
+
+```text
+node scripts/migrate-legacy-knowledge-scope.mjs --apply
+```
+
+The migration never deletes items. It assigns records without project or agent
+ownership to `personal` scope for `PROJECTPLANER_PRINCIPAL_ID`; explicit project
+or agent metadata is preserved as the corresponding scope. The prior scope is
+stored in `metadata.projectplaner_scope_migration.previousScope` for rollback
+ tooling or an audited follow-up migration.
+
 ## Evidence from the current systems
 
 Projectplaner has a storage-neutral `Storage` contract, a SQLite adapter, and an

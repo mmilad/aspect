@@ -37,6 +37,7 @@ const entityTypes = new Set<EntityType>([
   "question",
   "reference",
   "task_group",
+  "agent",
   "task"
 ]);
 const relationTypes = new Set<EntityRelationType>([

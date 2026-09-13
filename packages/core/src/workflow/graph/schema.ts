@@ -363,9 +363,10 @@ export function validateTopology(graph: WorkflowGraph, errors: string[]): void {
     const nextIns = edges.filter((edge) => edge.kind === "next" && edge.targetPin !== "continue");
     const nonLoopbackNextIns = nextIns.filter((edge) => !canReach(targetId, edge.source));
     if (nonLoopbackNextIns.length > 1) {
-      // A fixed read-query fan-in into an LLM is deterministic: the lookup switch
-      // activates exactly one query arm before the decision node is revisited.
-      if (target.type === "llm" && nonLoopbackNextIns.every((edge) => nodeById.get(edge.source)?.type === "query")) {
+      // A fixed read/delegation fan-in into an LLM is deterministic: the route
+      // switch activates exactly one arm before the response node is reached.
+      // The runtime follows the edge from the branch that actually executed.
+      if (target.type === "llm" && nonLoopbackNextIns.every((edge) => ["query", "knowledge_search", "delegate"].includes(nodeById.get(edge.source)?.type ?? ""))) {
         continue;
       }
       errors.push(

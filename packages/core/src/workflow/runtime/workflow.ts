@@ -250,7 +250,10 @@ export class WorkflowRun {
           this._bag = result.bag;
           return result;
         }
-        if (node.data.llm?.schemaKey === "assistant_route_v1" && !parseAssistantRoute(opts.llmWrites[key])) {
+        if (node.data.llm?.schemaKey === "assistant_route_v1" && !parseAssistantRoute(
+          opts.llmWrites[key],
+          typeof bag.keys.knowledgeDataset === "string" ? bag.keys.knowledgeDataset : undefined
+        )) {
           const result = this.contractFailure(bag, node.id, "Assistant route failed semantic validation.");
           this._bag = result.bag;
           return result;

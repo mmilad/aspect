@@ -58,7 +58,7 @@ describe("assistant_turn preset", () => {
     const parsed = parseWorkflowGraph(assistantTurnGraph);
     expect(parsed.ok, parsed.ok ? "" : parsed.errors.join("; ")).toBe(true);
     expect(assistantTurnPreset.presetKey).toBe("assistant_turn");
-    expect(assistantTurnPreset.presetVersion).toBe(13);
+    expect(assistantTurnPreset.presetVersion).toBe(14);
 
     const decisionPrompt = String(assistantTurnGraph.nodes.find((node) => node.id === "llm_decide")?.data.llm?.systemPrompt);
     const replyPrompt = String(assistantTurnGraph.nodes.find((node) => node.id === "llm_reply")?.data.llm?.systemPrompt);
@@ -66,6 +66,7 @@ describe("assistant_turn preset", () => {
     expect(replyPrompt).toContain(`Assistant role manifest (assistant_role_v1): ${serializeAssistantRoleManifest()}`);
     expect(decisionPrompt).toContain("agentFacts as the evidence for which active agents exist");
     expect(decisionPrompt).toContain("For remember or store requests, never write directly");
+    expect(decisionPrompt).toContain("personal fact, a remembered detail");
     expect(replyPrompt).toContain("retrieved agent facts as the evidence for which agents exist");
     expect(replyPrompt).toContain("For remember or store requests, report a confirmed promotion result only");
     expect(decisionPrompt).toContain(ASSISTANT_ROLE_MANIFEST.restrictions[3]);
@@ -84,6 +85,10 @@ describe("assistant_turn preset", () => {
       expect.objectContaining({ id: "d_break_dataset_knowledge", source: "break_decision", target: "search_knowledge", targetPin: "datasetKey", kind: "data" })
     ]));
     expect(assistantTurnGraph.nodes.find((node) => node.id === "search_knowledge")?.data.inputs?.access).toEqual({ required: false, shape: { kind: "any" } });
+    expect(assistantTurnGraph.nodes.find((node) => node.id === "search_knowledge")?.data.knowledgeSearch).toEqual({});
+    expect(assistantTurnGraph.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "d_start_knowledge_dataset_search", source: "start", target: "search_knowledge", targetPin: "datasetKey", kind: "data" })
+    ]));
 
     const decisionBreak = parsed.ok ? parsed.graph.nodes.find((node) => node.id === "break_decision") : undefined;
     expect(decisionBreak?.data.outputContracts?.route?.shape).toEqual({ kind: "primitive", type: "string" });

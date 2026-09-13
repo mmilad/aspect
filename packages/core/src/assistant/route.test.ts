@@ -41,4 +41,23 @@ describe("assistant route parser", () => {
       lookup: { kind: "knowledge", query: "release target", datasetKey: "project-plan" }
     });
   });
+
+  it("uses the configured dataset only as a trusted knowledge-route fallback", () => {
+    expect(parseAssistantRoute({
+      ...base,
+      route: "retrieve",
+      lookupKind: "knowledge",
+      lookupQuery: "my cat"
+    }, "session_memory")).toMatchObject({
+      route: "retrieve",
+      lookupDatasetKey: "session_memory",
+      lookup: { kind: "knowledge", query: "my cat", datasetKey: "session_memory" }
+    });
+    expect(parseAssistantRoute({
+      ...base,
+      route: "retrieve",
+      lookupKind: "knowledge",
+      lookupQuery: "my cat"
+    })).toBeNull();
+  });
 });

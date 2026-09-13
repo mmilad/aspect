@@ -36,7 +36,7 @@ function asStringArray(value: unknown): string[] | undefined {
   return value.filter((item): item is string => typeof item === "string");
 }
 
-export function parseAssistantRoute(value: unknown): AssistantRoute | null {
+export function parseAssistantRoute(value: unknown, fallbackKnowledgeDataset?: string): AssistantRoute | null {
   if (!isRecord(value) || typeof value.route !== "string" || typeof value.reason !== "string" || !value.reason.trim()) return null;
   if (!["reply", "clarify", "retrieve", "delegate", "resume"].includes(value.route)) return null;
   const route = value.route as AssistantRoute["route"];
@@ -52,7 +52,8 @@ export function parseAssistantRoute(value: unknown): AssistantRoute | null {
   const lookupId = optionalString("lookupId");
   const nestedLookup = isRecord(value.lookup) ? value.lookup : undefined;
   const lookupDatasetKey = optionalString("lookupDatasetKey")
-    ?? (typeof nestedLookup?.datasetKey === "string" && nestedLookup.datasetKey.trim() ? nestedLookup.datasetKey.trim() : undefined);
+    ?? (typeof nestedLookup?.datasetKey === "string" && nestedLookup.datasetKey.trim() ? nestedLookup.datasetKey.trim() : undefined)
+    ?? (typeof fallbackKnowledgeDataset === "string" && fallbackKnowledgeDataset.trim() ? fallbackKnowledgeDataset.trim() : undefined);
   if (question) result.question = question;
   if (agentId) result.agentId = agentId;
   if (task) result.task = task;

@@ -341,7 +341,11 @@ export function parseContextPack(value: unknown, fallbackProjectKey = ""): Assis
   if (!isRecord(value)) {
     return null;
   }
-  const summary = parseSummary(value.summary);
+  // The v2 schema permits an empty first-turn summary. Keep the stricter
+  // session/patch parser unchanged, but accept that valid context-pack state.
+  const summary = isRecord(value.summary) && typeof value.summary.text === "string"
+    ? { text: value.summary.text.trim() }
+    : parseSummary(value.summary);
   if (!summary) {
     return null;
   }

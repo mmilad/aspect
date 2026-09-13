@@ -143,6 +143,22 @@ describe("assistant session", () => {
     expect(titleFromSession(committed)).toBe("Graph inspect");
   });
 
+  it("accepts an empty summary from the v2 context-pack schema", () => {
+    const pack = assistant.parseContextPack({
+      summary: { text: "" },
+      topics: [],
+      questions: [],
+      context: { projectKey: "PLAN" }
+    });
+
+    expect(pack).toEqual({
+      summary: { text: "" },
+      topics: [],
+      questions: [],
+      context: { projectKey: "PLAN" }
+    });
+  });
+
   it("clamps topic weights to 0–1", () => {
     const session = parseSession(
       {

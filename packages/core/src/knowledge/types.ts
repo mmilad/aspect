@@ -69,6 +69,19 @@ export interface KnowledgeIngestResult {
   embeddingModel?: string | null;
 }
 
+export interface KnowledgeIngestTextInput {
+  datasetKey: string;
+  text: string;
+  metadata?: Record<string, unknown>;
+  scope?: KnowledgeScope;
+  maxChars?: number;
+  overlapChars?: number;
+  ingestionId?: string;
+  batchSize?: number;
+  processorStrategy?: string;
+  extractPrimitives?: boolean;
+}
+
 export interface KnowledgeSearchHit {
   id: string;
   datasetKey: string;

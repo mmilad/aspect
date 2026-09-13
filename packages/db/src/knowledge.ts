@@ -4,6 +4,7 @@ import type {
   KnowledgeGetResult,
   KnowledgeIngestInput,
   KnowledgeIngestResult,
+  KnowledgeIngestTextInput,
   KnowledgeItem,
   KnowledgeScope,
   KnowledgeSearchHit,
@@ -133,6 +134,7 @@ export function createKnowledgeSearchProvider(endpoint: string): KnowledgeSearch
 
 type KnowledgeGetProvider = NonNullable<WorkflowAdapters["knowledgeGet"]>;
 type KnowledgeIngestProvider = NonNullable<WorkflowAdapters["knowledgeIngest"]>;
+type KnowledgeIngestTextProvider = NonNullable<WorkflowAdapters["knowledgeIngestText"]>;
 
 export function createKnowledgeGetProvider(endpoint: string): KnowledgeGetProvider {
   const base = endpoint.replace(/\/$/, "");
@@ -196,6 +198,41 @@ export function createKnowledgeIngestProvider(endpoint: string): KnowledgeIngest
   };
 }
 
+/** HTTP adapter for CortexDB's text chunking and ingest endpoint. */
+export function createKnowledgeIngestTextProvider(endpoint: string): KnowledgeIngestTextProvider {
+  const base = endpoint.replace(/\/$/, "");
+  return async (input: KnowledgeIngestTextInput): Promise<KnowledgeIngestResult> => {
+    const response = await fetch(`${base}/datasets/${encodeURIComponent(input.datasetKey)}/ingest/text`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        text: input.text,
+        metadata: input.metadata ?? {},
+        scope: toApiScope(input.scope),
+        ...(input.maxChars === undefined ? {} : { max_chars: input.maxChars }),
+        ...(input.overlapChars === undefined ? {} : { overlap_chars: input.overlapChars }),
+        ...(input.ingestionId === undefined ? {} : { ingestion_id: input.ingestionId }),
+        ...(input.batchSize === undefined ? {} : { batch_size: input.batchSize }),
+        ...(input.processorStrategy === undefined ? {} : { processor_strategy: input.processorStrategy }),
+        ...(input.extractPrimitives === undefined ? {} : { extract_primitives: input.extractPrimitives })
+      })
+    });
+    if (!response.ok) {
+      const detail = await response.text().catch(() => "");
+      throw new Error(`Knowledge text ingest provider returned HTTP ${response.status}${detail ? `: ${detail}` : "."}`);
+    }
+    const payload = asRecord(await response.json(), "text ingest response");
+    if (typeof payload.ingested !== "number" || !Array.isArray(payload.ids) || payload.ids.some((id) => typeof id !== "string")) {
+      throw new Error("Knowledge text ingest returned an invalid response shape.");
+    }
+    return {
+      ingested: payload.ingested,
+      ids: payload.ids as string[],
+      embeddingModel: typeof payload.embedding_model === "string" ? payload.embedding_model : null
+    };
+  };
+}
+
 export function createConfiguredKnowledgeSearchProvider(projectKey: string): KnowledgeSearchProvider | undefined {
   const endpoint = process.env.PROJECTPLANER_KNOWLEDGE_URL ?? process.env.CORTEXDB_URL;
   if (!endpoint) return undefined;
@@ -219,4 +256,9 @@ export function createConfiguredKnowledgeGetProvider(projectKey: string): Knowle
 export function createConfiguredKnowledgeIngestProvider(): KnowledgeIngestProvider | undefined {
   const endpoint = process.env.PROJECTPLANER_KNOWLEDGE_URL ?? process.env.CORTEXDB_URL;
   return endpoint ? createKnowledgeIngestProvider(endpoint) : undefined;
+}
+
+export function createConfiguredKnowledgeIngestTextProvider(): KnowledgeIngestTextProvider | undefined {
+  const endpoint = process.env.PROJECTPLANER_KNOWLEDGE_URL ?? process.env.CORTEXDB_URL;
+  return endpoint ? createKnowledgeIngestTextProvider(endpoint) : undefined;
 }

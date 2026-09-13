@@ -26,6 +26,7 @@ import { createWebSearchProvider } from "../web-search";
 import {
   createConfiguredKnowledgeGetProvider,
   createConfiguredKnowledgeIngestProvider,
+  createConfiguredKnowledgeIngestTextProvider,
   createConfiguredKnowledgeSearchProvider
 } from "../knowledge";
 import {
@@ -135,6 +136,7 @@ export function createWorkflowAdapters(
   const knowledgeSearch = createConfiguredKnowledgeSearchProvider(projectKey);
   const knowledgeGet = createConfiguredKnowledgeGetProvider(projectKey);
   const knowledgeIngest = createConfiguredKnowledgeIngestProvider();
+  const knowledgeIngestText = createConfiguredKnowledgeIngestTextProvider();
   const resolveWorkspaceRoot = async (): Promise<string> => {
     const project = await db.projects.findByKey(projectKey);
     if (!project || project.archivedAt) throw new Error(`Project '${projectKey}' is not available.`);
@@ -150,6 +152,7 @@ export function createWorkflowAdapters(
     knowledgeSearch,
     knowledgeGet,
     knowledgeIngest,
+    knowledgeIngestText,
     fileList: async (input) => listWorkspaceFiles(await resolveWorkspaceRoot(), input),
     fileRead: async (input) => readWorkspaceFile(await resolveWorkspaceRoot(), input),
     getEntity: async (id) => (await db.entities.get(id)),

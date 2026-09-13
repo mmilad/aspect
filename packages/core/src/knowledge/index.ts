@@ -5,6 +5,7 @@ export type {
   KnowledgeIngestInput,
   KnowledgeIngestItem,
   KnowledgeIngestResult,
+  KnowledgeIngestTextInput,
   KnowledgeItem,
   KnowledgeScope,
   KnowledgeScopeKind,

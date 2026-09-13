@@ -23,6 +23,7 @@ export function parseAgentProfile(metadata: JsonRecord): AgentProfile {
     responsibilities: list(raw.responsibilities), recurringActivities: list(raw.recurringActivities),
     capabilities: list(raw.capabilities), decisionAreas: list(raw.decisionAreas),
     candidateWorkflows: list(raw.candidateWorkflows), assignedWorkflowIds: list(raw.assignedWorkflowIds),
+    registeredCapabilities: list(raw.registeredCapabilities),
     projectScope: {
       projectKey: typeof scope.projectKey === "string" ? scope.projectKey : undefined,
       workspaceId: typeof scope.workspaceId === "string" ? scope.workspaceId : undefined
@@ -61,6 +62,7 @@ export function createAssistantAgentProfile(projectKey = "PLAN"): AgentProfile {
     decisionAreas: [],
     candidateWorkflows: ["assistant_turn"],
     assignedWorkflowIds: [],
+    registeredCapabilities: [],
     projectScope: { projectKey },
     permissions: { readProject: true, inspectAgents: true, delegate: true, writeProject: false },
     contextPolicy: { graphEnabled: true, memoryEnabled: false, maxResults: 20 },

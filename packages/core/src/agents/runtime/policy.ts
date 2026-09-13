@@ -5,7 +5,7 @@ export function canRunWorkflow(agent: AgentProfile, workflowId: string): boolean
 }
 
 export function canRunCapability(agent: AgentProfile, name: string): boolean {
-  return agent.capabilities.includes(name);
+  return agent.registeredCapabilities.includes(name);
 }
 
 export function defaultRuntimePolicy(agent?: Partial<AgentProfile["runtimePolicy"]>): AgentProfile["runtimePolicy"] {

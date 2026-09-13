@@ -52,6 +52,7 @@ export const AGENT_PROFILE_V1_SCHEMA: Record<string, unknown> = {
     decisionAreas: { type: "array", items: { type: "string" } },
     candidateWorkflows: { type: "array", items: { type: "string" } },
     assignedWorkflowIds: { type: "array", items: { type: "string" } },
+    registeredCapabilities: { type: "array", items: { type: "string" } },
     contextPolicy: {
       type: "object",
       properties: {

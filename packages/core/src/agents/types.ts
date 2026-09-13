@@ -35,6 +35,8 @@ export interface AgentProfile {
     decisionAreas: string[];
     candidateWorkflows: string[];
     assignedWorkflowIds: string[];
+    /** Exact runtime capability identifiers explicitly enabled for this agent. */
+    registeredCapabilities: string[];
     projectScope?: {
         projectKey?: string;
         workspaceId?: string;

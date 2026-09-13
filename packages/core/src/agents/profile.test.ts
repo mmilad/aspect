@@ -21,6 +21,12 @@ it("parses a valid scoped memory policy", () => {
   expect(profile.memoryPolicy).toEqual({ enabled: true, scope: "agent" });
 });
 
+it("keeps descriptive expertise separate from executable capabilities", () => {
+  const profile = parseAgentProfile({ capabilities: ["coding"], registeredCapabilities: ["project.get_entity"] });
+  expect(profile.capabilities).toEqual(["coding"]);
+  expect(profile.registeredCapabilities).toEqual(["project.get_entity"]);
+});
+
 it("retains valid profiles and defaults identically for recruitment and runtime", () => {
   const raw = { name: "Coder", role: "Developer", capabilities: ["Coding"],
     contextPolicy: { graphEnabled: false, maxResults: 30, maxContextTokens: 8000 },

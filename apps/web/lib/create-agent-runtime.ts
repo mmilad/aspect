@@ -94,7 +94,7 @@ export function createAgentRuntime(
             'Choose exactly one decision: complete, clarification, workflow, or capability.',
             'Use only assigned workflows and registered capabilities. Unknown capabilities are unavailable.',
             'Assigned workflow IDs: ' + JSON.stringify(agent.assignedWorkflowIds),
-            'Registered capability names: ' + JSON.stringify(agent.capabilities),
+            'Registered capability names: ' + JSON.stringify(agent.registeredCapabilities),
             'Respond only with the agent_decision_v1 JSON object.'
           ].join('\n') },
           ...history,

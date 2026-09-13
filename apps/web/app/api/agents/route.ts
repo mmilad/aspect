@@ -9,12 +9,16 @@ export async function GET(request: Request) {
             type: "agent"
         });
         return NextResponse.json({
-            agents: entities.map((entity) => ({
-                id: entity.id,
-                name: entity.title,
-                role: parseAgentProfile(entity.metadata).role,
-                capabilities: parseAgentProfile(entity.metadata).capabilities
-            }))
+            agents: entities.map((entity) => {
+                const profile = parseAgentProfile(entity.metadata);
+                return {
+                    id: entity.id,
+                    name: entity.title,
+                    role: profile.role,
+                    capabilities: profile.capabilities,
+                    registeredCapabilities: profile.registeredCapabilities
+                };
+            })
         });
     }
     catch (error) {

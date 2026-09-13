@@ -110,7 +110,7 @@ CREATE TABLE IF NOT EXISTS pp_llm_schemas (
 `;
 
 function json(value: unknown): unknown {
-  return value === undefined ? null : value;
+  return value === undefined ? null : JSON.stringify(value);
 }
 
 function now(): string { return new Date().toISOString(); }

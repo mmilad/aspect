@@ -1,6 +1,6 @@
 # Postgres and shared knowledge architecture
 
-Status: proposed implementation plan
+Status: implemented foundation; retrieval and memory expansion remain incremental
 
 ## Decision
 
@@ -20,19 +20,49 @@ This keeps the graph source of truth in one place while allowing the knowledge
 layer to index graph facts, chat, files, and agent memories without creating a
 second editable copy of the project graph.
 
+## Current implementation
+
+The split described above is now implemented across the two repositories:
+
+- Projectplaner has an opt-in Postgres storage adapter using `pp_`-prefixed
+  tables, so it can share a database with CortexDB without sharing write
+  models.
+- `pnpm db:migrate-postgres` copies SQLite projects, entities, relations,
+  sessions, agent runs, workflow definitions/runs, schemas, tags, and workspace
+  records while preserving IDs and timestamps.
+- Projectplaner exposes typed `knowledge_search`, `knowledge_get`, and
+  `knowledge_ingest` workflow nodes. These call CortexDB through a small HTTP
+  adapter; the Assistant receives only scoped read results through workflows.
+- CortexDB owns embedding-provider selection, vector storage, hybrid search,
+  scope filtering, and its optional Postgres/pgvector backend. Projectplaner
+  does not construct or store embedding vectors.
+
+For local development, start the Postgres service from Projectplaner’s compose
+file, configure both database URLs in `.env`, and migrate the existing SQLite
+data:
+
+```text
+docker compose up -d postgres
+pnpm db:migrate-postgres
+```
+
+Set `PROJECTPLANER_DATABASE_URL` to make Projectplaner use Postgres. Leave it
+unset to keep using SQLite for fast tests and backwards-compatible local work.
+Set `PROJECTPLANER_KNOWLEDGE_URL` to the running CortexDB API and
+`PROJECTPLANER_KNOWLEDGE_DATASET` to the dataset used by the knowledge nodes.
+
 ## Evidence from the current systems
 
-Projectplaner already has a storage-neutral `Storage` contract and a private
-SQLite adapter. Its live database currently contains 2 projects, 284 entities,
-387 entity relations, 22 workflow definitions, 244 workflow runs, 9 Assistant
-sessions, and 9 agent runs. A Postgres adapter can therefore be added without
-changing workflow/core callers.
+Projectplaner has a storage-neutral `Storage` contract, a SQLite adapter, and an
+opt-in Postgres adapter. The SQLite→Postgres migration preserves stable IDs and
+timestamps without changing workflow/core callers.
 
 CortexDB already provides the service boundary we need: datasets, sessions,
 namespaces, raw text, memory items, metadata filtering, relationship edges,
 hybrid keyword/vector retrieval, provenance-oriented ingestion, and pluggable
-Ollama/OpenAI-compatible embedding providers. Its current storage is SQLite;
-Postgres and pgvector are still roadmap work.
+Ollama/OpenAI-compatible embedding providers. It also supports optional
+Postgres/pgvector storage and scoped item reads. Embedding can be disabled for
+deterministic keyword-only tests.
 
 ## Knowledge ownership model
 

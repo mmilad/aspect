@@ -129,6 +129,9 @@ adding a generic unrestricted tool:
    with a configured workspace root and policy checks. `file_write` is
    specialist-only, requires an explicit overwrite flag for replacement, and
    is rejected by the read-only Assistant policy.
+6. `knowledge_capture_file` — a composed workflow that reads one bounded,
+   authorized workspace file and passes the confirmed content into the typed
+   knowledge ingest operation with caller-provided scope and provenance.
 
 The Assistant can use the read-only operations and can delegate ingestion,
 promotion, or file mutation to a registered specialist. It never writes the

@@ -26,6 +26,7 @@ describe("workflow presets", () => {
     expect(presets.some((preset) => preset.presetKey === "goal_planning")).toBe(true);
     expect(presets.some((preset) => preset.presetKey === "assistant_turn")).toBe(true);
     expect(presets.some((preset) => preset.presetKey === "knowledge_capture")).toBe(true);
+    expect(presets.some((preset) => preset.presetKey === "knowledge_capture_file")).toBe(true);
     expect(presets.some((preset) => preset.presetKey === "knowledge_promote")).toBe(true);
     expect(presets.some((preset) => preset.presetKey === "knowledge_classify")).toBe(true);
     expect(presets.some((preset) => preset.presetKey === "knowledge_retrieve")).toBe(true);

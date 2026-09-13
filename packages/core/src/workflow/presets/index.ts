@@ -21,6 +21,8 @@ import { recruitAgentPreset } from "./recruit_agent/preset";
 import { goalPlanningPreset } from "./goal_planning/preset";
 import { knowledgeCaptureGraph } from "./knowledge_capture/graph";
 import { knowledgeCapturePreset } from "./knowledge_capture/preset";
+import { knowledgeCaptureFileGraph } from "./knowledge_capture_file/graph";
+import { knowledgeCaptureFilePreset } from "./knowledge_capture_file/preset";
 import { knowledgeClassifyGraph } from "./knowledge_classify/graph";
 import { knowledgeClassifyPreset } from "./knowledge_classify/preset";
 import { knowledgeRetrieveGraph } from "./knowledge_retrieve/graph";
@@ -78,6 +80,8 @@ export { goalPlanningGraph } from "./goal_planning/graph";
 export { goalPlanningPreset } from "./goal_planning/preset";
 export { knowledgeCaptureGraph } from "./knowledge_capture/graph";
 export { knowledgeCapturePreset } from "./knowledge_capture/preset";
+export { knowledgeCaptureFileGraph } from "./knowledge_capture_file/graph";
+export { knowledgeCaptureFilePreset } from "./knowledge_capture_file/preset";
 export { knowledgeClassifyGraph } from "./knowledge_classify/graph";
 export { knowledgeClassifyPreset } from "./knowledge_classify/preset";
 export { knowledgeRetrieveGraph } from "./knowledge_retrieve/graph";
@@ -99,6 +103,7 @@ export function listWorkflowPresets(): WorkflowPreset[] {
     assistantTurnPreset,
     recruitAgentPreset,
     knowledgeCapturePreset,
+    knowledgeCaptureFilePreset,
     knowledgeClassifyPreset,
     knowledgeRetrievePreset,
     knowledgeIndexProjectPreset,
@@ -182,6 +187,7 @@ const presets = {
   assistantTurnGraph,
   recruitAgentGraph,
   knowledgeCaptureGraph,
+  knowledgeCaptureFileGraph,
   knowledgeClassifyGraph,
   knowledgeRetrieveGraph,
   knowledgeIndexProjectGraph,
@@ -198,6 +204,7 @@ const presets = {
   assistantTurnPreset,
   recruitAgentPreset,
   knowledgeCapturePreset,
+  knowledgeCaptureFilePreset,
   knowledgeClassifyPreset,
   knowledgeRetrievePreset,
   knowledgeIndexProjectPreset,

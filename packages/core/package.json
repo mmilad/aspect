@@ -14,11 +14,11 @@
     "./workflow": "./src/workflow/index.ts",
     "./planning": "./src/planning/index.ts",
     "./generator": "./src/generator/index.ts",
-    "./assistant": "./src/assistant/index.ts"
+    "./assistant": "./src/assistant/index.ts",
+    "./files": "./src/files/index.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   }
 }
-

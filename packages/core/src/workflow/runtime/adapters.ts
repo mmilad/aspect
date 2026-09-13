@@ -11,6 +11,12 @@ import type {
   KnowledgeSearchInput,
   KnowledgeSearchResult
 } from "../../knowledge";
+import type {
+  WorkflowFileListInput,
+  WorkflowFileListResult,
+  WorkflowFileReadInput,
+  WorkflowFileReadResult
+} from "../../files";
 
 export interface WorkflowMatch {
   id: string;
@@ -68,6 +74,9 @@ export interface WorkflowAdapters {
   knowledgeGet?: (input: KnowledgeGetInput) => Promise<KnowledgeGetResult> | KnowledgeGetResult;
   /** Ingest raw text into the configured knowledge service. Specialist-only by policy. */
   knowledgeIngest?: (input: KnowledgeIngestInput) => Promise<KnowledgeIngestResult> | KnowledgeIngestResult;
+  /** Bounded read-only access to the current project's managed workspace. */
+  fileList?: (input: WorkflowFileListInput) => Promise<WorkflowFileListResult> | WorkflowFileListResult;
+  fileRead?: (input: WorkflowFileReadInput) => Promise<WorkflowFileReadResult> | WorkflowFileReadResult;
   loadContext?: (input: {
     query: string;
     types?: EntityType[];

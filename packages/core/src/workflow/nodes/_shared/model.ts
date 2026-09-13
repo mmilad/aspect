@@ -69,6 +69,7 @@ export function workflowNodeSideEffect(node: Pick<WorkflowNode, "type" | "data">
   if (node.type === "tool" || node.type === "web_search") return "external";
   if (node.type === "knowledge_search" || node.type === "knowledge_get") return "read";
   if (node.type === "knowledge_ingest") return "write";
+  if (node.type === "file_list" || node.type === "file_read") return "read";
   if (node.type === "query") {
     const op = node.data.query?.op;
     return op === "create_entity" || op === "update_entity" || op === "rollup_parent_status" ? "write" : "read";

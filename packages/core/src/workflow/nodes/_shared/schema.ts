@@ -34,7 +34,11 @@ export const CONFIG_KEYS = [
   "assembleFragment",
   "wait",
   "subworkflow",
-  "knowledgeSearch"
+  "knowledgeSearch",
+  "knowledgeGet",
+  "knowledgeIngest",
+  "fileList",
+  "fileRead"
 ] as const;
 
 export type WorkflowConfigKey = (typeof CONFIG_KEYS)[number];

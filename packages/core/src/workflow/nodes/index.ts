@@ -54,7 +54,11 @@ export type {
   WorkflowWorkNodeType,
   WorkflowWriteConfig,
   WorkflowWebSearchConfig,
-  WorkflowKnowledgeSearchConfig
+  WorkflowKnowledgeSearchConfig,
+  WorkflowKnowledgeGetConfig,
+  WorkflowKnowledgeIngestConfig,
+  WorkflowFileListConfig,
+  WorkflowFileReadConfig
 } from "./_shared/types";
 
 export {

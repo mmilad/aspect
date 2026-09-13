@@ -36,7 +36,9 @@ export const workflowStepToneByType: Record<WorkflowNodeType, string> = {
   web_search: "border-blue-600 bg-blue-50 text-blue-950",
   knowledge_search: "border-indigo-700 bg-indigo-50 text-indigo-950",
   knowledge_get: "border-indigo-700 bg-indigo-50 text-indigo-950",
-  knowledge_ingest: "border-amber-700 bg-amber-50 text-amber-950"
+  knowledge_ingest: "border-amber-700 bg-amber-50 text-amber-950",
+  file_list: "border-sky-700 bg-sky-50 text-sky-950",
+  file_read: "border-sky-700 bg-sky-50 text-sky-950"
 };
 
 export const workflowPaletteGroups: Array<{ label: string; types: readonly WorkflowNodeType[] }> = [

@@ -18,6 +18,7 @@ import planApi from "@projectplaner/core/plan-api";
 import query from "@projectplaner/core/query";
 import workflow from "@projectplaner/core/workflow";
 import type { Storage } from "../contracts/storage";
+import { listWorkspaceFiles, readWorkspaceFile } from "@projectplaner/workspace";
 import { findSeededWorkflowPreset } from "../presets";
 import { rollupParentStatus } from "../rollup";
 import { entityStore } from "../contracts/storage";
@@ -134,12 +135,23 @@ export function createWorkflowAdapters(
   const knowledgeSearch = createConfiguredKnowledgeSearchProvider(projectKey);
   const knowledgeGet = createConfiguredKnowledgeGetProvider(projectKey);
   const knowledgeIngest = createConfiguredKnowledgeIngestProvider();
+  const resolveWorkspaceRoot = async (): Promise<string> => {
+    const project = await db.projects.findByKey(projectKey);
+    if (!project || project.archivedAt) throw new Error(`Project '${projectKey}' is not available.`);
+    const workspace = await db.workspaces.get(project.id);
+    if (!workspace || workspace.status !== "ready") {
+      throw new Error(`Project '${projectKey}' has no ready managed workspace.`);
+    }
+    return workspace.repositoryPath;
+  };
 
   return {
     webSearch: (input) => createWebSearchProvider().search(input),
     knowledgeSearch,
     knowledgeGet,
     knowledgeIngest,
+    fileList: async (input) => listWorkspaceFiles(await resolveWorkspaceRoot(), input),
+    fileRead: async (input) => readWorkspaceFile(await resolveWorkspaceRoot(), input),
     getEntity: async (id) => (await db.entities.get(id)),
     listEntities: async (listQuery: EntityListQuery, options) =>
       (await db.query.execute(compileListQuery({ ...listQuery, projectKey: listQuery.projectKey ?? projectKey }, options))),

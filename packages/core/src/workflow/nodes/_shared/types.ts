@@ -34,7 +34,9 @@ export const workflowWorkNodeTypes = [
   "web_search",
   "knowledge_search",
   "knowledge_get",
-  "knowledge_ingest"
+  "knowledge_ingest",
+  "file_list",
+  "file_read"
 ] as const;
 
 export const workflowVariableNodeTypes = ["get", "set", "template"] as const;
@@ -166,6 +168,17 @@ export interface WorkflowKnowledgeIngestConfig {
   rawTextFrom?: string;
   metadataFrom?: string;
   scopeFrom?: string;
+}
+
+export interface WorkflowFileListConfig {
+  pathFrom?: string;
+  recursiveFrom?: string;
+  maxEntriesFrom?: string;
+}
+
+export interface WorkflowFileReadConfig {
+  pathFrom?: string;
+  maxBytesFrom?: string;
 }
 
 export const workflowLlmFormats = ["text", "json", "json_schema"] as const;
@@ -434,6 +447,8 @@ export interface WorkflowNodeData {
   knowledgeSearch?: WorkflowKnowledgeSearchConfig;
   knowledgeGet?: WorkflowKnowledgeGetConfig;
   knowledgeIngest?: WorkflowKnowledgeIngestConfig;
+  fileList?: WorkflowFileListConfig;
+  fileRead?: WorkflowFileReadConfig;
   llm?: WorkflowLlmConfig;
   query?: WorkflowQueryConfig;
   write?: WorkflowWriteConfig;

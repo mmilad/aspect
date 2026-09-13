@@ -33,6 +33,8 @@ import { webSearchNode } from "./web_search/model";
 import { knowledgeSearchNode } from "./knowledge_search/model";
 import { knowledgeGetNode } from "./knowledge_get/model";
 import { knowledgeIngestNode } from "./knowledge_ingest/model";
+import { fileListNode } from "./file_list/model";
+import { fileReadNode } from "./file_read/model";
 
 export const workflowNodeModels: Record<WorkflowNodeType, WorkflowNodeModel> = {
   start: startNode,
@@ -67,7 +69,9 @@ export const workflowNodeModels: Record<WorkflowNodeType, WorkflowNodeModel> = {
   web_search: webSearchNode,
   knowledge_search: knowledgeSearchNode,
   knowledge_get: knowledgeGetNode,
-  knowledge_ingest: knowledgeIngestNode
+  knowledge_ingest: knowledgeIngestNode,
+  file_list: fileListNode,
+  file_read: fileReadNode
 };
 
 export function getNodeModel(type: WorkflowNodeType): WorkflowNodeModel {

@@ -2,6 +2,8 @@ import path from "node:path";
 import type { StorageConnection, StorageFactory } from "./contracts/storage";
 import { defaultDatabasePath } from "./environment";
 import { openSqlite } from "./adapters/sqlite";
+import { openPostgres } from "./adapters/postgres";
+import { defaultDatabaseUrl } from "./environment";
 import { createServices, type DatabaseOperations } from "./services";
 
 export interface ControllerOptions {
@@ -16,7 +18,10 @@ export interface ControllerOptions {
 export type DatabaseController = DatabaseOperations & { shutdown(): Promise<void> };
 
 export function createDatabaseController(options: ControllerOptions = {}): DatabaseController {
-  const factory = options.storageFactory ?? (() => openSqlite(options.path ?? defaultDatabasePath()));
+  const factory = options.storageFactory ?? (() => {
+    const databaseUrl = defaultDatabaseUrl();
+    return databaseUrl ? openPostgres(databaseUrl) : openSqlite(options.path ?? defaultDatabasePath());
+  });
   let connection: StorageConnection | undefined;
   let services: DatabaseOperations | undefined;
   let queue: Promise<unknown> = Promise.resolve();

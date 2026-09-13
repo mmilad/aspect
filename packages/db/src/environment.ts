@@ -91,3 +91,8 @@ export function defaultDatabasePath(): string {
   loadEnv();
   return process.env.PROJECTPLANER_DB_PATH ?? path.join(findWorkspaceRoot(process.cwd()), "projectplaner.db");
 }
+
+export function defaultDatabaseUrl(): string | undefined {
+  loadEnv();
+  return process.env.PROJECTPLANER_DATABASE_URL;
+}

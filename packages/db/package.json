@@ -12,10 +12,15 @@
     "build": "tsc -p tsconfig.json --noEmit",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "plan": "tsx src/agent-cli.ts",
+    "db:migrate-postgres": "tsx src/postgres-migrate-cli.ts",
     "test:node": "tsx --test src/adapters/sqlite/tests/api.node-test.ts src/adapters/sqlite/tests/assistant-sessions.node-test.ts src/adapters/sqlite/tests/assistant-turn.node-test.ts src/adapters/sqlite/tests/example-signal-desk.node-test.ts src/adapters/sqlite/tests/llm-json-schemas.node-test.ts src/adapters/sqlite/tests/presets.node-test.ts src/adapters/sqlite/tests/projects.node-test.ts src/adapters/sqlite/tests/query.node-test.ts src/adapters/sqlite/tests/rollup.node-test.ts src/adapters/sqlite/tests/workflows.node-test.ts src/adapters/sqlite/tests/workspaces.node-test.ts src/controller.node-test.ts src/adapters/sqlite/tests/reliability.node-test.ts"
   },
   "dependencies": {
     "@projectplaner/core": "workspace:*",
-    "@projectplaner/workspace": "workspace:*"
+    "@projectplaner/workspace": "workspace:*",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.10"
   }
 }

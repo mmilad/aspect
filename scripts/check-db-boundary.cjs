@@ -5,6 +5,7 @@ const ts = require("typescript");
 function violations(file, source) {
   const adapter = file.startsWith("packages/db/src/adapters/sqlite/");
   const bootstrap = file === "packages/db/src/controller.ts";
+  const postgresMigration = file.startsWith("packages/db/src/adapters/postgres/");
   const parsed = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
   const errors = [];
   function visit(node) {
@@ -14,11 +15,11 @@ function violations(file, source) {
     if (spec && ts.isStringLiteral(spec)) {
       const value = spec.text;
       const resolved = value.startsWith(".") ? path.posix.normalize(path.posix.join(path.posix.dirname(file), value)) : value;
-      if (value === "node:sqlite" && !adapter) errors.push("SQLite driver import outside its adapter");
+      if (value === "node:sqlite" && !adapter && !postgresMigration) errors.push("SQLite driver import outside its adapter");
       if (value.startsWith("@projectplaner/db/")) errors.push("Private database deep import");
-      if (resolved.includes("packages/db/src/adapters/") && !adapter && !(bootstrap && value === "./adapters/sqlite")) errors.push("SQLite adapter dependency outside its composition root");
+      if (resolved.includes("packages/db/src/adapters/sqlite/") && !adapter && !postgresMigration && !(bootstrap && value === "./adapters/sqlite")) errors.push("SQLite adapter dependency outside its composition root");
     }
-    if (!adapter && ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === "prepare") errors.push("SQL statement preparation outside the adapter");
+    if (!adapter && !postgresMigration && ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === "prepare") errors.push("SQL statement preparation outside the adapter");
     ts.forEachChild(node, visit);
   }
   visit(parsed);

@@ -3,7 +3,7 @@ export type { DatabaseController, ControllerOptions } from "./controller";
 export type { DatabaseOperations } from "./services";
 export type { Storage, StorageConnection, StorageFactory } from "./contracts/storage";
 export { entityStore } from "./contracts/storage";
-export { loadEnv } from "./environment";
+export { loadEnv, defaultDatabaseUrl } from "./environment";
 export { createSearxngProvider, createWebSearchProvider } from "./web-search";
 export {
   createKnowledgeSearchProvider,
@@ -26,3 +26,5 @@ export type { CreateLlmJsonSchemaInput, EnsureLlmJsonSchemasOptions, EnsureLlmJs
 export type { AssistantSessionRecord } from "./contracts/assistant-sessions";
 export type { RunWorkflowInput, RunWorkflowResult, AdvanceWorkflowRunInput, AdvanceWorkflowRunResult, ResolveWorkflowFlowInput } from "./workflows/execute";
 export type { WorkflowNodeRun, WorkflowNodeRunStatus, WorkflowRunRecord, WorkflowRunStatus, WorkflowTrigger, WorkflowTriggerKind } from "./contracts/persist";
+export { openPostgres, postgresStorage, PostgresStorage, ensurePostgresSchema } from "./adapters/postgres";
+export { migrateSqliteToPostgres } from "./adapters/postgres/migrate";

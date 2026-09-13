@@ -9,7 +9,8 @@
     "typecheck": "node scripts/check-db-boundary.cjs && pnpm -r typecheck",
     "test": "vitest run && pnpm --filter @projectplaner/db test:node && pnpm --filter @projectplaner/mcp test",
     "test:llm": "vitest run --config vitest.llm.config.ts",
-    "plan": "pnpm --filter @projectplaner/db plan"
+    "plan": "pnpm --filter @projectplaner/db plan",
+    "db:migrate-postgres": "pnpm --filter @projectplaner/db db:migrate-postgres"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

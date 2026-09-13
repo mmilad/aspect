@@ -335,8 +335,8 @@ async function main(): Promise<void> {
     console.log("  pnpm plan update-entity --id <entity-id> [--title <title>] [--status <status>] [--metadata '{...}'|--metadata-file <json-file>]");
     console.log("  pnpm plan get-entity --id <entity-id>");
     console.log("  pnpm plan list-entities [--type <type>] [--query <text>]");
-    console.log("  pnpm plan agent-grant-readonly --agent <agent-id> [--project <key>]");
-    console.log("  pnpm plan agent-grant-readonly --all [--project <key>]");
+    console.log("  pnpm plan agent-grant-readonly --agent <agent-id> [--project <key>] [--dry-run]");
+    console.log("  pnpm plan agent-grant-readonly --all [--project <key>] [--dry-run]");
     console.log("  pnpm plan create-relation --from <entity-id> --to <entity-id> --type <relation-type> [--primary true]");
     console.log("  pnpm plan packet-read --entity <entity-id> [--workflow <name>]");
     console.log("  pnpm plan packet-write --entity <entity-id> [--id <reference-id>] [--title <title>] [--workflow <name>] --metadata-file <json-file>");
@@ -718,6 +718,7 @@ async function main(): Promise<void> {
       const projectKey = first(args.options, "project") ?? "PLAN";
       const agentId = first(args.options, "agent");
       const allAgents = "all" in args.options;
+      const dryRun = "dry-run" in args.options;
       if (!agentId && !allAgents) {
         throw new Error("agent-grant-readonly requires --agent <agent-id> or explicit --all.");
       }
@@ -736,13 +737,13 @@ async function main(): Promise<void> {
         if (profile.kind === "assistant") continue;
         const assignedWorkflowIds = [...new Set([...profile.assignedWorkflowIds, ...readOnlyWorkflowIds])];
         if (assignedWorkflowIds.length === profile.assignedWorkflowIds.length && assignedWorkflowIds.every((id, index) => id === profile.assignedWorkflowIds[index])) continue;
-        await db.entities.update({
+        if (!dryRun) await db.entities.update({
           id: entity.id,
           patch: { metadata: { ...entity.metadata, document: { ...document, assignedWorkflowIds } } }
         });
         updated.push(`${entity.title}: ${assignedWorkflowIds.join(", ")}`);
       }
-      console.log(JSON.stringify({ projectKey, target: agentId ?? "all", readOnlyWorkflowIds, updated }, null, 2));
+      console.log(JSON.stringify({ projectKey, target: agentId ?? "all", dryRun, readOnlyWorkflowIds, updated }, null, 2));
       return;
     }
 

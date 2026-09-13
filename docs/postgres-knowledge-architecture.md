@@ -1,6 +1,7 @@
 # Postgres and shared knowledge architecture
 
-Status: implemented foundation; retrieval and memory expansion remain incremental
+Status: implemented foundation; Postgres-backed retrieval is verified locally;
+memory expansion remains incremental
 
 ## Decision
 
@@ -58,11 +59,12 @@ The split described above is now implemented across the two repositories:
   does not construct or store embedding vectors.
 
 For local development, start the Postgres service from Projectplaner’s compose
-file, configure both database URLs in `.env`, and migrate the existing SQLite
-data:
+file, configure both database URLs in `.env`, install CortexDB’s optional
+Postgres dependencies, and migrate the existing SQLite data:
 
 ```text
 docker compose up -d postgres
+python -m pip install -e ".[postgres]"  # run from the CortexDB checkout
 pnpm db:migrate-postgres
 ```
 
@@ -70,6 +72,11 @@ Set `PROJECTPLANER_DATABASE_URL` to make Projectplaner use Postgres. Leave it
 unset to keep using SQLite for fast tests and backwards-compatible local work.
 Set `PROJECTPLANER_KNOWLEDGE_URL` to the running CortexDB API and
 `PROJECTPLANER_KNOWLEDGE_DATASET` to the dataset used by the knowledge nodes.
+CortexDB reads `CORTEXDB_DATABASE_URL` from its own `.env`; without that
+variable it intentionally falls back to its SQLite development store. The
+current local setup uses the shared pgvector container, Ollama, and
+`nomic-embed-text`, so the API and Projectplaner workflow nodes see the same
+durable knowledge data after a restart.
 
 Legacy CortexDB session-memory imports are global by default because the older
 ingest path did not carry ownership. Review them first with:

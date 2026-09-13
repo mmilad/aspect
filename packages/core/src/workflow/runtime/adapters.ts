@@ -8,6 +8,7 @@ import type {
   KnowledgeGetResult,
   KnowledgeDatasetRecord,
   KnowledgeDatasetSpec,
+  KnowledgeContextIndex,
   KnowledgeIngestInput,
   KnowledgeIngestResult,
   KnowledgeIngestTextInput,
@@ -79,6 +80,8 @@ export interface WorkflowAdapters {
   knowledgeGet?: (input: KnowledgeGetInput) => Promise<KnowledgeGetResult> | KnowledgeGetResult;
   /** Register or update a dataset definition in the configured knowledge service. Specialist-only by policy. */
   knowledgeRegisterDataset?: (input: KnowledgeDatasetSpec) => Promise<KnowledgeDatasetRecord> | KnowledgeDatasetRecord;
+  /** Read the compact CortexDB catalog of datasets and tools. */
+  knowledgeContextIndex?: () => Promise<KnowledgeContextIndex> | KnowledgeContextIndex;
   /** Ingest raw text into the configured knowledge service. Specialist-only by policy. */
   knowledgeIngest?: (input: KnowledgeIngestInput) => Promise<KnowledgeIngestResult> | KnowledgeIngestResult;
   /** Chunk, optionally classify, embed, and ingest a text source into the scoped knowledge service. */

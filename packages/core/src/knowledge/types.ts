@@ -50,6 +50,31 @@ export interface KnowledgeDatasetRecord extends KnowledgeDatasetSpec {
   updatedAt?: string | null;
 }
 
+export interface KnowledgeCatalogDataset {
+  key: string;
+  displayName: string;
+  llmSummary?: string | null;
+  capabilities: string[];
+  entityTypes: string[];
+  accessPatterns: string[];
+  status: string;
+}
+
+export interface KnowledgeCatalogTool {
+  key: string;
+  name: string;
+  llmSummary?: string | null;
+  capabilityTags: string[];
+  status: string;
+}
+
+export interface KnowledgeContextIndex {
+  datasets: KnowledgeCatalogDataset[];
+  tools: KnowledgeCatalogTool[];
+  relationshipCount: number;
+  usageHint: string;
+}
+
 export interface KnowledgeItem {
   id: string;
   datasetKey: string;

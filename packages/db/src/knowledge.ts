@@ -1,6 +1,7 @@
 import type {
   KnowledgeDatasetRecord,
   KnowledgeDatasetSpec,
+  KnowledgeContextIndex,
   KnowledgeAccess,
   KnowledgeGetInput,
   KnowledgeGetResult,
@@ -17,6 +18,7 @@ import type {
 
 type KnowledgeSearchProvider = NonNullable<WorkflowAdapters["knowledgeSearch"]>;
 type KnowledgeRegisterDatasetProvider = NonNullable<WorkflowAdapters["knowledgeRegisterDataset"]>;
+type KnowledgeContextIndexProvider = NonNullable<WorkflowAdapters["knowledgeContextIndex"]>;
 
 function asRecord(value: unknown, label: string): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -76,6 +78,46 @@ function normalizeDataset(value: unknown): KnowledgeDatasetRecord {
     ...(typeof raw.created_at === "string" ? { createdAt: raw.created_at } : {}),
     ...(typeof raw.updated_at === "string" ? { updatedAt: raw.updated_at } : {})
   };
+}
+
+function stringList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function normalizeContextIndex(value: unknown): KnowledgeContextIndex {
+  const raw = asRecord(value, "context index");
+  if (!Array.isArray(raw.datasets) || !Array.isArray(raw.tools) || typeof raw.relationship_count !== "number" || typeof raw.usage_hint !== "string") {
+    throw new Error("Knowledge context index returned an invalid response shape.");
+  }
+  const datasets = raw.datasets.map((value) => {
+    const item = asRecord(value, "dataset index entry");
+    if (typeof item.key !== "string" || typeof item.display_name !== "string" || typeof item.status !== "string") {
+      throw new Error("Knowledge context index returned an invalid dataset entry.");
+    }
+    return {
+      key: item.key,
+      displayName: item.display_name,
+      ...(typeof item.llm_summary === "string" || item.llm_summary === null ? { llmSummary: item.llm_summary } : {}),
+      capabilities: stringList(item.capabilities),
+      entityTypes: stringList(item.entity_types),
+      accessPatterns: stringList(item.access_patterns),
+      status: item.status
+    };
+  });
+  const tools = raw.tools.map((value) => {
+    const item = asRecord(value, "tool index entry");
+    if (typeof item.key !== "string" || typeof item.name !== "string" || typeof item.status !== "string") {
+      throw new Error("Knowledge context index returned an invalid tool entry.");
+    }
+    return {
+      key: item.key,
+      name: item.name,
+      ...(typeof item.llm_summary === "string" || item.llm_summary === null ? { llmSummary: item.llm_summary } : {}),
+      capabilityTags: stringList(item.capability_tags),
+      status: item.status
+    };
+  });
+  return { datasets, tools, relationshipCount: raw.relationship_count, usageHint: raw.usage_hint };
 }
 
 function normalizeItem(value: unknown): KnowledgeItem {
@@ -175,6 +217,19 @@ export function createKnowledgeSearchProvider(endpoint: string): KnowledgeSearch
 type KnowledgeGetProvider = NonNullable<WorkflowAdapters["knowledgeGet"]>;
 type KnowledgeIngestProvider = NonNullable<WorkflowAdapters["knowledgeIngest"]>;
 type KnowledgeIngestTextProvider = NonNullable<WorkflowAdapters["knowledgeIngestText"]>;
+
+/** HTTP adapter for CortexDB's compact LLM-oriented context index. */
+export function createKnowledgeContextIndexProvider(endpoint: string): KnowledgeContextIndexProvider {
+  const base = endpoint.replace(/\/$/, "");
+  return async (): Promise<KnowledgeContextIndex> => {
+    const response = await fetch(`${base}/context/index`, { headers: { "content-type": "application/json" } });
+    if (!response.ok) {
+      const detail = await response.text().catch(() => "");
+      throw new Error(`Knowledge context index returned HTTP ${response.status}${detail ? `: ${detail}` : "."}`);
+    }
+    return normalizeContextIndex(await response.json());
+  };
+}
 
 /** HTTP adapter for CortexDB's idempotent dataset registration endpoint. */
 export function createKnowledgeRegisterDatasetProvider(endpoint: string): KnowledgeRegisterDatasetProvider {
@@ -336,4 +391,10 @@ export function createConfiguredKnowledgeIngestTextProvider(): KnowledgeIngestTe
 export function createConfiguredKnowledgeRegisterDatasetProvider(): KnowledgeRegisterDatasetProvider | undefined {
   const endpoint = process.env.PROJECTPLANER_KNOWLEDGE_URL ?? process.env.CORTEXDB_URL;
   return endpoint ? createKnowledgeRegisterDatasetProvider(endpoint) : undefined;
+}
+
+
+export function createConfiguredKnowledgeContextIndexProvider(): KnowledgeContextIndexProvider | undefined {
+  const endpoint = process.env.PROJECTPLANER_KNOWLEDGE_URL ?? process.env.CORTEXDB_URL;
+  return endpoint ? createKnowledgeContextIndexProvider(endpoint) : undefined;
 }

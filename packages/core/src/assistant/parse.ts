@@ -56,7 +56,7 @@ export function parseAssistantRoute(value: unknown): AssistantRoute | null {
   if (runId) result.runId = runId;
   if (message) result.message = message;
   if (lookupKind) {
-    if (!["agents", "agent", "entities", "entity", "workflows", "neighborhood", "knowledge", "files", "file"].includes(lookupKind)) return null;
+    if (!["agents", "agent", "entities", "entity", "workflows", "neighborhood", "knowledge_catalog", "knowledge", "files", "file"].includes(lookupKind)) return null;
     result.lookupKind = lookupKind;
     if (lookupQuery) result.lookupQuery = lookupQuery;
     if (lookupId) result.lookupId = lookupId;

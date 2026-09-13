@@ -59,7 +59,7 @@ function routeValue(value: unknown): AssistantRoute["route"] | undefined {
 }
 
 function lookupValue(value: unknown): NonNullable<AssistantRoute["lookupKind"]> | undefined {
-  return ["agents", "agent", "entities", "entity", "workflows", "neighborhood", "knowledge", "files", "file"].includes(String(value))
+  return ["agents", "agent", "entities", "entity", "workflows", "neighborhood", "knowledge_catalog", "knowledge", "files", "file"].includes(String(value))
     ? value as NonNullable<AssistantRoute["lookupKind"]>
     : undefined;
 }

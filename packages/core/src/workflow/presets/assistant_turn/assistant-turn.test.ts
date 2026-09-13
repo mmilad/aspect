@@ -58,7 +58,7 @@ describe("assistant_turn preset", () => {
     const parsed = parseWorkflowGraph(assistantTurnGraph);
     expect(parsed.ok, parsed.ok ? "" : parsed.errors.join("; ")).toBe(true);
     expect(assistantTurnPreset.presetKey).toBe("assistant_turn");
-    expect(assistantTurnPreset.presetVersion).toBe(10);
+    expect(assistantTurnPreset.presetVersion).toBe(11);
 
     const decisionPrompt = String(assistantTurnGraph.nodes.find((node) => node.id === "llm_decide")?.data.llm?.systemPrompt);
     const replyPrompt = String(assistantTurnGraph.nodes.find((node) => node.id === "llm_reply")?.data.llm?.systemPrompt);

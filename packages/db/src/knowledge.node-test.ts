@@ -80,3 +80,29 @@ test("knowledge dataset adapter registers a typed dataset", async () => {
     globalThis.fetch = previousFetch;
   }
 });
+
+test("knowledge context index adapter normalizes the compact catalog", async () => {
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = async () => Response.json({
+    datasets: [{ key: "project_facts", display_name: "Project facts", llm_summary: null, capabilities: ["vector"], entity_types: [], access_patterns: ["semantic_search"], status: "active" }],
+    tools: [],
+    relationship_count: 0,
+    usage_hint: "Search the relevant dataset."
+  });
+  try {
+    const { createKnowledgeContextIndexProvider } = await import("./knowledge");
+    const result = await createKnowledgeContextIndexProvider("http://cortex.test/")();
+    assert.deepEqual(result.datasets[0], {
+      key: "project_facts",
+      displayName: "Project facts",
+      llmSummary: null,
+      capabilities: ["vector"],
+      entityTypes: [],
+      accessPatterns: ["semantic_search"],
+      status: "active"
+    });
+    assert.equal(result.relationshipCount, 0);
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+});

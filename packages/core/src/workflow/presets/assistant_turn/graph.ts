@@ -67,6 +67,24 @@ function knowledgeNode(): WorkflowNode {
   };
 }
 
+function knowledgeContextIndexNode(): WorkflowNode {
+  return {
+    id: "knowledge_context_index",
+    type: "knowledge_context_index",
+    position: { x: 1420, y: 780 },
+    data: {
+      title: "Read knowledge catalog",
+      outputContracts: {
+        datasets: { required: true, shape: arrayOf(ANY) },
+        tools: { required: true, shape: arrayOf(ANY) },
+        relationshipCount: { required: true, shape: NUMBER },
+        usageHint: { required: true, shape: STRING }
+      },
+      knowledgeContextIndex: {}
+    }
+  };
+}
+
 function fileListNode(): WorkflowNode {
   return {
     id: "list_files",
@@ -109,6 +127,7 @@ const retrievalQueries: WorkflowNode[] = [
   queryNode("list_workflows", "List workflows", 480, { op: "list", type: "flow", select: "full", limit: 50 }, "entities", "workflowFacts"),
   queryNode("neighborhood", "Load neighborhood", 580, { op: "neighborhood", depth: 1, select: "compact", slots: [{ id: "id", slot: "id", source: "pin" }] }, "entities", "neighborhoodEntities"),
   knowledgeNode(),
+  knowledgeContextIndexNode(),
   fileListNode(),
   fileReadNode()
 ];
@@ -134,7 +153,7 @@ const DECISION_SYSTEM = [
 ].join(" ");
 const DECISION_INSTRUCTIONS = [
   "Durable context pack: {{contextPack}}", "Pending delegation: {{pendingDelegation}}", "Agents: {{agentFacts}}",
-  "Selected agent: {{agentFact}}", "Entity matches: {{entityMatches}}", "Selected entity: {{entityFact}}", "Workspace file entries: {{fileEntries}}", "Workspace file path: {{filePath}}", "Workspace file content: {{fileContent}}", "Knowledge hits: {{knowledgeHits}}",
+  "Selected agent: {{agentFact}}", "Entity matches: {{entityMatches}}", "Selected entity: {{entityFact}}", "Workspace file entries: {{fileEntries}}", "Workspace file path: {{filePath}}", "Workspace file content: {{fileContent}}", "Knowledge catalog: {{knowledgeCatalog}}", "Knowledge hits: {{knowledgeHits}}",
   "Workflows: {{workflowFacts}}", "Neighborhood entities: {{neighborhoodEntities}}", "Neighborhood relations: {{neighborhoodRelations}}",
   "Delegation result: {{delegation}}", "User message: {{message}}"
 ].join("\n");
@@ -149,7 +168,7 @@ const REPLY_SYSTEM = [
 ].join(" ");
 const REPLY_INSTRUCTIONS = [
   "Route: {{route}}", "Route reason: {{reason}}", "Clarifying question: {{question}}", "Context pack: {{contextPack}}",
-  "Retrieved agents: {{agentFacts}}", "Retrieved agent: {{agentFact}}", "Retrieved entity matches: {{entityMatches}}", "Workspace file entries: {{fileEntries}}", "Workspace file path: {{filePath}}", "Workspace file content: {{fileContent}}", "Retrieved knowledge: {{knowledgeHits}}",
+  "Retrieved agents: {{agentFacts}}", "Retrieved agent: {{agentFact}}", "Retrieved entity matches: {{entityMatches}}", "Workspace file entries: {{fileEntries}}", "Workspace file path: {{filePath}}", "Workspace file content: {{fileContent}}", "Knowledge catalog: {{knowledgeCatalog}}", "Retrieved knowledge: {{knowledgeHits}}",
   "Retrieved entity: {{entityFact}}", "Retrieved workflows: {{workflowFacts}}", "Neighborhood: {{neighborhoodEntities}} {{neighborhoodRelations}}",
   "Delegation result: {{delegation}}", "Delegation status: {{delegationStatus}}", "Delegation question: {{delegationQuestion}}",
   "Delegation error: {{delegationError}}", "User message: {{message}}"
@@ -188,21 +207,21 @@ export const assistantTurnGraph: WorkflowGraph = {
       title: "Assistant decision", executionPolicy: { maxVisits: 5, onExhausted: "fail_run" },
       inputs: {
         contextPack: { required: true, shape: CONTEXT_PACK }, message: { required: true, shape: STRING }, pendingDelegation: { required: false, shape: ANY },
-        agentFacts: { required: false, shape: ANY }, agentFact: { required: false, shape: ANY }, entityMatches: { required: false, shape: ANY }, entityFact: { required: false, shape: ANY }, workflowFacts: { required: false, shape: ANY }, neighborhoodEntities: { required: false, shape: ANY }, neighborhoodRelations: { required: false, shape: ANY }, fileEntries: { required: false, shape: FILE_ENTRIES }, filePath: { required: false, shape: STRING }, fileContent: { required: false, shape: STRING }, knowledgeHits: { required: false, shape: arrayOf(ANY) }, delegation: { required: false, shape: ANY }
+        agentFacts: { required: false, shape: ANY }, agentFact: { required: false, shape: ANY }, entityMatches: { required: false, shape: ANY }, entityFact: { required: false, shape: ANY }, workflowFacts: { required: false, shape: ANY }, neighborhoodEntities: { required: false, shape: ANY }, neighborhoodRelations: { required: false, shape: ANY }, fileEntries: { required: false, shape: FILE_ENTRIES }, filePath: { required: false, shape: STRING }, fileContent: { required: false, shape: STRING }, knowledgeCatalog: { required: false, shape: ANY }, knowledgeHits: { required: false, shape: arrayOf(ANY) }, delegation: { required: false, shape: ANY }
       },
       outputContracts: { decision: { required: true, shape: ROUTE } },
       llm: { schemaKey: ASSISTANT_ROUTE_V1_KEY, outputSchema: ["decision"], systemPrompt: DECISION_SYSTEM, instructions: DECISION_INSTRUCTIONS }
     } },
     { id: "break_decision", type: "break", position: { x: 1240, y: 360 }, data: { title: "Break route", break: { from: "decision" } } },
     { id: "decision_switch", type: "switch", position: { x: 1480, y: 360 }, data: { title: "Route", switch: { on: "route", cases: ["reply", "clarify", "retrieve", "delegate", "resume"], defaultLabel: "default" } } },
-    { id: "lookup_switch", type: "switch", position: { x: 1730, y: 360 }, data: { title: "Read lookup", switch: { on: "lookupKind", cases: ["agents", "agent", "entities", "entity", "workflows", "neighborhood", "knowledge", "files", "file"], defaultLabel: "default" } } },
+    { id: "lookup_switch", type: "switch", position: { x: 1730, y: 360 }, data: { title: "Read lookup", switch: { on: "lookupKind", cases: ["agents", "agent", "entities", "entity", "workflows", "neighborhood", "knowledge_catalog", "knowledge", "files", "file"], defaultLabel: "default" } } },
     ...retrievalQueries,
     { id: "delegate", type: "delegate", position: { x: 1730, y: 980 }, data: { title: "Delegate / resume" } },
     { id: "llm_reply", type: "llm", position: { x: 2080, y: 360 }, data: {
       title: "Generate grounded answer",
       inputs: {
         route: { required: true, shape: STRING }, reason: { required: true, shape: STRING }, question: { required: false, shape: nullable(STRING) }, contextPack: { required: true, shape: CONTEXT_PACK }, message: { required: true, shape: STRING },
-        agentFacts: { required: false, shape: ANY }, agentFact: { required: false, shape: ANY }, entityMatches: { required: false, shape: ANY }, entityFact: { required: false, shape: ANY }, workflowFacts: { required: false, shape: ANY }, neighborhoodEntities: { required: false, shape: ANY }, neighborhoodRelations: { required: false, shape: ANY }, fileEntries: { required: false, shape: FILE_ENTRIES }, filePath: { required: false, shape: STRING }, fileContent: { required: false, shape: STRING }, knowledgeHits: { required: false, shape: arrayOf(ANY) }, delegation: { required: false, shape: ANY }, delegationStatus: { required: false, shape: STRING }, delegationQuestion: { required: false, shape: ANY }, delegationError: { required: false, shape: ANY }
+        agentFacts: { required: false, shape: ANY }, agentFact: { required: false, shape: ANY }, entityMatches: { required: false, shape: ANY }, entityFact: { required: false, shape: ANY }, workflowFacts: { required: false, shape: ANY }, neighborhoodEntities: { required: false, shape: ANY }, neighborhoodRelations: { required: false, shape: ANY }, fileEntries: { required: false, shape: FILE_ENTRIES }, filePath: { required: false, shape: STRING }, fileContent: { required: false, shape: STRING }, knowledgeCatalog: { required: false, shape: ANY }, knowledgeHits: { required: false, shape: arrayOf(ANY) }, delegation: { required: false, shape: ANY }, delegationStatus: { required: false, shape: STRING }, delegationQuestion: { required: false, shape: ANY }, delegationError: { required: false, shape: ANY }
       },
       outputContracts: { reply: { required: true, shape: STRING } }, llm: { format: "text", outputSchema: ["reply"], systemPrompt: REPLY_SYSTEM, instructions: REPLY_INSTRUCTIONS }
     } },
@@ -211,11 +230,11 @@ export const assistantTurnGraph: WorkflowGraph = {
   edges: [
     next("e_start_session", "start", "session_read"), next("e_session_context", "session_read", "llm_context"), next("e_context_agents", "llm_context", "list_agents"), next("e_agents_decision", "list_agents", "llm_decide"), next("e_decision_switch", "llm_decide", "decision_switch"), next("e_delegate_reply", "delegate", "llm_reply"), next("e_reply_end", "llm_reply", "end"),
     route("r_reply", "decision_switch", "llm_reply", "reply"), route("r_clarify", "decision_switch", "llm_reply", "clarify"), route("r_retrieve", "decision_switch", "lookup_switch", "retrieve"), route("r_delegate", "decision_switch", "delegate", "delegate"), route("r_resume", "decision_switch", "delegate", "resume"), route("r_decision_default", "decision_switch", "llm_reply", "default"),
-    route("r_lookup_agents", "lookup_switch", "list_agents", "agents"), route("r_lookup_agent", "lookup_switch", "get_agent", "agent"), route("r_lookup_entities", "lookup_switch", "search_entities", "entities"), route("r_lookup_entity", "lookup_switch", "get_entity", "entity"), route("r_lookup_workflows", "lookup_switch", "list_workflows", "workflows"), route("r_lookup_neighborhood", "lookup_switch", "neighborhood", "neighborhood"), route("r_lookup_knowledge", "lookup_switch", "search_knowledge", "knowledge"), route("r_lookup_files", "lookup_switch", "list_files", "files"), route("r_lookup_file", "lookup_switch", "read_file", "file"), route("r_lookup_default", "lookup_switch", "llm_decide", "default"),
+    route("r_lookup_agents", "lookup_switch", "list_agents", "agents"), route("r_lookup_agent", "lookup_switch", "get_agent", "agent"), route("r_lookup_entities", "lookup_switch", "search_entities", "entities"), route("r_lookup_entity", "lookup_switch", "get_entity", "entity"), route("r_lookup_workflows", "lookup_switch", "list_workflows", "workflows"), route("r_lookup_neighborhood", "lookup_switch", "neighborhood", "neighborhood"), route("r_lookup_knowledge_catalog", "lookup_switch", "knowledge_context_index", "knowledge_catalog"), route("r_lookup_knowledge", "lookup_switch", "search_knowledge", "knowledge"), route("r_lookup_files", "lookup_switch", "list_files", "files"), route("r_lookup_file", "lookup_switch", "read_file", "file"), route("r_lookup_default", "lookup_switch", "llm_decide", "default"),
     ...retrievalQueries.map((node, index) => next(`e_query_${index}`, node.id, "llm_decide")),
     data("d_start_session", "start", "session", "session_read", "session"), data("d_start_window", "start", "windowSize", "session_read", "windowSize"), data("d_start_knowledge_dataset", "start", "knowledgeDataset", "search_knowledge", "datasetKey"), data("d_start_knowledge_access", "start", "knowledgeAccess", "search_knowledge", "access"),
     data("d_session_summary", "session_read", "priorSummary", "llm_context", "priorSummary"), data("d_session_topics", "session_read", "priorTopics", "llm_context", "priorTopics"), data("d_session_questions", "session_read", "priorQuestions", "llm_context", "priorQuestions"), data("d_session_context", "session_read", "priorContext", "llm_context", "priorContext"), data("d_session_recent", "session_read", "recentTurns", "llm_context", "recentTurns"),
-    data("d_context_decision", "llm_context", "contextPack", "llm_decide", "contextPack"), data("d_agents_decision", "list_agents", "entities", "llm_decide", "agentFacts"), data("d_agents_reply", "list_agents", "entities", "llm_reply", "agentFacts"), data("d_file_entries_decision", "list_files", "entries", "llm_decide", "fileEntries"), data("d_file_entries_reply", "list_files", "entries", "llm_reply", "fileEntries"), data("d_file_path", "read_file", "path", "llm_decide", "filePath"), data("d_file_content_decision", "read_file", "content", "llm_decide", "fileContent"), data("d_file_path_reply", "read_file", "path", "llm_reply", "filePath"), data("d_file_content_reply", "read_file", "content", "llm_reply", "fileContent"), data("d_knowledge_decision", "search_knowledge", "hits", "llm_decide", "knowledgeHits"), data("d_knowledge_reply", "search_knowledge", "hits", "llm_reply", "knowledgeHits"), data("d_decision_break", "llm_decide", "decision", "break_decision", "value"), data("d_context_reply", "llm_context", "contextPack", "llm_reply", "contextPack"), data("d_context_end", "llm_context", "contextPack", "end", "contextPack"),
+    data("d_context_decision", "llm_context", "contextPack", "llm_decide", "contextPack"), data("d_agents_decision", "list_agents", "entities", "llm_decide", "agentFacts"), data("d_agents_reply", "list_agents", "entities", "llm_reply", "agentFacts"), data("d_file_entries_decision", "list_files", "entries", "llm_decide", "fileEntries"), data("d_file_entries_reply", "list_files", "entries", "llm_reply", "fileEntries"), data("d_file_path", "read_file", "path", "llm_decide", "filePath"), data("d_file_content_decision", "read_file", "content", "llm_decide", "fileContent"), data("d_file_path_reply", "read_file", "path", "llm_reply", "filePath"), data("d_file_content_reply", "read_file", "content", "llm_reply", "fileContent"), data("d_knowledge_catalog_decision", "knowledge_context_index", "datasets", "llm_decide", "knowledgeCatalog"), data("d_knowledge_catalog_reply", "knowledge_context_index", "datasets", "llm_reply", "knowledgeCatalog"), data("d_knowledge_decision", "search_knowledge", "hits", "llm_decide", "knowledgeHits"), data("d_knowledge_reply", "search_knowledge", "hits", "llm_reply", "knowledgeHits"), data("d_decision_break", "llm_decide", "decision", "break_decision", "value"), data("d_context_reply", "llm_context", "contextPack", "llm_reply", "contextPack"), data("d_context_end", "llm_context", "contextPack", "end", "contextPack"),
     data("d_start_message_context", "start", "message", "llm_context", "message"), data("d_start_message_decision", "start", "message", "llm_decide", "message"), data("d_start_message_reply", "start", "message", "llm_reply", "message"), data("d_start_pending_decision", "start", "pendingDelegation", "llm_decide", "pendingDelegation"),
     data("d_break_route", "break_decision", "route", "decision_switch", "route"), data("d_break_kind", "break_decision", "lookupKind", "lookup_switch", "lookupKind"), data("d_break_query_search", "break_decision", "lookupQuery", "search_entities", "q"), data("d_break_query_knowledge", "break_decision", "lookupQuery", "search_knowledge", "query"), data("d_break_query_files", "break_decision", "lookupQuery", "list_files", "path"), data("d_break_id_agent", "break_decision", "lookupId", "get_agent", "id"), data("d_break_id_entity", "break_decision", "lookupId", "get_entity", "id"), data("d_break_id_neighborhood", "break_decision", "lookupId", "neighborhood", "id"), data("d_break_id_file", "break_decision", "lookupId", "read_file", "path"), data("d_break_agent", "break_decision", "agentId", "delegate", "agentId"), data("d_break_task", "break_decision", "task", "delegate", "task"), data("d_break_run", "break_decision", "runId", "delegate", "runId"), data("d_break_message", "break_decision", "message", "delegate", "message"), data("d_start_pending_delegate", "start", "pendingDelegation", "delegate", "pendingDelegation"),
     data("d_break_route_reply", "break_decision", "route", "llm_reply", "route"), data("d_break_reason_reply", "break_decision", "reason", "llm_reply", "reason"), data("d_break_question_reply", "break_decision", "question", "llm_reply", "question"),

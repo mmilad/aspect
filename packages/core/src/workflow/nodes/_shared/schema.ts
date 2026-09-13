@@ -37,6 +37,7 @@ export const CONFIG_KEYS = [
   "knowledgeSearch",
   "knowledgeGet",
   "knowledgeRegisterDataset",
+  "knowledgeContextIndex",
   "knowledgeIngest",
   "knowledgeIngestText",
   "knowledgePromote",

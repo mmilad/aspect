@@ -1,5 +1,8 @@
 export type {
   KnowledgeAccess,
+  KnowledgeCatalogDataset,
+  KnowledgeCatalogTool,
+  KnowledgeContextIndex,
   KnowledgeDatasetRecord,
   KnowledgeDatasetSpec,
   KnowledgeGetInput,

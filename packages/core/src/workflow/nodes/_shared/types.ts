@@ -35,6 +35,7 @@ export const workflowWorkNodeTypes = [
   "knowledge_search",
   "knowledge_get",
   "knowledge_register_dataset",
+  "knowledge_context_index",
   "knowledge_ingest",
   "knowledge_ingest_text",
   "knowledge_promote",
@@ -508,6 +509,7 @@ export interface WorkflowNodeData {
   knowledgeSearch?: WorkflowKnowledgeSearchConfig;
   knowledgeGet?: WorkflowKnowledgeGetConfig;
   knowledgeRegisterDataset?: WorkflowKnowledgeRegisterDatasetConfig;
+  knowledgeContextIndex?: Record<string, never>;
   knowledgeIngest?: WorkflowKnowledgeIngestConfig;
   knowledgeIngestText?: WorkflowKnowledgeIngestTextConfig;
   knowledgePromote?: WorkflowKnowledgePromoteConfig;

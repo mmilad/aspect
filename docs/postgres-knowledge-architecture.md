@@ -82,9 +82,16 @@ durable knowledge data after a restart.
 `pnpm knowledge:start` is a convenience launcher for the local Windows setup.
 It uses the sibling `CortexDB` checkout by default, verifies the Postgres
 Python extra, starts only the CortexDB API in the background, and waits for
-`/health`. Set `PROJECTPLANER_CORTEXDB_ROOT` or
+both `/health` and `/context/index`. A process that answers `/health` but has
+lost its Postgres connection is reported as not ready instead of being reused.
+Set `PROJECTPLANER_CORTEXDB_ROOT` or
 `PROJECTPLANER_CORTEXDB_PYTHON` when the checkout or Python environment lives
 elsewhere.
+
+The migration verifier checks `project_<project-key>` by default, because
+`PROJECTPLANER_KNOWLEDGE_DATASET` may intentionally point at session or
+personal memory for runtime workflows. Use `--dataset=...` when verifying a
+different knowledge dataset.
 
 Legacy CortexDB session-memory imports are global by default because the older
 ingest path did not carry ownership. Review them first with:
@@ -189,7 +196,17 @@ project graph or directly mutates files.
 - Define stable IDs and provenance references between Projectplaner and CortexDB.
 - Define the knowledge API DTOs and workflow bag shapes.
 - Add migration verification commands: row counts, IDs, embedding model, and
-  source checksums.
+  source checksums. Run the read-only verifier after migration or indexing:
+
+  ```text
+  pnpm knowledge:verify -- --project-key=PLAN --dataset=project_plan
+  ```
+
+  It requires `PROJECTPLANER_DATABASE_URL`, checks that every SQLite source ID
+  exists in Postgres, reports target-only records created after migration,
+  validates relational references, and checks project-scoped CortexDB hits for
+  embedding-model and `source_sha256` provenance. Use `--allow-empty` only for
+  a newly registered dataset before its first indexing run.
 - Keep SQLite fixtures for fast unit tests.
 
 Exit condition: the API and schema contracts are reviewed before a data move.

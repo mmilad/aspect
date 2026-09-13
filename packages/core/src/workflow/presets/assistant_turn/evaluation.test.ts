@@ -43,7 +43,14 @@ describe("deterministic Assistant evaluations", () => {
     });
 
     expect(run.result.kind).toBe("completed");
-    expect(run.result.bag.frame?.pins["list_agents::entities"]).toEqual([codingAgent]);
+    expect(run.result.bag.frame?.pins["list_agents::entities"]).toEqual([{
+      id: codingAgent.id,
+      type: codingAgent.type,
+      key: codingAgent.key,
+      title: codingAgent.title,
+      status: codingAgent.status,
+      summary: codingAgent.summary
+    }]);
     expect(run.result.bag.frame?.outputs.reply).toBe("The project has a Coding Agent.");
     expect(run.trace.route).toBe("reply");
     expect(run.trace.steps.map((step) => step.nodeId)).toEqual([
@@ -51,6 +58,7 @@ describe("deterministic Assistant evaluations", () => {
       "session_read",
       "llm_context",
       "list_agents",
+      "knowledge_context_index",
       "llm_decide",
       "decision_switch",
       "llm_reply",

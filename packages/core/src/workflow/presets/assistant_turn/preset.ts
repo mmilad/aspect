@@ -3,7 +3,7 @@ import { assistantTurnGraph } from "./graph";
 
 export const assistantTurnPreset: WorkflowPreset = {
   presetKey: "assistant_turn",
-  presetVersion: 14,
+  presetVersion: 17,
   title: "Assistant turn",
   summary:
     "Visible Assistant loop: session read, durable context pack, structured route, read-only retrieval or specialist delegation, grounded reply, and persistence.",

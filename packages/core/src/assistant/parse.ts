@@ -47,10 +47,14 @@ export function parseAssistantRoute(value: unknown, fallbackKnowledgeDataset?: s
   const task = optionalString("task");
   const runId = optionalString("runId");
   const message = optionalString("message");
-  const lookupKind = optionalString("lookupKind") as AssistantRoute["lookupKind"];
-  const lookupQuery = optionalString("lookupQuery");
-  const lookupId = optionalString("lookupId");
   const nestedLookup = isRecord(value.lookup) ? value.lookup : undefined;
+  const nestedLookupKind = typeof nestedLookup?.kind === "string" ? nestedLookup.kind : undefined;
+  const lookupKind = (optionalString("lookupKind") ?? nestedLookupKind) as AssistantRoute["lookupKind"];
+  const nestedString = (key: string) => typeof nestedLookup?.[key] === "string" && nestedLookup[key].trim()
+    ? nestedLookup[key].trim()
+    : undefined;
+  const lookupQuery = optionalString("lookupQuery") ?? nestedString("query");
+  const lookupId = optionalString("lookupId") ?? nestedString("id");
   const lookupDatasetKey = optionalString("lookupDatasetKey")
     ?? (typeof nestedLookup?.datasetKey === "string" && nestedLookup.datasetKey.trim() ? nestedLookup.datasetKey.trim() : undefined)
     ?? (typeof fallbackKnowledgeDataset === "string" && fallbackKnowledgeDataset.trim() ? fallbackKnowledgeDataset.trim() : undefined);

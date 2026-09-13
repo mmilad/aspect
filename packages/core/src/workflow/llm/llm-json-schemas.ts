@@ -117,35 +117,30 @@ export const ASSISTANT_ROUTE_V1_SCHEMA: Record<string, unknown> = {
   $id: "projectplaner:llm-json-schema:assistant_route_v1",
   type: "object",
   additionalProperties: false,
-  required: ["route", "reason", "question", "lookup", "lookupKind", "lookupQuery", "lookupId", "agentId", "task", "runId", "message"],
+  required: ["route", "reason"],
   properties: {
     route: { type: "string", enum: ["reply", "clarify", "retrieve", "delegate", "resume"] },
-    reason: { type: "string" },
-    question: { type: ["string", "null"] },
+    reason: { type: "string", minLength: 1 },
+    question: { type: "string" },
     lookup: {
-      anyOf: [
-        {
-          type: "object",
-          additionalProperties: false,
-            required: ["kind", "query", "id"],
-            properties: {
-              kind: { type: "string", enum: ["agents", "agent", "entities", "entity", "workflows", "neighborhood", "knowledge_catalog", "knowledge", "files", "file"] },
-              query: { type: ["string", "null"] },
-              id: { type: ["string", "null"] },
-              datasetKey: { type: "string" }
-          }
-        },
-        { type: "null" }
-      ]
+      type: "object",
+      additionalProperties: false,
+      required: ["kind"],
+      properties: {
+        kind: { type: "string", enum: ["agents", "agent", "entities", "entity", "workflows", "neighborhood", "knowledge_catalog", "knowledge", "files", "file"] },
+        query: { type: "string" },
+        id: { type: "string" },
+        datasetKey: { type: "string" }
+      }
     },
-  lookupKind: { type: ["string", "null"], enum: ["agents", "agent", "entities", "entity", "workflows", "neighborhood", "knowledge_catalog", "knowledge", "files", "file", null] },
-      lookupQuery: { type: ["string", "null"] },
-      lookupId: { type: ["string", "null"] },
-      lookupDatasetKey: { type: "string" },
-    agentId: { type: ["string", "null"] },
-    task: { type: ["string", "null"] },
-    runId: { type: ["string", "null"] },
-    message: { type: ["string", "null"] }
+    lookupKind: { type: "string", enum: ["agents", "agent", "entities", "entity", "workflows", "neighborhood", "knowledge_catalog", "knowledge", "files", "file"] },
+    lookupQuery: { type: "string" },
+    lookupId: { type: "string" },
+    lookupDatasetKey: { type: "string" },
+    agentId: { type: "string" },
+    task: { type: "string" },
+    runId: { type: "string" },
+    message: { type: "string" }
   }
 };
 

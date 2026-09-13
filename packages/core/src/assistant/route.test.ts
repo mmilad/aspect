@@ -42,6 +42,19 @@ describe("assistant route parser", () => {
     });
   });
 
+  it("derives lookup fields from a nested model lookup", () => {
+    expect(parseAssistantRoute({
+      ...base,
+      route: "retrieve",
+      lookup: { kind: "knowledge", query: "my cat", datasetKey: "session_memory" }
+    })).toMatchObject({
+      route: "retrieve",
+      lookupKind: "knowledge",
+      lookupQuery: "my cat",
+      lookupDatasetKey: "session_memory"
+    });
+  });
+
   it("uses the configured dataset only as a trusted knowledge-route fallback", () => {
     expect(parseAssistantRoute({
       ...base,

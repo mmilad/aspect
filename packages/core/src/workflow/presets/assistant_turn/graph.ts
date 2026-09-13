@@ -126,7 +126,11 @@ function fileReadNode(): WorkflowNode {
 }
 
 const retrievalQueries: WorkflowNode[] = [
-  queryNode("list_agents", "List active agents", 80, { op: "list", type: "agent", select: "full", limit: 50 }, "entities", "agentFacts"),
+  // The always-available agent catalogue is deliberately compact. Full
+  // profiles (including histories, workflow assignments, and instructions)
+  // are loaded by get_agent only when the user asks about one agent. Keeping
+  // the catalogue small makes the decision prompt reliable for local models.
+  queryNode("list_agents", "List active agents", 80, { op: "list", type: "agent", select: "compact", limit: 50 }, "entities", "agentFacts"),
   queryNode("get_agent", "Get agent", 180, { op: "get", type: "agent", select: "full", slots: [{ id: "id", slot: "id", source: "pin" }] }, "entity", "agentFact"),
   queryNode("search_entities", "Search entities", 280, { op: "search", select: "compact", limit: 20, slots: [{ id: "q", slot: "q", source: "pin" }] }, "matches", "entityMatches"),
   queryNode("get_entity", "Get entity", 380, { op: "get", select: "full", slots: [{ id: "id", slot: "id", source: "pin" }] }, "entity", "entityFact"),
@@ -154,8 +158,9 @@ const DECISION_SYSTEM = [
   "The role manifest describes your authority, not project facts. Treat agentFacts as the evidence for which active agents exist, bounded file results as workspace evidence, knowledgeHits as searchable memory evidence, and delegation results as the evidence for work performed.",
   "Use only the durable context, current message, retrieved facts, delegation results, and confirmed runtime state.",
   "Never invent facts, agents, capabilities, entities, actions, sources, or outcomes.",
-  "Choose reply when evidence is sufficient, clarify when one focused question is needed, retrieve when a listed read lookup is needed, delegate only to a known registered specialist, and resume only the pending run. For knowledge retrieval, set lookupDatasetKey to the selected catalog key and lookupQuery to the search text; use the configured dataset only when it is present in the supplied catalog or configured input.",
+  "Choose reply when evidence is sufficient, clarify when one focused question is needed, retrieve when a listed read lookup is needed, delegate only to a known registered specialist, and resume only the pending run. When the user asks what a named agent can do, do not answer from the compact catalogue alone: retrieve that agent's full profile first using the matching agent id. For knowledge retrieval, set lookupDatasetKey to the selected catalog key and lookupQuery to the search text; use the configured dataset only when it is present in the supplied catalog or configured input.",
   "When the user asks about a personal fact, a remembered detail, or something phrased as 'my ...', choose retrieve with lookupKind knowledge and search the configured knowledge dataset before replying, unless knowledgeHits are already supplied for this turn. If that lookup returns no supporting hit, reply with explicit uncertainty; never treat the absence of a hit as proof that the fact is false.",
+  "Do not choose clarify when the user asks about a listed agent or asks for a personal remembered fact: those are retrieval requests. Example: 'What can the Knowledge and File Specialist do?' means retrieve with lookupKind agent and lookupId set to the matching listed agent id. Example: 'What is my cat's name?' means retrieve with lookupKind knowledge, lookupQuery set to the user's question, and lookupDatasetKey set to the configured dataset.",
   "For remember or store requests, never write directly: ask for focused confirmation when needed or delegate to a known specialist authorized for the remember workflow. Do not claim that anything was remembered until a confirmed promotion result exists.",
   "Return JSON matching assistant_route_v1."
 ].join(" ");
@@ -237,7 +242,7 @@ export const assistantTurnGraph: WorkflowGraph = {
     { id: "end", type: "end", position: { x: 2360, y: 360 }, data: { title: "End" } }
   ],
   edges: [
-    next("e_start_session", "start", "session_read"), next("e_session_context", "session_read", "llm_context"), next("e_context_agents", "llm_context", "list_agents"), next("e_agents_decision", "list_agents", "llm_decide"), next("e_decision_switch", "llm_decide", "decision_switch"), next("e_delegate_reply", "delegate", "llm_reply"), next("e_reply_end", "llm_reply", "end"),
+    next("e_start_session", "start", "session_read"), next("e_session_context", "session_read", "llm_context"), next("e_context_agents", "llm_context", "list_agents"), next("e_agents_catalog", "list_agents", "knowledge_context_index"), next("e_agents_decision", "knowledge_context_index", "llm_decide"), next("e_decision_switch", "llm_decide", "decision_switch"), next("e_delegate_reply", "delegate", "llm_reply"), next("e_reply_end", "llm_reply", "end"),
     route("r_reply", "decision_switch", "llm_reply", "reply"), route("r_clarify", "decision_switch", "llm_reply", "clarify"), route("r_retrieve", "decision_switch", "lookup_switch", "retrieve"), route("r_delegate", "decision_switch", "delegate", "delegate"), route("r_resume", "decision_switch", "delegate", "resume"), route("r_decision_default", "decision_switch", "llm_reply", "default"),
     route("r_lookup_agents", "lookup_switch", "list_agents", "agents"), route("r_lookup_agent", "lookup_switch", "get_agent", "agent"), route("r_lookup_entities", "lookup_switch", "search_entities", "entities"), route("r_lookup_entity", "lookup_switch", "get_entity", "entity"), route("r_lookup_workflows", "lookup_switch", "list_workflows", "workflows"), route("r_lookup_neighborhood", "lookup_switch", "neighborhood", "neighborhood"), route("r_lookup_knowledge_catalog", "lookup_switch", "knowledge_context_index", "knowledge_catalog"), route("r_lookup_knowledge", "lookup_switch", "search_knowledge", "knowledge"), route("r_lookup_files", "lookup_switch", "list_files", "files"), route("r_lookup_file", "lookup_switch", "read_file", "file"), route("r_lookup_default", "lookup_switch", "llm_decide", "default"),
     ...retrievalQueries.map((node, index) => next(`e_query_${index}`, node.id, node.id === "search_knowledge" ? "llm_reply" : "llm_decide")),

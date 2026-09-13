@@ -411,13 +411,14 @@ function inferBreakPorts(graph: WorkflowGraph): void {
     const source = graph.nodes.find((candidate) => candidate.id === incoming.source);
     if (!source) return undefined;
     if (source.type === "reroute") return sourceShape(source, seen);
-    if (source.type === "llm" && source.data.llm?.schemaKey) {
-      return bagShapeFromLlmSchema(source.data.llm.schemaKey);
-    }
     const pin = incoming.sourcePin ?? "";
     const bagKey = resolveWriteBindings(source)[pin] ?? pin;
     const declared = source.data.outputContracts?.[pin]?.shape ?? source.data.outputContracts?.[bagKey]?.shape;
-    return declared ? resolveBagShape(declared) : undefined;
+    if (declared) return resolveBagShape(declared);
+    if (source.type === "llm" && source.data.llm?.schemaKey) {
+      return bagShapeFromLlmSchema(source.data.llm.schemaKey);
+    }
+    return undefined;
   };
   for (const node of graph.nodes) {
     if (node.type !== "break" || !node.data.break?.from) continue;

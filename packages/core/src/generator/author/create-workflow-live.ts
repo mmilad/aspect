@@ -31,6 +31,73 @@ export type CreateWorkflowLiveResult = {
   turns: CreateWorkflowLiveTurn[];
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Small compatibility normalizations for local models that return a useful
+ * route payload but omit fields that are only routing metadata. This does not
+ * invent evidence or runtime results; semantic route validation still runs in
+ * the workflow after this normalization.
+ */
+function normalizeAssistantRoutePayload(value: Record<string, unknown>): Record<string, unknown> {
+  const normalized = { ...value };
+  const lookupAliases: Record<string, string> = {
+    list_agents: "agents",
+    get_agent: "agent",
+    search_entities: "entities",
+    get_entity: "entity",
+    list_workflows: "workflows",
+    load_neighborhood: "neighborhood",
+    search_knowledge: "knowledge",
+    list_files: "files",
+    read_file: "file"
+  };
+  // Local models occasionally use the natural-language names from the
+  // prompt instead of the exact route enum. Keep the semantic parser strict;
+  // this compatibility step only accepts unambiguous aliases at the LLM
+  // boundary and never creates evidence or runtime results.
+  if (typeof normalized.route === "string") {
+    const routeAliases: Record<string, string> = {
+      answer: "reply",
+      respond: "reply",
+      question: "clarify",
+      ask: "clarify",
+      lookup: "retrieve",
+      query: "retrieve",
+      search: "retrieve"
+    };
+    normalized.route = routeAliases[normalized.route.trim().toLowerCase()] ?? normalized.route;
+  }
+  if (typeof normalized.lookupKind === "string") {
+    normalized.lookupKind = lookupAliases[normalized.lookupKind.trim().toLowerCase()] ?? normalized.lookupKind;
+  }
+  if (typeof normalized.reason !== "string" || !normalized.reason.trim()) {
+    normalized.reason = "The model selected this route from the supplied context.";
+  }
+  if (normalized.route === "clarify" && typeof normalized.question !== "string" && typeof normalized.message === "string") {
+    normalized.question = normalized.message;
+  }
+  if (normalized.route === "retrieve" && isRecord(normalized.lookup)) {
+    const lookup = normalized.lookup;
+    const lookupKind = typeof lookup.kind === "string"
+      ? lookupAliases[lookup.kind.trim().toLowerCase()] ?? lookup.kind
+      : undefined;
+    if (lookupKind) {
+      normalized.lookup = {
+        ...lookup,
+        kind: lookupKind
+      };
+    }
+    if (typeof normalized.lookupKind !== "string" && lookupKind) normalized.lookupKind = lookupKind;
+    if (typeof normalized.lookupQuery !== "string" && typeof lookup.query === "string") normalized.lookupQuery = lookup.query;
+    if (typeof normalized.lookupId !== "string" && typeof lookup.id === "string") normalized.lookupId = lookup.id;
+    if (typeof normalized.lookupDatasetKey !== "string" && typeof lookup.datasetKey === "string") normalized.lookupDatasetKey = lookup.datasetKey;
+  }
+  return normalized;
+}
+
 function parsedGraph(raw: unknown): WorkflowGraph {
   const result = parseWorkflowGraph(raw);
   if (!result.ok) {
@@ -54,7 +121,9 @@ export function llmWritesFromPending(
   if (!parsedJson || typeof parsedJson !== "object" || Array.isArray(parsedJson)) {
     throw new Error("LLM JSON must be an object.");
   }
-  const record = parsedJson as Record<string, unknown>;
+  const record = pending.schemaKey === "assistant_route_v1"
+    ? normalizeAssistantRoutePayload(parsedJson as Record<string, unknown>)
+    : parsedJson as Record<string, unknown>;
   const keys = pending.outputSchema ?? [];
   if (keys.length === 0) {
     return record;

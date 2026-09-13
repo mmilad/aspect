@@ -19,8 +19,18 @@ export type DatabaseController = DatabaseOperations & { shutdown(): Promise<void
 
 export function createDatabaseController(options: ControllerOptions = {}): DatabaseController {
   const factory = options.storageFactory ?? (() => {
+    // An explicit path is an intentional SQLite override. This is important
+    // for isolated tests, migration tools, and local snapshots when the
+    // application environment also has a Postgres URL configured.
+    if (options.path !== undefined) {
+      return openSqlite(options.path);
+    }
+    const databasePath = defaultDatabasePath();
     const databaseUrl = defaultDatabaseUrl();
-    return databaseUrl ? openPostgres(databaseUrl) : openSqlite(options.path ?? defaultDatabasePath());
+    if (process.env.PROJECTPLANER_DB_PATH !== undefined) {
+      return openSqlite(databasePath);
+    }
+    return databaseUrl ? openPostgres(databaseUrl) : openSqlite(databasePath);
   });
   let connection: StorageConnection | undefined;
   let services: DatabaseOperations | undefined;
@@ -87,12 +97,16 @@ export function createDatabaseController(options: ControllerOptions = {}): Datab
 const state = globalThis as typeof globalThis & { projectplanerDatabaseControllers?: Map<string, DatabaseController> };
 export function getDatabaseController(): DatabaseController {
   const dbPath = defaultDatabasePath();
-  const resolved = dbPath === ":memory:" ? dbPath : path.resolve(dbPath);
+  const useExplicitSqlite = process.env.PROJECTPLANER_DB_PATH !== undefined;
+  const databaseUrl = useExplicitSqlite ? undefined : defaultDatabaseUrl();
+  const resolved = databaseUrl && !useExplicitSqlite
+    ? "postgres"
+    : (dbPath === ":memory:" ? dbPath : path.resolve(dbPath));
   const key = process.platform === "win32" ? resolved.toLowerCase() : resolved;
   const controllers = state.projectplanerDatabaseControllers ??= new Map();
   let controller = controllers.get(key);
   if (!controller) {
-    controller = createDatabaseController({ path: dbPath });
+    controller = createDatabaseController(databaseUrl && !useExplicitSqlite ? {} : { path: dbPath });
     controllers.set(key, controller);
   }
   return controller;

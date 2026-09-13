@@ -11,7 +11,8 @@
     "test:llm": "vitest run --config vitest.llm.config.ts",
     "plan": "pnpm --filter @projectplaner/db plan",
     "db:migrate-postgres": "pnpm --filter @projectplaner/db db:migrate-postgres",
-    "knowledge:start": "powershell -ExecutionPolicy Bypass -File scripts/start-knowledge-api.ps1"
+    "knowledge:start": "powershell -ExecutionPolicy Bypass -File scripts/start-knowledge-api.ps1",
+    "knowledge:verify": "node scripts/verify-postgres-knowledge.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

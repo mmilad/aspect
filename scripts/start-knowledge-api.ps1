@@ -36,20 +36,38 @@ try {
     throw "CortexDB .env is missing in '$CortexDbRoot'. Configure CORTEXDB_DATABASE_URL and embedding settings there."
   }
 
-  & $PythonPath -c "import psycopg, pgvector"
-  if ($LASTEXITCODE -ne 0) {
-    throw "CortexDB Postgres dependencies are missing. Run: `n`  $PythonPath -m pip install -e '.[postgres]'"
+  $healthUri = "http://127.0.0.1:$Port/health"
+  $readinessUri = "http://127.0.0.1:$Port/context/index"
+
+  function Test-CortexDbReady {
+    try {
+      $health = Invoke-RestMethod -Uri $healthUri -TimeoutSec 2
+      if ($health.status -ne "ok") { return $false }
+      $null = Invoke-RestMethod -Uri $readinessUri -TimeoutSec 5
+      return $true
+    } catch {
+      return $false
+    }
   }
 
-  $healthUri = "http://127.0.0.1:$Port/health"
+  if (Test-CortexDbReady) {
+    Write-Host "CortexDB is already ready at $readinessUri"
+    exit 0
+  }
+
   try {
     $health = Invoke-RestMethod -Uri $healthUri -TimeoutSec 2
     if ($health.status -eq "ok") {
-      Write-Host "CortexDB is already healthy at $healthUri"
-      exit 0
+      throw "CortexDB responds to /health but is not ready at $readinessUri. The running process may hold a stale database connection; restart it before retrying."
     }
   } catch {
+    if ($_.Exception.Message.StartsWith("CortexDB responds")) { throw }
     # The API is not running yet; start it below.
+  }
+
+  & $PythonPath -c "import psycopg, pgvector"
+  if ($LASTEXITCODE -ne 0) {
+    throw "CortexDB Postgres dependencies are missing. Run: `n`  $PythonPath -m pip install -e '.[postgres]'"
   }
 
   $logStem = Join-Path ([IO.Path]::GetTempPath()) "projectplaner-cortexdb-$Port"
@@ -65,19 +83,15 @@ try {
 
   for ($attempt = 0; $attempt -lt 20; $attempt++) {
     Start-Sleep -Seconds 1
-    try {
-      $health = Invoke-RestMethod -Uri $healthUri -TimeoutSec 2
-      if ($health.status -eq "ok") {
-        Write-Host "CortexDB started successfully at $healthUri (PID $($process.Id))."
-        exit 0
-      }
-    } catch {
-      if ($process.HasExited) { break }
+    if (Test-CortexDbReady) {
+      Write-Host "CortexDB started successfully at $readinessUri (PID $($process.Id))."
+      exit 0
     }
+    if ($process.HasExited) { break }
   }
 
   $errorTail = if (Test-Path -LiteralPath $stderrLog) { Get-Content -LiteralPath $stderrLog | Select-Object -Last 20 } else { @() }
-  throw "CortexDB did not become healthy. Logs: $stdoutLog and $stderrLog`n$($errorTail -join [Environment]::NewLine)"
+  throw "CortexDB did not become ready at $readinessUri. Logs: $stdoutLog and $stderrLog`n$($errorTail -join [Environment]::NewLine)"
 } finally {
   Pop-Location
 }

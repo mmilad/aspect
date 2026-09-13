@@ -43,4 +43,48 @@ describe("llmWritesFromPending", () => {
       stepInstructionsList: ["Title: A.", "Title: B."]
     });
   });
+
+  it("normalizes common local-model assistant route omissions without adding evidence", () => {
+    const writes = llmWritesFromPending(
+      pending({ schemaKey: "assistant_route_v1", outputSchema: ["decision"] }),
+      'assistant_route_v1: {"route":"clarify","message":"Which project should I use?"}'
+    );
+    expect(writes).toEqual({
+      decision: {
+        route: "clarify",
+        reason: "The model selected this route from the supplied context.",
+        message: "Which project should I use?",
+        question: "Which project should I use?"
+      }
+    });
+  });
+
+  it("normalizes unambiguous local-model route and lookup aliases", () => {
+    const writes = llmWritesFromPending(
+      pending({ schemaKey: "assistant_route_v1", outputSchema: ["decision"] }),
+      '{"route":"query","reason":"Need the project agents","lookupKind":"list_agents"}'
+    );
+    expect(writes).toEqual({
+      decision: {
+        route: "retrieve",
+        reason: "Need the project agents",
+        lookupKind: "agents"
+      }
+    });
+  });
+
+  it("normalizes aliases inside a nested lookup object", () => {
+    const writes = llmWritesFromPending(
+      pending({ schemaKey: "assistant_route_v1", outputSchema: ["decision"] }),
+      '{"route":"retrieve","reason":"Need the project agents","lookup":{"kind":"list_agents"}}'
+    );
+    expect(writes).toEqual({
+      decision: {
+        route: "retrieve",
+        reason: "Need the project agents",
+        lookup: { kind: "agents" },
+        lookupKind: "agents"
+      }
+    });
+  });
 });

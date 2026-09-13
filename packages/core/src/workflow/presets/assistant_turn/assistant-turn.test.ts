@@ -58,7 +58,7 @@ describe("assistant_turn preset", () => {
     const parsed = parseWorkflowGraph(assistantTurnGraph);
     expect(parsed.ok, parsed.ok ? "" : parsed.errors.join("; ")).toBe(true);
     expect(assistantTurnPreset.presetKey).toBe("assistant_turn");
-    expect(assistantTurnPreset.presetVersion).toBe(14);
+    expect(assistantTurnPreset.presetVersion).toBe(17);
 
     const decisionPrompt = String(assistantTurnGraph.nodes.find((node) => node.id === "llm_decide")?.data.llm?.systemPrompt);
     const replyPrompt = String(assistantTurnGraph.nodes.find((node) => node.id === "llm_reply")?.data.llm?.systemPrompt);
@@ -76,8 +76,15 @@ describe("assistant_turn preset", () => {
       "session_read:assistant_session", "llm_context:llm", "llm_decide:llm", "break_decision:break",
       "decision_switch:switch", "lookup_switch:switch", "list_agents:query", "list_files:file_list", "read_file:file_read", "delegate:delegate", "llm_reply:llm"
     ]));
+    expect(assistantTurnGraph.nodes.find((node) => node.id === "list_agents")?.data.query).toMatchObject({
+      op: "list",
+      type: "agent",
+      select: "compact"
+    });
     expect(assistantTurnGraph.edges).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: "e_context_agents", source: "llm_context", target: "list_agents", kind: "next" }),
+      expect.objectContaining({ id: "e_agents_catalog", source: "list_agents", target: "knowledge_context_index", kind: "next" }),
+      expect.objectContaining({ id: "e_agents_decision", source: "knowledge_context_index", target: "llm_decide", kind: "next" }),
       expect.objectContaining({ id: "d_agents_decision", source: "list_agents", target: "llm_decide", targetPin: "agentFacts", kind: "data" }),
       expect.objectContaining({ id: "d_start_knowledge_access", source: "start", target: "search_knowledge", targetPin: "access", kind: "data" })
     ]));

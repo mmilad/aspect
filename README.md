@@ -11,10 +11,19 @@ Local **graph-first** planning tool. Aspects are meaning anchors; Features and T
 
 ## Quick start
 
+Use Node.js `24.1.0` and pnpm `11.4.0` for this repository. The committed
+`pnpm-lock.yaml` is the source of truth for dependency versions; use
+`--frozen-lockfile` when installing in CI or repairing links.
+
 ```bash
 pnpm install
 pnpm dev                 # web UI + API at http://127.0.0.1:3000
 ```
+
+If an agent reports missing package links, stop the Projectplaner MCP and dev
+server, then run `pnpm deps:repair`. It performs a frozen, offline relink and
+sets the headless `CI=true` flag automatically. Use `$env:CI='true'` in
+PowerShell; `set CI=true` is the cmd.exe form.
 
 Project key: **`PLAN`**. Database: `projectplaner.db` at the repo root (override with `PROJECTPLANER_DB_PATH`).
 

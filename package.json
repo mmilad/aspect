@@ -2,13 +2,25 @@
   "name": "projectplaner",
   "private": true,
   "version": "0.1.0",
-  "packageManager": "pnpm@9.12.3",
+  "engines": {
+    "node": "24.1.0",
+    "pnpm": "11.4.0"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "11.4.0",
+      "onFail": "error"
+    }
+  },
   "scripts": {
     "dev": "pnpm --filter @projectplaner/web dev",
     "build": "pnpm -r build",
     "typecheck": "node scripts/check-db-boundary.cjs && pnpm -r typecheck",
     "test": "vitest run && pnpm --filter @projectplaner/db test:node && pnpm --filter @projectplaner/mcp test",
     "test:llm": "vitest run --config vitest.llm.config.ts",
+    "deps:check": "node scripts/check-dependencies.mjs",
+    "deps:repair": "node scripts/repair-dependencies.mjs",
     "plan": "pnpm --filter @projectplaner/db plan",
     "db:migrate-postgres": "pnpm --filter @projectplaner/db db:migrate-postgres",
     "knowledge:start": "powershell -ExecutionPolicy Bypass -File scripts/start-knowledge-api.ps1",

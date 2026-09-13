@@ -57,6 +57,16 @@ pnpm test
 pnpm build
 ```
 
+## Dependency hygiene
+
+The repository is pinned to Node.js 24.1.0 and pnpm 11.4.0. The committed
+`pnpm-lock.yaml` pins resolved dependency versions; do not update dependency ranges
+or regenerate the lockfile during an ordinary task. If an agent reports missing
+package links, run `pnpm deps:check` first. Stop the Projectplaner MCP and any dev
+server before `pnpm deps:repair`, because Windows cannot purge files that a running
+Node process has open. The repair command uses the offline lockfile and sets `CI=true`
+internally, so it is safe for headless agents.
+
 Stale Next runtime: stop dev, remove `apps/web/.next`, restart `pnpm dev`.
 
 Stale MCP tool catalog (missing `search` / `next_work`, old `orient` schema):

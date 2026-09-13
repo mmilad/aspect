@@ -1,4 +1,4 @@
-import { buildAgentMemoryAccess, DIRECT_AGENT_CAPABILITIES, DefaultAgentRuntime, parseAgentCompletion, type AgentProfile } from "@projectplaner/core";
+import { bindAgentKnowledgeWorkflowBag, buildAgentMemoryAccess, DIRECT_AGENT_CAPABILITIES, DefaultAgentRuntime, parseAgentCompletion, type AgentProfile } from "@projectplaner/core";
 import { AGENT_DECISION_V1_SCHEMA } from "@projectplaner/core/workflow";
 import { createConfiguredKnowledgeSearchProvider, type DatabaseController } from "@projectplaner/db";
 import generator from "@projectplaner/core/generator";
@@ -60,11 +60,20 @@ export function createAgentRuntime(
     {
       async runWorkflow({ workflowId, projectKey: runProjectKey, bag }) {
         const workflowEntity = await db.entities.get(workflowId);
+        const workflowBag = bindAgentKnowledgeWorkflowBag({
+          workflowId,
+          bag,
+          datasetKey: process.env.PROJECTPLANER_KNOWLEDGE_DATASET ?? `project-${runProjectKey.toLowerCase()}`,
+          projectKey: runProjectKey,
+          agentId,
+          scope: profile.memoryPolicy.scope,
+          principalId
+        });
         const started = await db.workflows.run({
           ...(workflowEntity?.type === "flow" ? { id: workflowId } : { key: workflowId }),
           projectKey: runProjectKey,
           goal: `Agent ${agentId}: assigned workflow ${workflowId}`,
-          bag,
+          bag: workflowBag,
           actor: "agent"
         });
         const result = await drainPendingLlm(db, started);

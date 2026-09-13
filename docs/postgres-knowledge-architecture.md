@@ -38,6 +38,10 @@ The split described above is now implemented across the two repositories:
   `knowledge_capture` provides the corresponding text-ingest graph. These call
   CortexDB through a small HTTP adapter; the Assistant receives only scoped
   read results through workflows.
+- The seeded `knowledge_remember` workflow composes strict classification with
+  explicit-scope, explicit-confirmation promotion. It is available to
+  user-authorized or specialist workflows, while the Assistant remains unable
+  to execute its write-capable promotion node directly.
 - Specialist agent profiles can opt into scoped memory context with
   `contextPolicy.memoryEnabled` and `memoryPolicy.enabled`. The web agent host
   then searches CortexDB with the project, principal, and optional agent scope;

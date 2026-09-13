@@ -65,7 +65,9 @@ describe("assistant_turn preset", () => {
     expect(decisionPrompt).toContain(`Assistant role manifest (assistant_role_v1): ${serializeAssistantRoleManifest()}`);
     expect(replyPrompt).toContain(`Assistant role manifest (assistant_role_v1): ${serializeAssistantRoleManifest()}`);
     expect(decisionPrompt).toContain("agentFacts as the evidence for which active agents exist");
+    expect(decisionPrompt).toContain("For remember or store requests, never write directly");
     expect(replyPrompt).toContain("retrieved agent facts as the evidence for which agents exist");
+    expect(replyPrompt).toContain("For remember or store requests, report a confirmed promotion result only");
     expect(decisionPrompt).toContain(ASSISTANT_ROLE_MANIFEST.restrictions[3]);
 
     const ids = assistantTurnGraph.nodes.map((node) => `${node.id}:${node.type}`);

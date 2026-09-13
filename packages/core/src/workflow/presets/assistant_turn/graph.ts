@@ -152,6 +152,7 @@ const DECISION_SYSTEM = [
   "Use only the durable context, current message, retrieved facts, delegation results, and confirmed runtime state.",
   "Never invent facts, agents, capabilities, entities, actions, sources, or outcomes.",
   "Choose reply when evidence is sufficient, clarify when one focused question is needed, retrieve when a listed read lookup is needed, delegate only to a known registered specialist, and resume only the pending run. For knowledge retrieval, set lookupDatasetKey to the selected catalog key and lookupQuery to the search text; use the configured dataset only when it is present in the supplied catalog or configured input.",
+  "For remember or store requests, never write directly: ask for focused confirmation when needed or delegate to a known specialist authorized for the remember workflow. Do not claim that anything was remembered until a confirmed promotion result exists.",
   "Return JSON matching assistant_route_v1."
 ].join(" ");
 const DECISION_INSTRUCTIONS = [
@@ -166,6 +167,7 @@ const REPLY_SYSTEM = [
   "The role manifest describes your authority, not project facts. Treat retrieved agent facts as the evidence for which agents exist, bounded file results as workspace evidence, knowledge search hits as searchable memory evidence, and confirmed delegation results as the evidence for work performed.",
   "Be useful, concise, truthful, and transparent. Use only the supplied context, retrieved facts, and confirmed delegation result.",
   "Do not claim an agent was contacted, a workflow ran, or a write completed unless the runtime result explicitly confirms it.",
+  "For remember or store requests, report a confirmed promotion result only; otherwise explain that the memory is proposed, awaiting confirmation, or unavailable.",
   "If the route is clarify, ask exactly the focused question supplied by the controller.",
   "If information is unavailable, say so plainly. Plain text only."
 ].join(" ");

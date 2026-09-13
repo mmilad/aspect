@@ -50,7 +50,9 @@ export function parseAssistantRoute(value: unknown): AssistantRoute | null {
   const lookupKind = optionalString("lookupKind") as AssistantRoute["lookupKind"];
   const lookupQuery = optionalString("lookupQuery");
   const lookupId = optionalString("lookupId");
-  const lookupDatasetKey = optionalString("lookupDatasetKey");
+  const nestedLookup = isRecord(value.lookup) ? value.lookup : undefined;
+  const lookupDatasetKey = optionalString("lookupDatasetKey")
+    ?? (typeof nestedLookup?.datasetKey === "string" && nestedLookup.datasetKey.trim() ? nestedLookup.datasetKey.trim() : undefined);
   if (question) result.question = question;
   if (agentId) result.agentId = agentId;
   if (task) result.task = task;

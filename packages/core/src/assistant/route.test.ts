@@ -27,4 +27,18 @@ describe("assistant route parser", () => {
     expect(parseAssistantRoute({ ...base, route: "delegate", agentId: "agent_coding" })).toBeNull();
     expect(parseAssistantRoute({ ...base, route: "resume", runId: "run_123" })).toBeNull();
   });
+
+  it("normalizes a dataset key supplied in the nested lookup object", () => {
+    expect(parseAssistantRoute({
+      ...base,
+      route: "retrieve",
+      lookupKind: "knowledge",
+      lookupQuery: "release target",
+      lookup: { kind: "knowledge", query: "release target", id: null, datasetKey: "project-plan" }
+    })).toMatchObject({
+      route: "retrieve",
+      lookupDatasetKey: "project-plan",
+      lookup: { kind: "knowledge", query: "release target", datasetKey: "project-plan" }
+    });
+  });
 });

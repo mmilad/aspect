@@ -63,3 +63,17 @@ it("does not overwrite cancellation when a model returns later", async () => {
   expect((await pending).status).toBe("canceled");
   expect(f.events.at(-1)).toBe("run_canceled");
 });
+
+it("fails closed when an assigned workflow does not complete", async () => {
+  const runWorkflow = vi.fn().mockResolvedValue({ runId: "workflow-run", status: "pending_llm", bag: {} });
+  let saved: AgentRun | null = null;
+  const runtime = new DefaultAgentRuntime(
+    { get: async () => parseAgentProfile({ assignedWorkflowIds: ["knowledge_remember"] }), saveHistory: async () => undefined },
+    { get: async () => saved && structuredClone(saved), save: async run => { saved = structuredClone(run); } },
+    { getContext: async () => ({ sources: [], text: "", truncated: false }) },
+    { runLlm: async () => ({ type: "workflow", workflowId: "knowledge_remember", bag: {} }), runWorkflow, runCapability: vi.fn() }
+  );
+  const result = await runtime.start(input);
+  expect(runWorkflow).toHaveBeenCalledWith({ workflowId: "knowledge_remember", projectKey: "PLAN", workspace: undefined, bag: {} });
+  expect(result.status).toBe("failed");
+});

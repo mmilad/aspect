@@ -79,6 +79,9 @@ export class DefaultAgentRuntime implements AgentRuntimeContract {
                     throw new Error("Agent workflow-call limit exceeded.");
                 run.workflowCallCount += 1;
                 const result = await this.adapters.runWorkflow({ workflowId: decision.workflowId, projectKey: run.projectKey, workspace: run.workspace, bag: decision.bag ?? {} });
+                if (result.status !== "completed") {
+                    throw new Error(`Workflow '${decision.workflowId}' did not complete (status: ${result.status || "unknown"}).`);
+                }
                 await this.record(run, "workflow", `Workflow ${decision.workflowId} completed.`, undefined, decision.workflowId);
                 return this.advance(run, agent, result.bag);
             }

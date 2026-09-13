@@ -2,6 +2,7 @@ import { DIRECT_AGENT_CAPABILITIES, DefaultAgentRuntime, parseAgentCompletion, t
 import { AGENT_DECISION_V1_SCHEMA } from "@projectplaner/core/workflow";
 import { createConfiguredKnowledgeSearchProvider, type DatabaseController } from "@projectplaner/db";
 import generator from "@projectplaner/core/generator";
+import { drainPendingLlm } from "./drain-pending-llm";
 
 const { chatCompletions } = generator.author;
 export function createAgentRuntime(
@@ -62,14 +63,16 @@ export function createAgentRuntime(
     },
     {
       async runWorkflow({ workflowId, projectKey: runProjectKey, bag }) {
-        const result = await db.workflows.run({
-          id: workflowId,
+        const workflowEntity = await db.entities.get(workflowId);
+        const started = await db.workflows.run({
+          ...(workflowEntity?.type === "flow" ? { id: workflowId } : { key: workflowId }),
           projectKey: runProjectKey,
           goal: `Agent ${agentId}: assigned workflow ${workflowId}`,
           bag,
           actor: "agent"
         });
-        return { runId: result.run.id, status: result.step.kind, bag: result.step.bag.keys };
+        const result = await drainPendingLlm(db, started);
+        return { runId: result.run.id, status: result.run.status, bag: result.step.bag.keys };
       },
       async runCapability({ name, args }) {
         if (name === "project.list_agents") {
@@ -94,6 +97,8 @@ export function createAgentRuntime(
             DIRECT_AGENT_CAPABILITIES,
             'Choose exactly one decision: complete, clarification, workflow, or capability.',
             'Use only assigned workflows and registered capabilities. Unknown capabilities are unavailable.',
+            'Assigned workflow IDs: ' + JSON.stringify(agent.assignedWorkflowIds),
+            'Registered capability names: ' + JSON.stringify(agent.capabilities),
             'Respond only with the agent_decision_v1 JSON object.'
           ].join('\n') },
           ...history,

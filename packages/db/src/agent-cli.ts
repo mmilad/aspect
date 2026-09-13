@@ -335,7 +335,8 @@ async function main(): Promise<void> {
     console.log("  pnpm plan update-entity --id <entity-id> [--title <title>] [--status <status>] [--metadata '{...}'|--metadata-file <json-file>]");
     console.log("  pnpm plan get-entity --id <entity-id>");
     console.log("  pnpm plan list-entities [--type <type>] [--query <text>]");
-    console.log("  pnpm plan agent-grant-readonly [--project <key>]");
+    console.log("  pnpm plan agent-grant-readonly --agent <agent-id> [--project <key>]");
+    console.log("  pnpm plan agent-grant-readonly --all [--project <key>]");
     console.log("  pnpm plan create-relation --from <entity-id> --to <entity-id> --type <relation-type> [--primary true]");
     console.log("  pnpm plan packet-read --entity <entity-id> [--workflow <name>]");
     console.log("  pnpm plan packet-write --entity <entity-id> [--id <reference-id>] [--title <title>] [--workflow <name>] --metadata-file <json-file>");
@@ -715,9 +716,16 @@ async function main(): Promise<void> {
 
     if (command === "agent-grant-readonly") {
       const projectKey = first(args.options, "project") ?? "PLAN";
+      const agentId = first(args.options, "agent");
+      const allAgents = "all" in args.options;
+      if (!agentId && !allAgents) {
+        throw new Error("agent-grant-readonly requires --agent <agent-id> or explicit --all.");
+      }
       const project = await db.projects.findByKey(projectKey);
       if (!project) throw new Error(`Project '${projectKey}' was not found.`);
-      const agents = await db.entities.list({ projectKey, type: "agent" });
+      const listedAgents = await db.entities.list({ projectKey, type: "agent" });
+      const agents = agentId ? listedAgents.filter(entity => entity.id === agentId) : listedAgents;
+      if (agentId && agents.length === 0) throw new Error(`Agent '${agentId}' was not found in project '${projectKey}'.`);
       const readOnlyWorkflowIds = ["knowledge_retrieve", "file_list", "file_read"];
       const updated: string[] = [];
       for (const entity of agents) {
@@ -734,7 +742,7 @@ async function main(): Promise<void> {
         });
         updated.push(`${entity.title}: ${assignedWorkflowIds.join(", ")}`);
       }
-      console.log(JSON.stringify({ projectKey, readOnlyWorkflowIds, updated }, null, 2));
+      console.log(JSON.stringify({ projectKey, target: agentId ?? "all", readOnlyWorkflowIds, updated }, null, 2));
       return;
     }
 

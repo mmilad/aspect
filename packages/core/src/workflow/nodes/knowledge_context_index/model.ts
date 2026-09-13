@@ -2,9 +2,8 @@ import type { WorkflowNodeModel } from "../_shared/model";
 import type { BagShape } from "../_shared/types";
 import { executeKnowledgeContextIndex } from "./execute";
 import { parseKnowledgeContextIndexNodeConfig } from "./schema";
+import { KNOWLEDGE_CATALOG_DATASETS_SHAPE, KNOWLEDGE_CATALOG_TOOLS_SHAPE } from "./shapes";
 
-const ANY: BagShape = { kind: "any" };
-const ANY_ARRAY: BagShape = { kind: "array", items: ANY };
 const NUMBER: BagShape = { kind: "primitive", type: "number" };
 const STRING: BagShape = { kind: "primitive", type: "string" };
 
@@ -17,8 +16,8 @@ export const knowledgeContextIndexNode: WorkflowNodeModel = {
   defaultData: () => ({
     title: "Read knowledge context index",
     outputContracts: {
-      datasets: { required: true, shape: ANY_ARRAY },
-      tools: { required: true, shape: ANY_ARRAY },
+      datasets: { required: true, shape: KNOWLEDGE_CATALOG_DATASETS_SHAPE },
+      tools: { required: true, shape: KNOWLEDGE_CATALOG_TOOLS_SHAPE },
       relationshipCount: { required: true, shape: NUMBER },
       usageHint: { required: true, shape: STRING }
     },

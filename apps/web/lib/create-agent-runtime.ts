@@ -1,4 +1,4 @@
-import { bindAgentKnowledgeWorkflowBag, buildAgentMemoryAccess, DIRECT_AGENT_CAPABILITIES, DefaultAgentRuntime, parseAgentCompletion, type AgentProfile } from "@projectplaner/core";
+import { bindAgentKnowledgeWorkflowBag, DIRECT_AGENT_CAPABILITIES, DefaultAgentRuntime, parseAgentCompletion, type AgentProfile, type KnowledgeSearchHit } from "@projectplaner/core";
 import { AGENT_DECISION_V1_SCHEMA } from "@projectplaner/core/workflow";
 import { createConfiguredKnowledgeSearchProvider, type DatabaseController } from "@projectplaner/db";
 import generator from "@projectplaner/core/generator";
@@ -13,6 +13,40 @@ export function createAgentRuntime(
 ) {
   const knowledgeSearch = createConfiguredKnowledgeSearchProvider(projectKey);
   const principalId = process.env.PROJECTPLANER_PRINCIPAL_ID?.trim();
+
+  async function retrieveAgentMemory(task: string, limit: number): Promise<KnowledgeSearchHit[]> {
+    if (!profile.assignedWorkflowIds.includes("knowledge_retrieve")) {
+      throw new Error("Agent memory is enabled, but knowledge_retrieve is not assigned to this agent.");
+    }
+
+    const datasetKey = process.env.PROJECTPLANER_KNOWLEDGE_DATASET ?? `project-${projectKey.toLowerCase()}`;
+    const workflowBag = bindAgentKnowledgeWorkflowBag({
+      workflowId: "knowledge_retrieve",
+      bag: { datasetKey, query: task, topK: Math.max(1, limit) },
+      datasetKey,
+      projectKey,
+      agentId,
+      scope: profile.memoryPolicy.scope,
+      principalId
+    });
+    const started = await db.workflows.run({
+      key: "knowledge_retrieve",
+      projectKey,
+      goal: `Agent ${agentId}: retrieve scoped memory`,
+      bag: workflowBag,
+      actor: "agent",
+      adapters: { knowledgeSearch }
+    });
+    const result = await drainPendingLlm(db, started);
+    if (result.step.kind !== "completed") {
+      throw new Error(result.step.message ?? result.note ?? "Agent knowledge retrieval did not complete.");
+    }
+    const frameHits = result.step.bag?.frame?.outputs.hits;
+    const bagHits = result.step.bag?.keys.hits;
+    const hits = frameHits ?? bagHits;
+    return Array.isArray(hits) ? hits as KnowledgeSearchHit[] : [];
+  }
+
   return new DefaultAgentRuntime(
     { get: async id => id === agentId ? profile : null, saveHistory: async () => undefined },
     {
@@ -27,7 +61,7 @@ export function createAgentRuntime(
     },
     {
       async getContext(input) {
-        const memoryEnabled = profile.contextPolicy.memoryEnabled && profile.memoryPolicy.enabled && !!knowledgeSearch;
+        const memoryEnabled = profile.contextPolicy.memoryEnabled && profile.memoryPolicy.enabled;
         const limit = Math.min(profile.contextPolicy.maxResults, 20);
         const graphLimit = memoryEnabled ? Math.ceil(limit / 2) : limit;
         const entities = profile.contextPolicy.graphEnabled
@@ -35,13 +69,8 @@ export function createAgentRuntime(
         const graphSources = entities.slice(0, graphLimit).map(item => ({
           id: item.id, type: item.type, title: item.title, summary: item.summary
         }));
-        const memorySources = memoryEnabled && knowledgeSearch
-          ? (await knowledgeSearch({
-              datasetKey: process.env.PROJECTPLANER_KNOWLEDGE_DATASET ?? `project-${projectKey.toLowerCase()}`,
-              query: input.task,
-              topK: Math.max(1, limit - graphSources.length),
-              access: buildAgentMemoryAccess({ projectKey, agentId, scope: profile.memoryPolicy.scope, principalId })
-            })).hits.map(hit => ({
+        const memorySources = memoryEnabled
+          ? (await retrieveAgentMemory(input.task, Math.max(1, limit - graphSources.length))).map(hit => ({
               id: `memory:${hit.id}`,
               type: `memory:${hit.scope.kind}`,
               title: hit.rawText.slice(0, 120),

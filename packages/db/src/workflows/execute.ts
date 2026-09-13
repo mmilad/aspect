@@ -411,8 +411,8 @@ export interface AdvanceWorkflowRunInput {
   /** Complete a pending user gate with a route label. */
   userRoute?: string;
   maxSteps?: number;
-  /** In-process runtime adapters, such as Assistant delegation. Never serialized in API payloads. */
-  adapters?: Pick<WorkflowAdapters, "runAgent" | "resumeAgent">;
+  /** In-process runtime adapters. Never serialized in API payloads. */
+  adapters?: WorkflowAdapters;
 }
 
 export interface AdvanceWorkflowRunResult {
@@ -597,8 +597,8 @@ export interface RunWorkflowInput extends ResolveWorkflowFlowInput {
   userRoute?: string;
   maxSteps?: number;
   actor?: WorkflowContextBag["actor"];
-  /** In-process runtime adapters, such as Assistant delegation. Never serialized in API payloads. */
-  adapters?: Pick<WorkflowAdapters, "runAgent" | "resumeAgent">;
+  /** In-process runtime adapters. Never serialized in API payloads. */
+  adapters?: WorkflowAdapters;
 }
 
 export interface RunWorkflowResult extends AdvanceWorkflowRunResult {

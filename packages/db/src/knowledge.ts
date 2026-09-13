@@ -364,7 +364,7 @@ export function createConfiguredKnowledgeSearchProvider(projectKey: string): Kno
   const provider = createKnowledgeSearchProvider(endpoint);
   return (input) => provider({
     ...input,
-    access: { projectKey, includeGlobal: true, ...input.access }
+    access: { ...input.access, projectKey, includeGlobal: input.access?.includeGlobal ?? true }
   });
 }
 
@@ -374,7 +374,7 @@ export function createConfiguredKnowledgeGetProvider(projectKey: string): Knowle
   const provider = createKnowledgeGetProvider(endpoint);
   return (input) => provider({
     ...input,
-    access: { projectKey, includeGlobal: true, ...input.access }
+    access: { ...input.access, projectKey, includeGlobal: input.access?.includeGlobal ?? true }
   });
 }
 

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createKnowledgeIngestTextProvider } from "./knowledge";
+import { createConfiguredKnowledgeGetProvider, createConfiguredKnowledgeSearchProvider, createKnowledgeIngestTextProvider } from "./knowledge";
 
 test("knowledge text ingest adapter sends scoped chunking options", async () => {
   const previousFetch = globalThis.fetch;
@@ -41,6 +41,52 @@ test("knowledge text ingest adapter sends scoped chunking options", async () => 
     });
     assert.deepEqual(result, { ingested: 2, ids: ["memory-1", "memory-2"], embeddingModel: "fixture/embed" });
   } finally {
+    globalThis.fetch = previousFetch;
+  }
+});
+
+test("configured knowledge reads cannot override the project access boundary", async () => {
+  const previousFetch = globalThis.fetch;
+  const requests: Array<{ url: string; body?: Record<string, unknown> }> = [];
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    const body = init?.body === undefined ? undefined : JSON.parse(String(init.body)) as Record<string, unknown>;
+    requests.push({ url, body });
+    if (url.endsWith("/search")) {
+      return Response.json({ hits: [], query: "facts", total_searched: 0, search_mode: "vector", embedding_model: null });
+    }
+    return Response.json({
+      id: "memory-1",
+      dataset_key: "project_facts",
+      raw_text: "A fact",
+      metadata: {},
+      scope: { kind: "project", project_key: "PLAN" },
+      embedding_model: null,
+      is_deleted: false
+    });
+  };
+
+  try {
+    process.env.PROJECTPLANER_KNOWLEDGE_URL = "http://cortex.test";
+    const search = createConfiguredKnowledgeSearchProvider("PLAN");
+    const get = createConfiguredKnowledgeGetProvider("PLAN");
+    assert.ok(search);
+    assert.ok(get);
+    await search({
+      datasetKey: "project_facts",
+      query: "facts",
+      access: { projectKey: "OTHER", includeGlobal: false, principalId: "alice" }
+    });
+    await get({
+      datasetKey: "project_facts",
+      itemId: "memory-1",
+      access: { projectKey: "OTHER", includeGlobal: false, principalId: "alice" }
+    });
+
+    assert.deepEqual((requests[0]?.body?.access), { project_key: "PLAN", include_global: false, principal_id: "alice" });
+    assert.equal(requests[1]?.url, "http://cortex.test/datasets/project_facts/items/memory-1?principal_id=alice&project_key=PLAN&include_global=false");
+  } finally {
+    delete process.env.PROJECTPLANER_KNOWLEDGE_URL;
     globalThis.fetch = previousFetch;
   }
 });

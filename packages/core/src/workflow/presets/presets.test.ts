@@ -31,6 +31,7 @@ describe("workflow presets", () => {
     expect(presets.some((preset) => preset.presetKey === "knowledge_classify")).toBe(true);
     expect(presets.some((preset) => preset.presetKey === "knowledge_retrieve")).toBe(true);
     expect(presets.some((preset) => preset.presetKey === "knowledge_index_project")).toBe(true);
+    expect(presets.some((preset) => preset.presetKey === "knowledge_register_dataset")).toBe(true);
   });
 
   it("assigns a closed kind to every catalog pack", () => {

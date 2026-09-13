@@ -31,6 +31,8 @@ import { knowledgeIndexProjectGraph } from "./knowledge_index_project/graph";
 import { knowledgeIndexProjectPreset } from "./knowledge_index_project/preset";
 import { knowledgePromoteGraph } from "./knowledge_promote/graph";
 import { knowledgePromotePreset } from "./knowledge_promote/preset";
+import { knowledgeRegisterDatasetGraph } from "./knowledge_register_dataset/graph";
+import { knowledgeRegisterDatasetPreset } from "./knowledge_register_dataset/preset";
 import {
   workflowPresetKinds,
   type WorkflowPreset,
@@ -90,6 +92,8 @@ export { knowledgeIndexProjectGraph } from "./knowledge_index_project/graph";
 export { knowledgeIndexProjectPreset } from "./knowledge_index_project/preset";
 export { knowledgePromoteGraph } from "./knowledge_promote/graph";
 export { knowledgePromotePreset } from "./knowledge_promote/preset";
+export { knowledgeRegisterDatasetGraph } from "./knowledge_register_dataset/graph";
+export { knowledgeRegisterDatasetPreset } from "./knowledge_register_dataset/preset";
 
 /** Seeded packs: mutation/rollup plus the pin-variable proof graph. */
 export function listWorkflowPresets(): WorkflowPreset[] {
@@ -107,7 +111,8 @@ export function listWorkflowPresets(): WorkflowPreset[] {
     knowledgeClassifyPreset,
     knowledgeRetrievePreset,
     knowledgeIndexProjectPreset,
-    knowledgePromotePreset
+    knowledgePromotePreset,
+    knowledgeRegisterDatasetPreset
   ];
 }
 

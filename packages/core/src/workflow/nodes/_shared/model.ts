@@ -68,7 +68,7 @@ export function workflowNodeSideEffect(node: Pick<WorkflowNode, "type" | "data">
   if (node.type === "write" || node.type === "create_workflow_node" || node.type === "assemble_fragment") return "write";
   if (node.type === "tool" || node.type === "web_search") return "external";
   if (node.type === "knowledge_search" || node.type === "knowledge_get") return "read";
-  if (node.type === "knowledge_ingest" || node.type === "knowledge_ingest_text" || node.type === "knowledge_promote" || node.type === "knowledge_index_project") return "write";
+  if (node.type === "knowledge_ingest" || node.type === "knowledge_ingest_text" || node.type === "knowledge_promote" || node.type === "knowledge_index_project" || node.type === "knowledge_register_dataset") return "write";
   if (node.type === "file_list" || node.type === "file_read") return "read";
   if (node.type === "file_write") return "write";
   if (node.type === "query") {

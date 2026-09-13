@@ -1,4 +1,6 @@
 import type {
+  KnowledgeDatasetRecord,
+  KnowledgeDatasetSpec,
   KnowledgeAccess,
   KnowledgeGetInput,
   KnowledgeGetResult,
@@ -14,6 +16,7 @@ import type {
 } from "@projectplaner/core";
 
 type KnowledgeSearchProvider = NonNullable<WorkflowAdapters["knowledgeSearch"]>;
+type KnowledgeRegisterDatasetProvider = NonNullable<WorkflowAdapters["knowledgeRegisterDataset"]>;
 
 function asRecord(value: unknown, label: string): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -35,6 +38,43 @@ function normalizeScope(value: unknown): KnowledgeScope {
     ...(typeof raw.agent_id === "string" ? { agentId: raw.agent_id } : {}),
     ...(typeof raw.session_id === "string" ? { sessionId: raw.session_id } : {}),
     ...(typeof raw.source_id === "string" ? { sourceId: raw.source_id } : {})
+  };
+}
+
+function normalizeDataset(value: unknown): KnowledgeDatasetRecord {
+  const raw = asRecord(value, "dataset");
+  if (
+    typeof raw.dataset_key !== "string" ||
+    typeof raw.display_name !== "string" ||
+    typeof raw.schema_version !== "string" ||
+    typeof raw.semantic_description !== "string" ||
+    typeof raw.usage_guidance !== "string"
+  ) {
+    throw new Error("Knowledge dataset response is missing its required metadata.");
+  }
+  const strings = (key: string): string[] | undefined => {
+    const value = raw[key];
+    return Array.isArray(value) && value.every((item) => typeof item === "string") ? value as string[] : undefined;
+  };
+  const metadata = raw.metadata && typeof raw.metadata === "object" && !Array.isArray(raw.metadata)
+    ? raw.metadata as Record<string, unknown>
+    : undefined;
+  return {
+    datasetKey: raw.dataset_key,
+    displayName: raw.display_name,
+    schemaVersion: raw.schema_version,
+    semanticDescription: raw.semantic_description,
+    usageGuidance: raw.usage_guidance,
+    ...(typeof raw.llm_summary === "string" ? { llmSummary: raw.llm_summary } : {}),
+    ...(raw.content_kind === "documents" || raw.content_kind === "events" || raw.content_kind === "custom" ? { contentKind: raw.content_kind } : {}),
+    ...(strings("retrieval_capabilities") ? { retrievalCapabilities: strings("retrieval_capabilities") as KnowledgeDatasetRecord["retrievalCapabilities"] } : {}),
+    ...(strings("capability_tags") ? { capabilityTags: strings("capability_tags") } : {}),
+    ...(strings("entity_types") ? { entityTypes: strings("entity_types") } : {}),
+    ...(strings("filterable_fields") ? { filterableFields: strings("filterable_fields") } : {}),
+    ...(metadata ? { metadata } : {}),
+    ...(typeof raw.status === "string" ? { status: raw.status } : {}),
+    ...(typeof raw.created_at === "string" ? { createdAt: raw.created_at } : {}),
+    ...(typeof raw.updated_at === "string" ? { updatedAt: raw.updated_at } : {})
   };
 }
 
@@ -135,6 +175,36 @@ export function createKnowledgeSearchProvider(endpoint: string): KnowledgeSearch
 type KnowledgeGetProvider = NonNullable<WorkflowAdapters["knowledgeGet"]>;
 type KnowledgeIngestProvider = NonNullable<WorkflowAdapters["knowledgeIngest"]>;
 type KnowledgeIngestTextProvider = NonNullable<WorkflowAdapters["knowledgeIngestText"]>;
+
+/** HTTP adapter for CortexDB's idempotent dataset registration endpoint. */
+export function createKnowledgeRegisterDatasetProvider(endpoint: string): KnowledgeRegisterDatasetProvider {
+  const base = endpoint.replace(/\/$/, "");
+  return async (input: KnowledgeDatasetSpec): Promise<KnowledgeDatasetRecord> => {
+    const response = await fetch(`${base}/datasets`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        dataset_key: input.datasetKey,
+        display_name: input.displayName,
+        schema_version: input.schemaVersion,
+        semantic_description: input.semanticDescription,
+        usage_guidance: input.usageGuidance,
+        ...(input.llmSummary ? { llm_summary: input.llmSummary } : {}),
+        ...(input.contentKind ? { content_kind: input.contentKind } : {}),
+        ...(input.retrievalCapabilities ? { retrieval_capabilities: input.retrievalCapabilities } : {}),
+        ...(input.capabilityTags ? { capability_tags: input.capabilityTags } : {}),
+        ...(input.entityTypes ? { entity_types: input.entityTypes } : {}),
+        ...(input.filterableFields ? { filterable_fields: input.filterableFields } : {}),
+        ...(input.metadata ? { metadata: input.metadata } : {})
+      })
+    });
+    if (!response.ok) {
+      const detail = await response.text().catch(() => "");
+      throw new Error(`Knowledge dataset registration returned HTTP ${response.status}${detail ? `: ${detail}` : "."}`);
+    }
+    return normalizeDataset(await response.json());
+  };
+}
 
 export function createKnowledgeGetProvider(endpoint: string): KnowledgeGetProvider {
   const base = endpoint.replace(/\/$/, "");
@@ -261,4 +331,9 @@ export function createConfiguredKnowledgeIngestProvider(): KnowledgeIngestProvid
 export function createConfiguredKnowledgeIngestTextProvider(): KnowledgeIngestTextProvider | undefined {
   const endpoint = process.env.PROJECTPLANER_KNOWLEDGE_URL ?? process.env.CORTEXDB_URL;
   return endpoint ? createKnowledgeIngestTextProvider(endpoint) : undefined;
+}
+
+export function createConfiguredKnowledgeRegisterDatasetProvider(): KnowledgeRegisterDatasetProvider | undefined {
+  const endpoint = process.env.PROJECTPLANER_KNOWLEDGE_URL ?? process.env.CORTEXDB_URL;
+  return endpoint ? createKnowledgeRegisterDatasetProvider(endpoint) : undefined;
 }

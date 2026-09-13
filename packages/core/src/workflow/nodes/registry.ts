@@ -32,6 +32,7 @@ import { writeNode } from "./write/model";
 import { webSearchNode } from "./web_search/model";
 import { knowledgeSearchNode } from "./knowledge_search/model";
 import { knowledgeGetNode } from "./knowledge_get/model";
+import { knowledgeRegisterDatasetNode } from "./knowledge_register_dataset/model";
 import { knowledgeIngestNode } from "./knowledge_ingest/model";
 import { knowledgeIngestTextNode } from "./knowledge_ingest_text/model";
 import { knowledgePromoteNode } from "./knowledge_promote/model";
@@ -73,6 +74,7 @@ export const workflowNodeModels: Record<WorkflowNodeType, WorkflowNodeModel> = {
   web_search: webSearchNode,
   knowledge_search: knowledgeSearchNode,
   knowledge_get: knowledgeGetNode,
+  knowledge_register_dataset: knowledgeRegisterDatasetNode,
   knowledge_ingest: knowledgeIngestNode,
   knowledge_ingest_text: knowledgeIngestTextNode,
   knowledge_promote: knowledgePromoteNode,

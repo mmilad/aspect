@@ -6,6 +6,8 @@ import type { SearchQuery, SearchResponse } from "../../web-search";
 import type {
   KnowledgeGetInput,
   KnowledgeGetResult,
+  KnowledgeDatasetRecord,
+  KnowledgeDatasetSpec,
   KnowledgeIngestInput,
   KnowledgeIngestResult,
   KnowledgeIngestTextInput,
@@ -75,6 +77,8 @@ export interface WorkflowAdapters {
   knowledgeSearch?: (input: KnowledgeSearchInput) => Promise<KnowledgeSearchResult> | KnowledgeSearchResult;
   /** Read one scoped knowledge item, or return null when it is not visible. */
   knowledgeGet?: (input: KnowledgeGetInput) => Promise<KnowledgeGetResult> | KnowledgeGetResult;
+  /** Register or update a dataset definition in the configured knowledge service. Specialist-only by policy. */
+  knowledgeRegisterDataset?: (input: KnowledgeDatasetSpec) => Promise<KnowledgeDatasetRecord> | KnowledgeDatasetRecord;
   /** Ingest raw text into the configured knowledge service. Specialist-only by policy. */
   knowledgeIngest?: (input: KnowledgeIngestInput) => Promise<KnowledgeIngestResult> | KnowledgeIngestResult;
   /** Chunk, optionally classify, embed, and ingest a text source into the scoped knowledge service. */

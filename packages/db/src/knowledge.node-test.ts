@@ -44,3 +44,39 @@ test("knowledge text ingest adapter sends scoped chunking options", async () => 
     globalThis.fetch = previousFetch;
   }
 });
+
+test("knowledge dataset adapter registers a typed dataset", async () => {
+  const previousFetch = globalThis.fetch;
+  let requestedBody: Record<string, unknown> | undefined;
+  globalThis.fetch = async (_input, init) => {
+    requestedBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    return Response.json({
+      dataset_key: "project_facts",
+      display_name: "Project facts",
+      schema_version: "1",
+      semantic_description: "Facts",
+      usage_guidance: "Search before answering.",
+      status: "active"
+    });
+  };
+  try {
+    const { createKnowledgeRegisterDatasetProvider } = await import("./knowledge");
+    const result = await createKnowledgeRegisterDatasetProvider("http://cortex.test/")({
+      datasetKey: "project_facts",
+      displayName: "Project facts",
+      schemaVersion: "1",
+      semanticDescription: "Facts",
+      usageGuidance: "Search before answering."
+    });
+    assert.deepEqual(requestedBody, {
+      dataset_key: "project_facts",
+      display_name: "Project facts",
+      schema_version: "1",
+      semantic_description: "Facts",
+      usage_guidance: "Search before answering."
+    });
+    assert.equal(result.datasetKey, "project_facts");
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+});

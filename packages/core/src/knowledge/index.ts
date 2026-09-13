@@ -1,5 +1,7 @@
 export type {
   KnowledgeAccess,
+  KnowledgeDatasetRecord,
+  KnowledgeDatasetSpec,
   KnowledgeGetInput,
   KnowledgeGetResult,
   KnowledgeIngestInput,

@@ -31,8 +31,10 @@ The split described above is now implemented across the two repositories:
   sessions, agent runs, workflow definitions/runs, schemas, tags, and workspace
   records while preserving IDs and timestamps.
 - Projectplaner exposes typed `knowledge_search`, `knowledge_get`,
-  `knowledge_ingest`, and `knowledge_ingest_text` workflow nodes. The seeded
-  `knowledge_retrieve` preset provides a reusable read-only search graph, while
+  `knowledge_register_dataset`, `knowledge_ingest`, and
+  `knowledge_ingest_text` workflow nodes. The seeded
+  `knowledge_register_dataset` preset makes dataset creation/update explicit;
+  `knowledge_retrieve` provides a reusable read-only search graph, while
   `knowledge_capture` provides the corresponding text-ingest graph. These call
   CortexDB through a small HTTP adapter; the Assistant receives only scoped
   read results through workflows.
@@ -118,18 +120,21 @@ storage, filtering, vector search, and scoring deterministically.
 Add typed knowledge operations to the Projectplaner workflow layer rather than
 adding a generic unrestricted tool:
 
-1. `knowledge_search` — read-only, scoped hybrid retrieval.
-2. `knowledge_get` — read-only retrieval of a selected item and provenance.
-3. `knowledge_ingest` — write a raw source/chunk, allowed only to specialist
+1. `knowledge_register_dataset` — explicit, idempotent dataset metadata
+   registration. This is a specialist/user-authorized write and is required
+   before ingest or retrieval can use a new dataset.
+2. `knowledge_search` — read-only, scoped hybrid retrieval.
+3. `knowledge_get` — read-only retrieval of a selected item and provenance.
+4. `knowledge_ingest` — write a raw source/chunk, allowed only to specialist
    workflows or an explicit user-authorized file/session flow.
-4. `knowledge_promote` — apply an explicit, create-only promotion decision
+5. `knowledge_promote` — apply an explicit, create-only promotion decision
    (`candidate`, `durable`, or `ignore`) with provenance; it requires caller
    confirmation and never silently overwrites or supersedes facts.
-5. `file_list`, `file_read`, and `file_write` — explicit filesystem operations
+6. `file_list`, `file_read`, and `file_write` — explicit filesystem operations
    with a configured workspace root and policy checks. `file_write` is
    specialist-only, requires an explicit overwrite flag for replacement, and
    is rejected by the read-only Assistant policy.
-6. `knowledge_capture_file` — a composed workflow that reads one bounded,
+7. `knowledge_capture_file` — a composed workflow that reads one bounded,
    authorized workspace file and passes the confirmed content into the typed
    knowledge ingest operation with caller-provided scope and provenance.
 

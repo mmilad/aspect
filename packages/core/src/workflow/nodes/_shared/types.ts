@@ -34,6 +34,7 @@ export const workflowWorkNodeTypes = [
   "web_search",
   "knowledge_search",
   "knowledge_get",
+  "knowledge_register_dataset",
   "knowledge_ingest",
   "knowledge_ingest_text",
   "knowledge_promote",
@@ -163,6 +164,21 @@ export interface WorkflowKnowledgeGetConfig {
   itemIdFrom?: string;
   includeDeletedFrom?: string;
   accessFrom?: string;
+}
+
+export interface WorkflowKnowledgeRegisterDatasetConfig {
+  datasetKeyFrom?: string;
+  displayNameFrom?: string;
+  schemaVersionFrom?: string;
+  semanticDescriptionFrom?: string;
+  usageGuidanceFrom?: string;
+  llmSummaryFrom?: string;
+  contentKindFrom?: string;
+  retrievalCapabilitiesFrom?: string;
+  capabilityTagsFrom?: string;
+  entityTypesFrom?: string;
+  filterableFieldsFrom?: string;
+  metadataFrom?: string;
 }
 
 export interface WorkflowKnowledgeIngestConfig {
@@ -491,6 +507,7 @@ export interface WorkflowNodeData {
   webSearch?: WorkflowWebSearchConfig;
   knowledgeSearch?: WorkflowKnowledgeSearchConfig;
   knowledgeGet?: WorkflowKnowledgeGetConfig;
+  knowledgeRegisterDataset?: WorkflowKnowledgeRegisterDatasetConfig;
   knowledgeIngest?: WorkflowKnowledgeIngestConfig;
   knowledgeIngestText?: WorkflowKnowledgeIngestTextConfig;
   knowledgePromote?: WorkflowKnowledgePromoteConfig;

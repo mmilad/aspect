@@ -36,6 +36,7 @@ export const CONFIG_KEYS = [
   "subworkflow",
   "knowledgeSearch",
   "knowledgeGet",
+  "knowledgeRegisterDataset",
   "knowledgeIngest",
   "knowledgeIngestText",
   "knowledgePromote",

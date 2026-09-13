@@ -28,6 +28,28 @@ export interface KnowledgeSearchInput {
   access?: KnowledgeAccess;
 }
 
+/** Declarative dataset registration metadata accepted by the CortexDB adapter. */
+export interface KnowledgeDatasetSpec {
+  datasetKey: string;
+  displayName: string;
+  schemaVersion: string;
+  semanticDescription: string;
+  usageGuidance: string;
+  llmSummary?: string;
+  contentKind?: "documents" | "events" | "custom";
+  retrievalCapabilities?: Array<"vector" | "keyword" | "filter_only">;
+  capabilityTags?: string[];
+  entityTypes?: string[];
+  filterableFields?: string[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface KnowledgeDatasetRecord extends KnowledgeDatasetSpec {
+  status?: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
 export interface KnowledgeItem {
   id: string;
   datasetKey: string;

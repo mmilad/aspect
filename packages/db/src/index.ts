@@ -13,7 +13,9 @@ export {
   createKnowledgeIngestProvider,
   createConfiguredKnowledgeIngestProvider,
   createKnowledgeIngestTextProvider,
-  createConfiguredKnowledgeIngestTextProvider
+  createConfiguredKnowledgeIngestTextProvider,
+  createKnowledgeRegisterDatasetProvider,
+  createConfiguredKnowledgeRegisterDatasetProvider
 } from "./knowledge";
 export { SemanticWrites, AspectHandle, FeatureHandle, ProjectWrites, TaskHandle } from "./semantic";
 export type { CreateAspectInput, CreateFeatureInput, CreateSemanticTaskInput, SemanticEntityInput } from "./semantic";

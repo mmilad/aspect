@@ -1,5 +1,6 @@
 import domain from "@projectplaner/core/domain";
 import legacy from "@projectplaner/core/legacy";
+import { parseAgentProfile } from "@projectplaner/core";
 
 const { rankedByQuery } = domain;
 const { getOpenWorkBelowAspect, getPrimaryTaskLink, getTasksForFeature } = legacy;
@@ -334,6 +335,7 @@ async function main(): Promise<void> {
     console.log("  pnpm plan update-entity --id <entity-id> [--title <title>] [--status <status>] [--metadata '{...}'|--metadata-file <json-file>]");
     console.log("  pnpm plan get-entity --id <entity-id>");
     console.log("  pnpm plan list-entities [--type <type>] [--query <text>]");
+    console.log("  pnpm plan agent-grant-readonly [--project <key>]");
     console.log("  pnpm plan create-relation --from <entity-id> --to <entity-id> --type <relation-type> [--primary true]");
     console.log("  pnpm plan packet-read --entity <entity-id> [--workflow <name>]");
     console.log("  pnpm plan packet-write --entity <entity-id> [--id <reference-id>] [--title <title>] [--workflow <name>] --metadata-file <json-file>");
@@ -708,6 +710,31 @@ async function main(): Promise<void> {
       for (const entity of listed) {
         console.log(`- ${entity.id} [${entity.type}/${entity.status}] ${entity.key ? `${entity.key} ` : ""}${entity.title}`);
       }
+      return;
+    }
+
+    if (command === "agent-grant-readonly") {
+      const projectKey = first(args.options, "project") ?? "PLAN";
+      const project = await db.projects.findByKey(projectKey);
+      if (!project) throw new Error(`Project '${projectKey}' was not found.`);
+      const agents = await db.entities.list({ projectKey, type: "agent" });
+      const readOnlyWorkflowIds = ["knowledge_retrieve", "file_list", "file_read"];
+      const updated: string[] = [];
+      for (const entity of agents) {
+        const document = entity.metadata.document && typeof entity.metadata.document === "object" && !Array.isArray(entity.metadata.document)
+          ? entity.metadata.document as JsonRecord
+          : entity.metadata;
+        const profile = parseAgentProfile(entity.metadata);
+        if (profile.kind === "assistant") continue;
+        const assignedWorkflowIds = [...new Set([...profile.assignedWorkflowIds, ...readOnlyWorkflowIds])];
+        if (assignedWorkflowIds.length === profile.assignedWorkflowIds.length && assignedWorkflowIds.every((id, index) => id === profile.assignedWorkflowIds[index])) continue;
+        await db.entities.update({
+          id: entity.id,
+          patch: { metadata: { ...entity.metadata, document: { ...document, assignedWorkflowIds } } }
+        });
+        updated.push(`${entity.title}: ${assignedWorkflowIds.join(", ")}`);
+      }
+      console.log(JSON.stringify({ projectKey, readOnlyWorkflowIds, updated }, null, 2));
       return;
     }
 

@@ -7,7 +7,7 @@ import {
   createDatabase,
   ensureWorkflowPresets
 } from "./support";
-import { assistantTurnPreset } from "@projectplaner/core/workflow";
+import { assistantTurnPreset, knowledgeRememberPreset } from "@projectplaner/core/workflow";
 import entities from "./entities";
 import relations from "../repositories/relations";
 import persist from "../workflows/persist";
@@ -49,6 +49,29 @@ describe("ensureWorkflowPresets", () => {
         assert.ok(session?.data.outputContracts?.recentTurns);
         assert.ok(graph.edges.some((edge) => edge.source === session.id && edge.sourcePin === "recentTurns"));
       }
+    })
+  );
+
+  it(
+    "seeds the workflow-controlled knowledge remember preset",
+    withTempDb(async (db) => {
+      const result = await ensureWorkflowPresets(db, {
+        projectKey: "PLAN",
+        only: ["knowledge_remember"]
+      });
+
+      assert.ok(result.seeded.includes("knowledge_remember"));
+
+      const flow = (await entities.list(db, { projectKey: "PLAN", type: "flow" })).find(
+        (item) => item.metadata.presetKey === "knowledge_remember"
+      );
+      assert.ok(flow);
+      assert.equal(flow.metadata.presetVersion, knowledgeRememberPreset.presetVersion);
+
+      const graph = persist.loadGraph(db, flow.id);
+      assert.ok(graph);
+      assert.ok(graph.nodes.some((node) => node.type === "llm"));
+      assert.ok(graph.nodes.some((node) => node.type === "knowledge_promote"));
     })
   );
 

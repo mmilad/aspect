@@ -66,6 +66,7 @@ Postgres dependencies, and migrate the existing SQLite data:
 docker compose up -d postgres
 python -m pip install -e ".[postgres]"  # run from the CortexDB checkout
 pnpm db:migrate-postgres
+pnpm knowledge:start
 ```
 
 Set `PROJECTPLANER_DATABASE_URL` to make Projectplaner use Postgres. Leave it
@@ -77,6 +78,13 @@ variable it intentionally falls back to its SQLite development store. The
 current local setup uses the shared pgvector container, Ollama, and
 `nomic-embed-text`, so the API and Projectplaner workflow nodes see the same
 durable knowledge data after a restart.
+
+`pnpm knowledge:start` is a convenience launcher for the local Windows setup.
+It uses the sibling `CortexDB` checkout by default, verifies the Postgres
+Python extra, starts only the CortexDB API in the background, and waits for
+`/health`. Set `PROJECTPLANER_CORTEXDB_ROOT` or
+`PROJECTPLANER_CORTEXDB_PYTHON` when the checkout or Python environment lives
+elsewhere.
 
 Legacy CortexDB session-memory imports are global by default because the older
 ingest path did not carry ownership. Review them first with:

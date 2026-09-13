@@ -1,10 +1,11 @@
-import { DIRECT_AGENT_CAPABILITIES, DefaultAgentRuntime, parseAgentCompletion, type AgentProfile } from "@projectplaner/core";
+import { buildAgentMemoryAccess, DIRECT_AGENT_CAPABILITIES, DefaultAgentRuntime, parseAgentCompletion, type AgentProfile } from "@projectplaner/core";
 import { AGENT_DECISION_V1_SCHEMA } from "@projectplaner/core/workflow";
 import { createConfiguredKnowledgeSearchProvider, type DatabaseController } from "@projectplaner/db";
 import generator from "@projectplaner/core/generator";
 import { drainPendingLlm } from "./drain-pending-llm";
 
 const { chatCompletions } = generator.author;
+
 export function createAgentRuntime(
   db: DatabaseController, agentId: string, projectKey: string,
   profile: AgentProfile, config: Parameters<typeof chatCompletions>[0],
@@ -39,12 +40,7 @@ export function createAgentRuntime(
               datasetKey: process.env.PROJECTPLANER_KNOWLEDGE_DATASET ?? `project-${projectKey.toLowerCase()}`,
               query: input.task,
               topK: Math.max(1, limit - graphSources.length),
-              access: {
-                projectKey,
-                includeGlobal: true,
-                ...(principalId ? { principalId } : {}),
-                ...(profile.memoryPolicy.scope === "agent" ? { agentId } : {})
-              }
+              access: buildAgentMemoryAccess({ projectKey, agentId, scope: profile.memoryPolicy.scope, principalId })
             })).hits.map(hit => ({
               id: `memory:${hit.id}`,
               type: `memory:${hit.scope.kind}`,

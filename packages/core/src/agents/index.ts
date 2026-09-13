@@ -9,3 +9,4 @@ export * from "./runtime/completion";
 export * from "./conversation";
 export * from "./runtime/terminal";
 export * from "./capabilities";
+export * from "./memory";

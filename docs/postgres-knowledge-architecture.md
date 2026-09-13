@@ -122,8 +122,9 @@ adding a generic unrestricted tool:
 2. `knowledge_get` — read-only retrieval of a selected item and provenance.
 3. `knowledge_ingest` — write a raw source/chunk, allowed only to specialist
    workflows or an explicit user-authorized file/session flow.
-4. `knowledge_promote` — apply a strict fact action (`create`, `update`,
-   `supersede`, or `ignore`) with provenance; never silently overwrite facts.
+4. `knowledge_promote` — apply an explicit, create-only promotion decision
+   (`candidate`, `durable`, or `ignore`) with provenance; it requires caller
+   confirmation and never silently overwrites or supersedes facts.
 5. `file_list`, `file_read`, and later `file_write` — explicit filesystem
    operations with a configured workspace root and policy checks.
 

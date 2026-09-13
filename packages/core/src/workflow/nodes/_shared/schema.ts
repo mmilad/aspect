@@ -38,6 +38,7 @@ export const CONFIG_KEYS = [
   "knowledgeGet",
   "knowledgeIngest",
   "knowledgeIngestText",
+  "knowledgePromote",
   "knowledgeIndexProject",
   "fileList",
   "fileRead"

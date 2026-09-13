@@ -42,6 +42,7 @@ describe("Assistant workflow policy", () => {
   it("rejects knowledge ingestion from the Assistant actor", async () => {
     await rejects({ type: "knowledge_ingest", data: { knowledgeIngest: {} } }, "rejects write node 'knowledge_ingest'");
     await rejects({ type: "knowledge_ingest_text", data: { knowledgeIngestText: {} } }, "rejects write node 'knowledge_ingest_text'");
+    await rejects({ type: "knowledge_promote", data: { knowledgePromote: {} } }, "rejects write node 'knowledge_promote'");
     await rejects({ type: "knowledge_index_project", data: { knowledgeIndexProject: {} } }, "rejects write node 'knowledge_index_project'");
   });
 

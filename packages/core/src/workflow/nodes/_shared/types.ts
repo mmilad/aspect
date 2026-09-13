@@ -36,6 +36,7 @@ export const workflowWorkNodeTypes = [
   "knowledge_get",
   "knowledge_ingest",
   "knowledge_ingest_text",
+  "knowledge_promote",
   "knowledge_index_project",
   "file_list",
   "file_read"
@@ -184,6 +185,18 @@ export interface WorkflowKnowledgeIngestTextConfig {
   batchSizeFrom?: string;
   processorStrategyFrom?: string;
   extractPrimitivesFrom?: string;
+}
+
+export interface WorkflowKnowledgePromoteConfig {
+  classificationFrom?: string;
+  datasetKey?: string;
+  datasetKeyFrom?: string;
+  textFrom?: string;
+  metadataFrom?: string;
+  scopeFrom?: string;
+  confirmedFrom?: string;
+  ingestionIdFrom?: string;
+  sourceIdFrom?: string;
 }
 
 export interface WorkflowKnowledgeIndexProjectConfig {
@@ -473,6 +486,7 @@ export interface WorkflowNodeData {
   knowledgeGet?: WorkflowKnowledgeGetConfig;
   knowledgeIngest?: WorkflowKnowledgeIngestConfig;
   knowledgeIngestText?: WorkflowKnowledgeIngestTextConfig;
+  knowledgePromote?: WorkflowKnowledgePromoteConfig;
   knowledgeIndexProject?: WorkflowKnowledgeIndexProjectConfig;
   fileList?: WorkflowFileListConfig;
   fileRead?: WorkflowFileReadConfig;

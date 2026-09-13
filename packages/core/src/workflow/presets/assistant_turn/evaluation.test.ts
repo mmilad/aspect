@@ -108,7 +108,7 @@ describe("deterministic Assistant evaluations", () => {
       llmWrites: {
         llm_context: assistantContextPackFixture(),
         llm_decide: [
-          assistantDecisionFixture({ route: "retrieve", reason: "Project memory is needed.", lookupKind: "knowledge", lookupQuery: "release target" }),
+          assistantDecisionFixture({ route: "retrieve", reason: "Project memory is needed.", lookupKind: "knowledge", lookupQuery: "release target", lookupDatasetKey: "project-plan" }),
           assistantDecisionFixture({ route: "reply", reason: "A scoped memory hit is available." })
         ],
         llm_reply: assistantReplyFixture("The project note says the release target is September.")

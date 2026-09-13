@@ -8,7 +8,7 @@ describe("assistant route parser", () => {
     { route: "reply" },
     { route: "clarify", question: "Which project?" },
     { route: "retrieve", lookupKind: "agents" },
-    { route: "retrieve", lookupKind: "knowledge", lookupQuery: "release target" },
+    { route: "retrieve", lookupKind: "knowledge", lookupQuery: "release target", lookupDatasetKey: "project-plan" },
     { route: "retrieve", lookupKind: "files", lookupQuery: "src" },
     { route: "retrieve", lookupKind: "file", lookupId: "README.md" },
     { route: "delegate", agentId: "agent_coding", task: "Inspect the build" },
@@ -23,6 +23,7 @@ describe("assistant route parser", () => {
     expect(parseAssistantRoute({ ...base, route: "retrieve" })).toBeNull();
     expect(parseAssistantRoute({ ...base, route: "retrieve", lookupKind: "agent" })).toBeNull();
     expect(parseAssistantRoute({ ...base, route: "retrieve", lookupKind: "entities" })).toBeNull();
+    expect(parseAssistantRoute({ ...base, route: "retrieve", lookupKind: "knowledge", lookupQuery: "release target" })).toBeNull();
     expect(parseAssistantRoute({ ...base, route: "delegate", agentId: "agent_coding" })).toBeNull();
     expect(parseAssistantRoute({ ...base, route: "resume", runId: "run_123" })).toBeNull();
   });

@@ -50,6 +50,7 @@ export function parseAssistantRoute(value: unknown): AssistantRoute | null {
   const lookupKind = optionalString("lookupKind") as AssistantRoute["lookupKind"];
   const lookupQuery = optionalString("lookupQuery");
   const lookupId = optionalString("lookupId");
+  const lookupDatasetKey = optionalString("lookupDatasetKey");
   if (question) result.question = question;
   if (agentId) result.agentId = agentId;
   if (task) result.task = task;
@@ -60,13 +61,20 @@ export function parseAssistantRoute(value: unknown): AssistantRoute | null {
     result.lookupKind = lookupKind;
     if (lookupQuery) result.lookupQuery = lookupQuery;
     if (lookupId) result.lookupId = lookupId;
-    result.lookup = { kind: lookupKind, ...(lookupQuery ? { query: lookupQuery } : {}), ...(lookupId ? { id: lookupId } : {}) };
+    if (lookupDatasetKey) result.lookupDatasetKey = lookupDatasetKey;
+    result.lookup = {
+      kind: lookupKind,
+      ...(lookupQuery ? { query: lookupQuery } : {}),
+      ...(lookupId ? { id: lookupId } : {}),
+      ...(lookupDatasetKey ? { datasetKey: lookupDatasetKey } : {})
+    };
   }
   if (route === "clarify" && !question) return null;
   if (route === "retrieve" && !lookupKind) return null;
   if (route === "retrieve" && lookupKind && ["agent", "entity", "neighborhood"].includes(lookupKind) && !lookupId) return null;
   if (route === "retrieve" && lookupKind === "entities" && !lookupQuery) return null;
   if (route === "retrieve" && lookupKind === "knowledge" && !lookupQuery) return null;
+  if (route === "retrieve" && lookupKind === "knowledge" && !lookupDatasetKey) return null;
   if (route === "retrieve" && lookupKind === "file" && !lookupId) return null;
   if (route === "delegate" && (!agentId || !task)) return null;
   if (route === "resume" && (!runId || !message)) return null;

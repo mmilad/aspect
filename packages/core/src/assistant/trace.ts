@@ -86,6 +86,7 @@ export function projectAssistantTrace(run: AssistantTraceRunSource): AssistantTu
   }));
   const route = routeValue(pinValue(run.bag, "break_decision", "route"));
   const lookupKind = lookupValue(pinValue(run.bag, "break_decision", "lookupKind"));
+  const lookupDatasetKey = stringValue(pinValue(run.bag, "break_decision", "lookupDatasetKey"));
   const agentId = stringValue(pinValue(run.bag, "break_decision", "agentId"));
   const delegationStatus = stringValue(pinValue(run.bag, "delegate", "delegationStatus"));
 
@@ -97,6 +98,7 @@ export function projectAssistantTrace(run: AssistantTraceRunSource): AssistantTu
     steps,
     ...(route ? { route } : {}),
     ...(lookupKind ? { lookupKind } : {}),
+    ...(lookupDatasetKey ? { lookupDatasetKey } : {}),
     ...(agentId || delegationStatus
       ? { delegation: { ...(agentId ? { agentId } : {}), ...(delegationStatus ? { status: delegationStatus } : {}) } }
       : {}),

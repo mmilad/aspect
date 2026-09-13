@@ -66,6 +66,7 @@ export function assistantDecisionFixture(input: {
   lookupKind?: "agents" | "agent" | "entities" | "entity" | "workflows" | "neighborhood" | "knowledge_catalog" | "knowledge" | "files" | "file";
   lookupQuery?: string;
   lookupId?: string;
+  lookupDatasetKey?: string;
   agentId?: string;
   task?: string;
   runId?: string;
@@ -80,12 +81,14 @@ export function assistantDecisionFixture(input: {
         ? {
             kind: input.lookupKind,
             query: input.lookupQuery ?? null,
-            id: input.lookupId ?? null
+            id: input.lookupId ?? null,
+            ...(input.lookupDatasetKey ? { datasetKey: input.lookupDatasetKey } : {})
           }
         : null,
       lookupKind: input.lookupKind ?? null,
       lookupQuery: input.lookupQuery ?? null,
       lookupId: input.lookupId ?? null,
+      ...(input.lookupDatasetKey ? { lookupDatasetKey: input.lookupDatasetKey } : {}),
       agentId: input.agentId ?? null,
       task: input.task ?? null,
       runId: input.runId ?? null,

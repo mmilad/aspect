@@ -142,6 +142,7 @@ export type AssistantTurnTrace = {
   steps: AssistantTraceStep[];
   route?: AssistantRoute["route"];
   lookupKind?: NonNullable<AssistantRoute["lookupKind"]>;
+  lookupDatasetKey?: string;
   delegation?: {
     agentId?: string;
     status?: string;
@@ -158,10 +159,12 @@ export type AssistantRoute = {
     kind: "agents" | "agent" | "entities" | "entity" | "workflows" | "neighborhood" | "knowledge_catalog" | "knowledge" | "files" | "file";
     query?: string;
     id?: string;
+    datasetKey?: string;
   };
   lookupKind?: "agents" | "agent" | "entities" | "entity" | "workflows" | "neighborhood" | "knowledge_catalog" | "knowledge" | "files" | "file";
   lookupQuery?: string;
   lookupId?: string;
+  lookupDatasetKey?: string;
   agentId?: string;
   task?: string;
   runId?: string;
